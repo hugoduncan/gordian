@@ -1,6 +1,7 @@
 (ns gordian.explain
   "Drill-down query functions for namespace and pair investigation.
-  All functions are pure — they query report data structures.")
+  All functions are pure — they query report data structures."
+  (:require [gordian.diagnose :as diagnose]))
 
 ;;; ── graph queries ────────────────────────────────────────────────────────
 
@@ -55,3 +56,66 @@
   (filterv (fn [p] (or (= ns-sym (:ns-a p))
                        (= ns-sym (:ns-b p))))
            pairs))
+
+;;; ── composite explain functions ─────────────────────────────────────────
+
+(defn explain-ns
+  "Everything gordian knows about a single namespace.
+  Returns structured map, or map with :error key if ns not found."
+  [{:keys [graph nodes conceptual-pairs change-pairs cycles]} ns-sym]
+  (let [project-nss (set (keys graph))]
+    (if-not (contains? project-nss ns-sym)
+      {:error (str "namespace '" ns-sym "' not found in project")
+       :available (vec (sort-by str project-nss))}
+      (let [node (first (filter #(= ns-sym (:ns %)) nodes))]
+        {:ns                ns-sym
+         :metrics           (select-keys node [:reach :fan-in :ca :ce :instability :role])
+         :direct-deps       (direct-deps graph project-nss ns-sym)
+         :direct-dependents (direct-dependents graph ns-sym)
+         :conceptual-pairs  (ns-pairs (or conceptual-pairs []) ns-sym)
+         :change-pairs      (ns-pairs (or change-pairs []) ns-sym)
+         :cycles            (filterv #(contains? % ns-sym) (or cycles []))}))))
+
+(defn explain-pair-data
+  "Everything gordian knows about a pair of namespaces.
+  Returns structured map, or map with :error key if either ns not found."
+  [{:keys [graph conceptual-pairs change-pairs]} ns-a ns-b]
+  (let [project-nss (set (keys graph))
+        missing     (remove project-nss [ns-a ns-b])]
+    (if (seq missing)
+      {:error (str "namespace(s) not found: " (pr-str (vec missing)))
+       :available (vec (sort-by str project-nss))}
+      (let [pk          #{ns-a ns-b}
+            edge-a->b   (contains? (get graph ns-a #{}) ns-b)
+            edge-b->a   (contains? (get graph ns-b #{}) ns-a)
+            direct-edge (or edge-a->b edge-b->a)
+            direction   (cond edge-a->b :a->b edge-b->a :b->a :else nil)
+            path-ab     (shortest-path graph ns-a ns-b)
+            path-ba     (shortest-path graph ns-b ns-a)
+            path        (or path-ab path-ba)
+            c-pair      (first (filter #(= pk (diagnose/pair-key %))
+                                       (or conceptual-pairs [])))
+            x-pair      (first (filter #(= pk (diagnose/pair-key %))
+                                       (or change-pairs [])))
+            ;; derive finding if hidden
+            finding     (when (and (or c-pair x-pair)
+                                   (not direct-edge))
+                          (cond
+                            (and c-pair x-pair)
+                            (first (:findings
+                                    (diagnose/find-cross-lens-hidden
+                                     [c-pair] [x-pair])))
+                            c-pair
+                            (first (diagnose/find-hidden-conceptual
+                                    [c-pair] #{}))
+                            x-pair
+                            (first (diagnose/find-hidden-change
+                                    [x-pair] #{}))))]
+        {:ns-a       ns-a
+         :ns-b       ns-b
+         :structural {:direct-edge? direct-edge
+                      :direction    direction
+                      :shortest-path path}
+         :conceptual c-pair
+         :change     x-pair
+         :finding    finding}))))

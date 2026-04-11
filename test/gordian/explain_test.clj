@@ -99,3 +99,105 @@
 
   (testing "empty pairs → empty"
     (is (empty? (sut/ns-pairs [] 'a)))))
+
+;;; ── explain-ns ──────────────────────────────────────────────────────────
+
+(def ^:private test-report
+  {:graph {'x.main #{'x.scan 'x.close}
+           'x.scan #{'ext.fs}
+           'x.close #{}
+           'x.scc  #{}}
+   :nodes [{:ns 'x.main  :reach 0.5 :fan-in 0.0 :ca 0 :ce 2 :instability 1.0 :role :peripheral}
+           {:ns 'x.scan  :reach 0.0 :fan-in 0.25 :ca 1 :ce 0 :instability 0.0 :role :core}
+           {:ns 'x.close :reach 0.0 :fan-in 0.25 :ca 1 :ce 0 :instability 0.0 :role :core}
+           {:ns 'x.scc   :reach 0.0 :fan-in 0.0 :ca 0 :ce 0 :instability 0.0 :role :isolated}]
+   :cycles [#{'x.scan 'x.close}]
+   :propagation-cost 0.05
+   :conceptual-pairs
+   [{:ns-a 'x.scan :ns-b 'x.close :score 0.30 :kind :conceptual
+     :structural-edge? false :shared-terms ["graph" "node"]}
+    {:ns-a 'x.main :ns-b 'x.scan :score 0.20 :kind :conceptual
+     :structural-edge? true :shared-terms ["file"]}]
+   :change-pairs
+   [{:ns-a 'x.scan :ns-b 'x.close :score 0.40 :kind :change
+     :structural-edge? false :co-changes 4 :confidence-a 0.8 :confidence-b 0.6}]})
+
+(deftest explain-ns-test
+  (let [result (sut/explain-ns test-report 'x.scan)]
+
+    (testing "returns expected keys"
+      (is (every? #(contains? result %)
+                  [:ns :metrics :direct-deps :direct-dependents
+                   :conceptual-pairs :change-pairs :cycles])))
+
+    (testing ":metrics has node metrics"
+      (is (= 0.0 (get-in result [:metrics :reach])))
+      (is (= :core (get-in result [:metrics :role]))))
+
+    (testing ":direct-deps splits project/external"
+      (is (empty? (get-in result [:direct-deps :project])))
+      (is (= ['ext.fs] (get-in result [:direct-deps :external]))))
+
+    (testing ":direct-dependents lists x.main"
+      (is (= ['x.main] (:direct-dependents result))))
+
+    (testing ":conceptual-pairs filtered to ns"
+      (is (= 2 (count (:conceptual-pairs result)))))
+
+    (testing ":change-pairs filtered to ns"
+      (is (= 1 (count (:change-pairs result)))))
+
+    (testing ":cycles lists cycle containing ns"
+      (is (= 1 (count (:cycles result))))
+      (is (contains? (first (:cycles result)) 'x.scan))))
+
+  (testing "unknown ns → :error"
+    (let [result (sut/explain-ns test-report 'nonexistent)]
+      (is (contains? result :error))
+      (is (contains? result :available)))))
+
+;;; ── explain-pair-data ───────────────────────────────────────────────────
+
+(deftest explain-pair-data-test
+  (let [result (sut/explain-pair-data test-report 'x.scan 'x.close)]
+
+    (testing "returns expected keys"
+      (is (every? #(contains? result %)
+                  [:ns-a :ns-b :structural :conceptual :change :finding])))
+
+    (testing "no direct edge between scan and close"
+      (is (false? (get-in result [:structural :direct-edge?])))
+      (is (nil? (get-in result [:structural :direction]))))
+
+    (testing "no transitive path either direction"
+      (is (nil? (get-in result [:structural :shortest-path]))))
+
+    (testing "conceptual pair present"
+      (is (some? (:conceptual result)))
+      (is (= 0.30 (:score (:conceptual result)))))
+
+    (testing "change pair present"
+      (is (some? (:change result)))
+      (is (= 0.40 (:score (:change result)))))
+
+    (testing "finding present (hidden cross-lens)"
+      (is (some? (:finding result)))
+      (is (= :high (:severity (:finding result))))))
+
+  (testing "structural edge detected"
+    (let [result (sut/explain-pair-data test-report 'x.main 'x.scan)]
+      (is (true? (get-in result [:structural :direct-edge?])))
+      (is (= :a->b (get-in result [:structural :direction])))))
+
+  (testing "shortest path found for transitive connection"
+    (let [result (sut/explain-pair-data test-report 'x.main 'x.close)]
+      ;; x.main → x.close is a direct dep actually
+      (is (true? (get-in result [:structural :direct-edge?])))))
+
+  (testing "no conceptual data → nil"
+    (let [result (sut/explain-pair-data test-report 'x.main 'x.scc)]
+      (is (nil? (:conceptual result)))))
+
+  (testing "unknown ns → :error"
+    (let [result (sut/explain-pair-data test-report 'x.main 'nonexistent)]
+      (is (contains? result :error)))))
