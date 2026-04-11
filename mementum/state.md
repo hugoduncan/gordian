@@ -39,7 +39,8 @@ are core — pure, independent, maximally stable.
 ## Architecture (src/gordian/) — current
 
 ```
-scan.clj       edamame parse .clj → {ns→#{direct-deps}}   IO
+scan.clj       edamame parse .clj → {ns→#{direct-deps}};   IO
+               scan-dirs merges multiple directories
 close.clj      transitive closure (BFS, cycle-safe)         pure
 aggregate.clj  propagation cost, reach, fan-in              pure
 metrics.clj    Ca, Ce, instability (Robert Martin)          pure
@@ -55,7 +56,7 @@ main.clj       pipeline + CLI (babashka.cli)                IO
 ## CLI
 
 ```
-gordian [analyze] <src-dir> [options]
+gordian [analyze] <src-dir>... [options]
 
   --dot  <file>   Write DOT graph to <file> (status to stderr)
   --json          JSON to stdout, suppress table
@@ -65,6 +66,8 @@ gordian [analyze] <src-dir> [options]
 
 Output modes are mutually exclusive (--json / --edn).
 Can combine --dot with any output mode.
+Multiple src-dirs merged into one graph (e.g. src/ test/).
+Cycles section only appears when cycles are present.
 
 ## Commits this session
 
@@ -80,6 +83,14 @@ db372c0  step 8  core/periphery classification
 2671aab  step 9  DOT file output
 265b475  step 10 JSON report output
 ab291d3  step 11 bbin install + self-analysis
+```
+
+## Session 3 commits
+
+```
+f3176ff  multiple src-dirs (scan-dirs, :src-dirs throughout)
+8887411  cycles section omitted when none present
+8be5bbb  README — full metric descriptions, updated usage
 ```
 
 ## Session 2 commits
