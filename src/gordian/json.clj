@@ -1,33 +1,45 @@
 (ns gordian.json
   (:require [cheshire.core :as json]))
 
-;;; JSON serialisation of the gordian report.
+;;; JSON serialisation of any gordian output map.
 ;;;
-;;; Clojure-idiomatic types (symbols, keywords, sets) are normalised
-;;; to JSON-friendly equivalents before encoding.
+;;; A generic recursive walker coerces Clojure-idiomatic types
+;;; (symbols, keywords, sets) to JSON-friendly equivalents.
+;;; This avoids maintaining an exhaustive field list per command.
 
-(defn- serialize-node
-  "Normalise a node map for JSON output."
-  [{:keys [ns reach fan-in ca ce instability role]}]
-  (cond-> {:ns          (str ns)
-           :reach       (double reach)
-           :fan-in      (double fan-in)}
-    (some? ca)          (assoc :ca ca)
-    (some? ce)          (assoc :ce ce)
-    (some? instability) (assoc :instability (double instability))
-    (some? role)        (assoc :role (name role))))
+(defn- serialize
+  "Recursively coerce Clojure types to JSON-friendly equivalents.
+  - symbol    → string
+  - keyword   → name string
+  - set       → sorted vector (sorted by str for determinism)
+  - map       → recurse values, stringify keyword keys
+  - seq/vec   → recurse elements
+  - number/string/boolean/nil → pass through"
+  [x]
+  (cond
+    (map? x)
+    (into {} (map (fn [[k v]] [(if (keyword? k) (name k) (str k))
+                               (serialize v)]))
+          x)
 
-(defn- serialize-cycle
-  "Sort cycle members alphabetically for deterministic output."
-  [cycle-set]
-  (sort (map str cycle-set)))
+    (set? x)
+    (vec (sort-by str (map serialize x)))
+
+    (sequential? x)
+    (mapv serialize x)
+
+    (symbol? x)
+    (str x)
+
+    (keyword? x)
+    (name x)
+
+    ;; numbers, strings, booleans, nil — pass through
+    :else x))
 
 (defn generate
-  "Return a pretty-printed JSON string for the gordian report map."
-  [{:keys [src-dirs propagation-cost cycles nodes]}]
-  (json/generate-string
-   {:src-dirs         src-dirs
-    :propagation-cost (double propagation-cost)
-    :cycles           (map serialize-cycle cycles)
-    :nodes            (map serialize-node nodes)}
-   {:pretty true}))
+  "Return a pretty-printed JSON string for any gordian output map.
+  Strips the internal :graph key before serialising."
+  [report]
+  (json/generate-string (serialize (dissoc report :graph))
+                        {:pretty true}))
