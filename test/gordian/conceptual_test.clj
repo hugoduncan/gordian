@@ -52,8 +52,86 @@
   (testing "mixed clojure syntax noise stripped"
     (is (= ["return" "dep"] (sut/tokenize "return: #{dep}"))))
 
-  (testing "ellipsis and punctuation stripped"
-    (is (= ["ns" "deps"] (sut/tokenize "{ns→#{deps}}")))))
+  (testing "ellipsis and punctuation stripped; terms stemmed"
+    (is (= ["ns" "dep"] (sut/tokenize "{ns→#{deps}}")))))
+
+  (testing "stemming applied in tokenize pipeline"
+    (is (= ["return"] (sut/tokenize "returns")))
+    (is (= ["scan"]   (sut/tokenize "scanning")))
+    (is (= ["scan"]   (sut/tokenize "scanned")))
+    (is (= ["reach"]  (sut/tokenize "reachable")))
+    (is (= ["coupl"]  (sut/tokenize "coupling"))))
+
+;;; ── stem ──────────────────────────────────────────────────────────────────
+
+(deftest stem-test
+  (testing "words with no applicable rule pass through unchanged"
+    (is (= "scan"     (sut/stem "scan")))
+    (is (= "graph"    (sut/stem "graph")))
+    (is (= "report"   (sut/stem "report"))))
+
+  (testing "trailing doubled consonant in ss/us/is words is protected"
+    (is (= "class"    (sut/stem "class")))     ; ends in ss
+    (is (= "status"   (sut/stem "status")))    ; ends in us
+    (is (= "analysis" (sut/stem "analysis")))) ; ends in is
+
+  (testing "-ing + dedup-final"
+    (is (= "scan"   (sut/stem "scanning")))
+    (is (= "coupl"  (sut/stem "coupling")))
+    (is (= "comput" (sut/stem "computing")))
+    (is (= "run"    (sut/stem "running"))))
+
+  (testing "-ed + dedup-final"
+    (is (= "scan"   (sut/stem "scanned")))
+    (is (= "comput" (sut/stem "computed"))))
+
+  (testing "-ing and -ed produce the same stem (enables matching)"
+    (is (= (sut/stem "scanning") (sut/stem "scanned"))))
+
+  (testing "-er + dedup-final"
+    (is (= "scan"   (sut/stem "scanner"))))
+
+  (testing "-ers + dedup-final"
+    (is (= "scan"   (sut/stem "scanners"))))
+
+  (testing "-er and -ers produce the same stem"
+    (is (= (sut/stem "scanner") (sut/stem "scanners"))))
+
+  (testing "-ies → -y"
+    (is (= "dependency" (sut/stem "dependencies")))
+    (is (= "query"      (sut/stem "queries"))))
+
+  (testing "-ness → stem"
+    (is (= "empti"  (sut/stem "emptiness")))
+    (is (= "random" (sut/stem "randomness"))))
+
+  (testing "-able → stem"
+    (is (= "reach"  (sut/stem "reachable"))))
+
+  (testing "-ible → stem"
+    (is (= "compat" (sut/stem "compatible"))))
+
+  (testing "-ment → stem (root is 'measure', not 'measur')"
+    (is (= "measure" (sut/stem "measurement"))))
+
+  (testing "-ly → stem"
+    (is (= "direct"     (sut/stem "directly")))
+    (is (= "transitive" (sut/stem "transitively"))))
+
+  (testing "-es for sibilant stems only; others fall through to -s"
+    (is (= "process"   (sut/stem "processes")))    ; ss-stem → -es fires
+    (is (= "index"     (sut/stem "indexes")))      ; x-stem  → -es fires
+    (is (= "namespace" (sut/stem "namespaces")))   ; c-stem  → -es skipped → -s fires
+    (is (= "tree"      (sut/stem "trees"))))       ; short   → -es skipped → -s fires
+
+  (testing "-s → stem (guards protect ss/us/is words)"
+    (is (= "return" (sut/stem "returns")))
+    (is (= "node"   (sut/stem "nodes")))
+    (is (= "dep"    (sut/stem "deps"))))
+
+  (testing "-ing and -s variants of same root produce matching stems"
+    (is (= (sut/stem "scanning") (sut/stem "scans")))
+    (is (= (sut/stem "returns")  (sut/stem "return")))))
 
 ;;; ── term-freqs ────────────────────────────────────────────────────────────
 
@@ -244,7 +322,7 @@
     (let [forms '[(def parse-opts {})]
           terms (sut/extract-terms 'my.ns forms)]
       (is (some #{"parse"} terms))
-      (is (some #{"opts"} terms))))
+      (is (some #{"opt"} terms))))
 
   (testing "defmulti, defrecord, defprotocol tokens extracted"
     (doseq [head '[defmulti defrecord defprotocol defmacro]]
@@ -259,12 +337,12 @@
       (is (some #{"build"} terms))
       (is (some #{"tfidf"} terms))))
 
-  (testing "docstring tokens extracted"
+  (testing "docstring tokens extracted and stemmed"
     (let [forms '[(defn format-report "Return lines for the coupling report." [r] [])]
           terms (sut/extract-terms 'my.ns forms)]
       (is (some #{"return"} terms))
-      (is (some #{"lines"} terms))
-      (is (some #{"coupling"} terms))
+      (is (some #{"line"} terms))       ; "lines" → stem → "line"
+      (is (some #{"coupl"} terms))      ; "coupling" → stem → "coupl"
       (is (some #{"report"} terms))))
 
   (testing "non-def top-level forms are ignored"
