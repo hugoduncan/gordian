@@ -38,6 +38,7 @@
                                      'gordian.discover-test
                                      'gordian.envelope-test
                                      'gordian.explain-test
+                                     'gordian.family-test
                                      'gordian.filter-test
                                      'gordian.main-test
                                      'gordian.scan-test

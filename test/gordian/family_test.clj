@@ -1,0 +1,153 @@
+(ns gordian.family-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [gordian.family :as sut]))
+
+;;; ── family-prefix ────────────────────────────────────────────────────────
+
+(deftest family-prefix-test
+  (testing "two-segment namespace → first segment"
+    (is (= "gordian" (sut/family-prefix 'gordian.scan)))
+    (is (= "gordian" (sut/family-prefix 'gordian.main))))
+
+  (testing "three-segment namespace → first two segments"
+    (is (= "psi.agent-session" (sut/family-prefix 'psi.agent-session.core)))
+    (is (= "psi.agent-session" (sut/family-prefix 'psi.agent-session.mutations))))
+
+  (testing "four-segment namespace → first three segments"
+    (is (= "psi.agent-session.mutations"
+           (sut/family-prefix 'psi.agent-session.mutations.extensions))))
+
+  (testing "single-segment namespace → empty string (root family)"
+    (is (= "" (sut/family-prefix 'alpha)))
+    (is (= "" (sut/family-prefix 'beta)))))
+
+;;; ── same-family? ─────────────────────────────────────────────────────────
+
+(deftest same-family?-test
+  (testing "siblings in same family"
+    (is (true? (sut/same-family? 'gordian.scan 'gordian.main)))
+    (is (true? (sut/same-family? 'psi.agent-session.core
+                                 'psi.agent-session.mutations))))
+
+  (testing "different families"
+    (is (false? (sut/same-family? 'gordian.scan 'psi.agent-session.core)))
+    (is (false? (sut/same-family? 'psi.agent-session.core
+                                  'psi.background.runner))))
+
+  (testing "single-segment namespaces are all in root family"
+    (is (true? (sut/same-family? 'alpha 'beta))))
+
+  (testing "same namespace is same family"
+    (is (true? (sut/same-family? 'gordian.scan 'gordian.scan))))
+
+  (testing "different nesting depths with same parent are same family"
+    ;; psi.agent-session.core and psi.agent-session.ui share psi.agent-session
+    (is (true? (sut/same-family? 'psi.agent-session.core
+                                 'psi.agent-session.ui))))
+
+  (testing "child sub-family is NOT same family as parent family"
+    ;; psi.agent-session.mutations.extensions → family psi.agent-session.mutations
+    ;; psi.agent-session.core → family psi.agent-session
+    (is (false? (sut/same-family? 'psi.agent-session.mutations.extensions
+                                  'psi.agent-session.core)))))
+
+;;; ── family-metrics ───────────────────────────────────────────────────────
+
+;; Fixture: a small project with two families.
+;;
+;;   Family "app":
+;;     app.core    → app.util, app.db      (Ce-family=2, Ce-external=0)
+;;     app.util    → (nothing)
+;;     app.db      → (nothing)
+;;
+;;   Family "lib":
+;;     lib.api     → app.core              (Ce-family=0, Ce-external=1)
+;;     lib.impl    → lib.api               (Ce-family=1, Ce-external=0)
+;;
+;;   Cross-family edges: lib.api → app.core
+;;
+;;   Dependents of app.core:  lib.api (external)
+;;   Dependents of app.util:  app.core (family)
+;;   Dependents of app.db:    app.core (family)
+;;   Dependents of lib.api:   lib.impl (family)
+;;   Dependents of lib.impl:  (none)
+
+(def ^:private graph
+  {'app.core #{'app.util 'app.db}
+   'app.util #{}
+   'app.db   #{}
+   'lib.api  #{'app.core}
+   'lib.impl #{'lib.api}})
+
+(deftest family-metrics-test
+  (let [fm (sut/family-metrics graph)]
+
+    (testing "returns metrics for all project namespaces"
+      (is (= (set (keys graph)) (set (keys fm)))))
+
+    (testing "family prefix assigned correctly"
+      (is (= "app" (:family (fm 'app.core))))
+      (is (= "app" (:family (fm 'app.util))))
+      (is (= "lib" (:family (fm 'lib.api)))))
+
+    (testing "app.core: Ce-family=2, Ce-external=0"
+      (let [m (fm 'app.core)]
+        (is (= 2 (:ce-family m)))
+        (is (= 0 (:ce-external m)))))
+
+    (testing "app.core: Ca-family=0, Ca-external=1 (lib.api depends on it)"
+      (let [m (fm 'app.core)]
+        (is (= 0 (:ca-family m)))
+        (is (= 1 (:ca-external m)))))
+
+    (testing "app.util: Ca-family=1 (app.core), Ca-external=0"
+      (let [m (fm 'app.util)]
+        (is (= 1 (:ca-family m)))
+        (is (= 0 (:ca-external m)))))
+
+    (testing "lib.api: Ce-family=0, Ce-external=1 (depends on app.core)"
+      (let [m (fm 'lib.api)]
+        (is (= 0 (:ce-family m)))
+        (is (= 1 (:ce-external m)))))
+
+    (testing "lib.api: Ca-family=1 (lib.impl), Ca-external=0"
+      (let [m (fm 'lib.api)]
+        (is (= 1 (:ca-family m)))
+        (is (= 0 (:ca-external m)))))
+
+    (testing "lib.impl: Ce-family=1, Ce-external=0"
+      (let [m (fm 'lib.impl)]
+        (is (= 1 (:ce-family m)))
+        (is (= 0 (:ce-external m)))))
+
+    (testing "lib.impl: Ca-family=0, Ca-external=0 (no dependents)"
+      (let [m (fm 'lib.impl)]
+        (is (= 0 (:ca-family m)))
+        (is (= 0 (:ca-external m)))))
+
+    (testing "Ca-family + Ca-external = total Ca for all nodes"
+      (doseq [[ns m] fm]
+        (let [total-ca (count (filter (fn [[_ deps]] (contains? deps ns)) graph))]
+          (is (= total-ca (+ (:ca-family m) (:ca-external m)))
+              (str ns " Ca decomposition")))))
+
+    (testing "Ce-family + Ce-external = total project Ce for all nodes"
+      (let [project (set (keys graph))]
+        (doseq [[ns m] fm]
+          (let [total-ce (count (filter project (get graph ns #{})))]
+            (is (= total-ce (+ (:ce-family m) (:ce-external m)))
+                (str ns " Ce decomposition"))))))))
+
+(deftest family-metrics-empty-graph-test
+  (testing "empty graph → empty metrics"
+    (is (= {} (sut/family-metrics {})))))
+
+(deftest family-metrics-single-family-test
+  (testing "all namespaces in one family — all coupling is family-scoped"
+    (let [g  {'gordian.main #{'gordian.scan 'gordian.close}
+              'gordian.scan #{}
+              'gordian.close #{}}
+          fm (sut/family-metrics g)]
+      (doseq [[_ m] fm]
+        (is (= 0 (:ca-external m)))
+        (is (= 0 (:ce-external m)))))))
