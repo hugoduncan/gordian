@@ -4,7 +4,7 @@
             [gordian.edn  :as sut]
             [gordian.main :as main]))
 
-(def fixture-report (main/build-report ["test/fixture"]))
+(def fixture-report (main/build-report ["resources/fixture"]))
 
 ;;; ── generate ─────────────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@
 (deftest generate-content-test
   (let [parsed (read-string (sut/generate fixture-report))]
     (testing "src-dirs present as vector"
-      (is (= ["test/fixture"] (:src-dirs parsed))))
+      (is (= ["resources/fixture"] (:src-dirs parsed))))
 
     (testing "propagation-cost present"
       (is (number? (:propagation-cost parsed))))

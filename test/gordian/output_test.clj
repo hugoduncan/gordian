@@ -6,7 +6,7 @@
 
 (def fixture-report
   "Unified report matching the fixture graph (alpha←beta←gamma, no cycles)."
-  {:src-dirs         ["test/fixture"]
+  {:src-dirs         ["resources/fixture"]
    :propagation-cost (/ 3.0 9.0)
    :cycles           []
    :nodes [{:ns 'gamma :reach (/ 2.0 3) :fan-in 0.0
@@ -50,7 +50,7 @@
       (is (str/includes? (first lines) "gordian")))
 
     (testing "src-dir appears"
-      (is (str/includes? (second lines) "test/fixture")))
+      (is (str/includes? (second lines) "resources/fixture")))
 
     (testing "propagation cost value appears"
       (is (some #(str/includes? % "0.3333") lines)))
@@ -95,7 +95,7 @@
 
 (deftest full-pipeline-integration-test
   (let [output (with-out-str
-                 (-> ["test/fixture"]
+                 (-> ["resources/fixture"]
                      main/build-report
                      sut/print-report))]
     (testing "output mentions propagation cost"

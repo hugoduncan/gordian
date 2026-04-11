@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [gordian.scan :as sut]))
 
-(def fixture-dir "test/fixture")
+(def fixture-dir "resources/fixture")
 
 ;;; ── deps-from-ns-form ────────────────────────────────────────────────────
 
@@ -50,13 +50,13 @@
            (sut/parse-file (str fixture-dir "/gamma.clj")))))
 
   (testing "reader conditional — #?(:clj ...) resolved with :clj feature"
-    ;; test/fixture-cljc/portable.clj requires [alpha] and #?(:clj [beta] :cljs [...])
+    ;; resources/fixture-cljc/portable.clj requires [alpha] and #?(:clj [beta] :cljs [...])
     ;; edamame with :features #{:clj} expands the :clj branch → deps #{alpha beta}
     (is (= {:ns 'portable :deps '#{alpha beta}}
-           (sut/parse-file "test/fixture-cljc/portable.clj"))))
+           (sut/parse-file "resources/fixture-cljc/portable.clj"))))
 
   (testing "missing file returns nil"
-    (is (nil? (sut/parse-file "test/fixture/does_not_exist.clj"))))
+    (is (nil? (sut/parse-file "resources/fixture/does_not_exist.clj"))))
 
   (testing "empty file returns nil"
     (let [tmp (str (java.io.File/createTempFile "gordian" ".clj"))]
@@ -74,7 +74,7 @@
 
   (testing "reader-cond fixture directory"
     (is (= {'portable '#{alpha beta}}
-           (sut/scan "test/fixture-cljc"))))
+           (sut/scan "resources/fixture-cljc"))))
 
   (testing "empty directory"
     (let [tmp (str (java.io.File/createTempFile "gordian-dir" ""))
@@ -94,7 +94,7 @@
             'beta     '#{alpha}
             'gamma    '#{alpha beta}
             'portable '#{alpha beta}}
-           (sut/scan-dirs [fixture-dir "test/fixture-cljc"]))))
+           (sut/scan-dirs [fixture-dir "resources/fixture-cljc"]))))
 
   (testing "empty dirs list → empty graph"
     (is (= {} (sut/scan-dirs [])))))

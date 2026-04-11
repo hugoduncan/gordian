@@ -60,7 +60,7 @@
 (deftest dot-output-test
   (testing "--dot writes DOT file to given path"
     (let [tmp (str (java.io.File/createTempFile "gordian-dot" ".dot"))]
-      (with-out-str (sut/analyze {:src-dirs ["test/fixture"] :dot tmp}))
+      (with-out-str (sut/analyze {:src-dirs ["resources/fixture"] :dot tmp}))
       (let [content (slurp tmp)]
         (is (str/includes? content "digraph gordian")))
       (clojure.java.io/delete-file tmp)))
@@ -68,24 +68,24 @@
   (testing "without --dot no extra file written to sentinel path"
     (let [sentinel (str (java.io.File/createTempFile "gordian-no-dot" ".dot"))]
       (clojure.java.io/delete-file sentinel)
-      (with-out-str (sut/analyze {:src-dirs ["test/fixture"]}))
+      (with-out-str (sut/analyze {:src-dirs ["resources/fixture"]}))
       (is (not (.exists (java.io.File. sentinel)))))))
 
 ;;; ── analyze / json output ────────────────────────────────────────────────
 
 (deftest json-output-test
   (testing "--json outputs JSON to stdout"
-    (let [out (with-out-str (sut/analyze {:src-dirs ["test/fixture"] :json true}))]
+    (let [out (with-out-str (sut/analyze {:src-dirs ["resources/fixture"] :json true}))]
       (is (str/includes? out "propagation-cost"))
       (is (str/includes? out "\"alpha\""))
       (is (map? (json/parse-string out true)))))
 
   (testing "--json suppresses human-readable table"
-    (let [out (with-out-str (sut/analyze {:src-dirs ["test/fixture"] :json true}))]
+    (let [out (with-out-str (sut/analyze {:src-dirs ["resources/fixture"] :json true}))]
       (is (not (str/includes? out "gordian — namespace")))))
 
   (testing "without --json outputs human-readable table"
-    (let [out (with-out-str (sut/analyze {:src-dirs ["test/fixture"]}))]
+    (let [out (with-out-str (sut/analyze {:src-dirs ["resources/fixture"]}))]
       (is (str/includes? out "gordian — namespace"))
       (is (not (str/includes? out "\"propagation-cost\""))))))
 
@@ -93,18 +93,18 @@
 
 (deftest edn-output-test
   (testing "--edn outputs parseable EDN to stdout"
-    (let [out    (with-out-str (sut/analyze {:src-dirs ["test/fixture"] :edn true}))
+    (let [out    (with-out-str (sut/analyze {:src-dirs ["resources/fixture"] :edn true}))
           parsed (read-string out)]
       (is (map? parsed))
-      (is (= ["test/fixture"] (:src-dirs parsed)))
+      (is (= ["resources/fixture"] (:src-dirs parsed)))
       (is (every? symbol? (map :ns (:nodes parsed))))))
 
   (testing "--edn suppresses human-readable table"
-    (let [out (with-out-str (sut/analyze {:src-dirs ["test/fixture"] :edn true}))]
+    (let [out (with-out-str (sut/analyze {:src-dirs ["resources/fixture"] :edn true}))]
       (is (not (str/includes? out "gordian — namespace")))))
 
   (testing "without --edn outputs human-readable table"
-    (let [out (with-out-str (sut/analyze {:src-dirs ["test/fixture"]}))]
+    (let [out (with-out-str (sut/analyze {:src-dirs ["resources/fixture"]}))]
       (is (str/includes? out "gordian — namespace")))))
 
 ;;; ── multi-dir integration ────────────────────────────────────────────────
@@ -112,12 +112,12 @@
 (deftest multi-dir-analyze-test
   (testing "two src-dirs — all namespaces appear in output"
     (let [out (with-out-str
-                (sut/analyze {:src-dirs ["test/fixture" "test/fixture-cljc"]}))]
+                (sut/analyze {:src-dirs ["resources/fixture" "resources/fixture-cljc"]}))]
       (doseq [ns-name ["alpha" "beta" "gamma" "portable"]]
         (is (str/includes? out ns-name)))))
 
   (testing "build-report with two dirs — merged node count"
-    (let [report (sut/build-report ["test/fixture" "test/fixture-cljc"])]
+    (let [report (sut/build-report ["resources/fixture" "resources/fixture-cljc"])]
       (is (= 4 (count (:nodes report)))))))
 
 ;;; ── print-help ───────────────────────────────────────────────────────────
