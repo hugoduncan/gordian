@@ -12,6 +12,21 @@
   analyze {:doc  "Alias for gordian"
            :task (main/run *command-line-args*)}
 
+  nrepl   {:doc  "Start nREPL server on port 1667"
+           :task (do (require '[babashka.nrepl.server :as nrepl])
+                     (println "nREPL server started on port 1667")
+                     (nrepl/start-server! {:host "127.0.0.1" :port 1667})
+                     (deref (promise)))}
+
+  kondo   {:doc  "Run clj-kondo on src/ and test/"
+           :task (shell "clj-kondo --lint src test")}
+
+  fmt     {:doc  "Check formatting with cljfmt (src/ and test/)"
+           :task (shell "cljfmt check src test")}
+
+  fmt-fix {:doc  "Fix formatting with cljfmt (src/ and test/)"
+           :task (shell "cljfmt fix src test")}
+
   test    {:doc         "Run all tests"
            :extra-paths ["test"]
            :task        (do (require 'gordian.main-test
