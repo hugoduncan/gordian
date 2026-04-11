@@ -32,7 +32,11 @@
 
   (testing ".clj suffix dropped"
     (is (= 'foo.bar
-           (sut/path->ns "src/foo/bar.clj" ["src"])))))
+           (sut/path->ns "src/foo/bar.clj" ["src"]))))
+
+  (testing "trailing slash on src-dir normalised"
+    (is (= 'gordian.scan
+           (sut/path->ns "src/gordian/scan.clj" ["src/"])))))
 
 ;;; ── commits-as-ns ────────────────────────────────────────────────────────
 

@@ -7,6 +7,8 @@
             [gordian.classify    :as classify]
             [gordian.output      :as output]
             [gordian.conceptual  :as conceptual]
+            [gordian.git         :as git]
+            [gordian.cc-change   :as cc-change]
             [gordian.dot         :as dot]
             [gordian.json        :as report-json]
             [gordian.edn         :as report-edn]
@@ -20,6 +22,7 @@
    :edn        {:desc "Output EDN to stdout (suppresses table)"  :coerce :boolean}
    :conceptual {:desc "Conceptual coupling analysis; provide similarity threshold e.g. 0.30"
                 :coerce :double}
+   :change     {:desc "Change coupling analysis; provide repo dir e.g. ."}
    :help       {:desc "Show this help message"                   :coerce :boolean}})
 
 (def ^:private usage-summary
@@ -30,6 +33,7 @@ Options:
   --json                Output JSON to stdout (suppresses human-readable table)
   --edn                 Output EDN to stdout (suppresses human-readable table)
   --conceptual <float>  Conceptual coupling analysis at given similarity threshold
+  --change <repo-dir>   Change coupling analysis using git log in <repo-dir>
   --help                Show this help message
 
 Examples:
@@ -38,7 +42,8 @@ Examples:
   gordian src/ --dot deps.dot
   gordian src/ --json > report.json
   gordian src/ test/ --edn > report.edn
-  gordian src/ --conceptual 0.30")
+  gordian src/ --conceptual 0.30
+  gordian src/ --change .")
 
 (defn print-help []
   (println usage-summary))
@@ -74,12 +79,17 @@ Examples:
   `src-dirs`            — vector of source directory paths.
   `conceptual-threshold` — when provided, runs conceptual coupling analysis
                            and attaches :conceptual-pairs + :conceptual-threshold.
+  `change-opts`         — when provided, a map with:
+                          :change  — repo dir for git log (string)
+                          :min-co  — minimum co-change count (default 2)
+                          Attaches :change-pairs + :change-threshold.
 
   When conceptual-threshold is supplied, uses scan/scan-all-dirs so each file
   is read and parsed exactly once (rather than a structural scan + a separate
   full-file terms scan)."
-  ([src-dirs] (build-report src-dirs nil))
-  ([src-dirs conceptual-threshold]
+  ([src-dirs] (build-report src-dirs nil nil))
+  ([src-dirs conceptual-threshold] (build-report src-dirs conceptual-threshold nil))
+  ([src-dirs conceptual-threshold change-opts]
    (let [[direct ns->terms]
          (if conceptual-threshold
            (let [{:keys [graph ns->terms]} (scan/scan-all-dirs conceptual/extract-terms src-dirs)]
@@ -92,13 +102,23 @@ Examples:
                     (update :nodes classify/classify)
                     (assoc :src-dirs src-dirs
                            :graph    direct
-                           :cycles   (scc/find-cycles direct)))]
-     (if conceptual-threshold
-       (let [tfidf (conceptual/build-tfidf ns->terms)
-             pairs (conceptual/conceptual-pairs tfidf direct conceptual-threshold 3)]
+                           :cycles   (scc/find-cycles direct)))
+         report (if conceptual-threshold
+                  (let [tfidf (conceptual/build-tfidf ns->terms)
+                        pairs (conceptual/conceptual-pairs tfidf direct conceptual-threshold 3)]
+                    (assoc report
+                           :conceptual-pairs     pairs
+                           :conceptual-threshold conceptual-threshold))
+                  report)]
+     (if-let [change-dir (:change change-opts)]
+       (let [min-co    (get change-opts :min-co 2)
+             threshold (get change-opts :threshold 0.30)
+             commits   (-> (git/commits change-dir)
+                           (git/commits-as-ns src-dirs direct))
+             pairs     (cc-change/change-coupling-pairs commits direct threshold min-co)]
          (assoc report
-                :conceptual-pairs     pairs
-                :conceptual-threshold conceptual-threshold))
+                :change-pairs     pairs
+                :change-threshold threshold))
        report))))
 
 (defn analyze
@@ -107,9 +127,11 @@ Examples:
   :dot <file>  — write Graphviz DOT to <file> (stderr status line)
   :json true   — print JSON to stdout, suppress human-readable table
   :edn  true   — print EDN to stdout, suppress human-readable table
-  :conceptual  — similarity threshold for conceptual coupling section"
-  [{:keys [src-dirs dot json edn conceptual]}]
-  (let [report (build-report src-dirs conceptual)]
+  :conceptual  — similarity threshold for conceptual coupling section
+  :change      — repo dir for change coupling analysis (git log)"
+  [{:keys [src-dirs dot json edn conceptual change]}]
+  (let [change-opts (when change {:change change})
+        report      (build-report src-dirs conceptual change-opts)]
     (when dot
       (spit dot (dot/generate report))
       (binding [*out* *err*] (println (str "DOT written to " dot))))

@@ -168,4 +168,41 @@
       (is (str/includes? out "--json"))
       (is (str/includes? out "--edn"))
       (is (str/includes? out "--conceptual"))
+      (is (str/includes? out "--change"))
       (is (str/includes? out "src-dir")))))
+
+;;; ── parse-args / --change ────────────────────────────────────────────────
+
+(deftest parse-args-change-test
+  (testing "--change <dir> captured"
+    (let [opts (sut/parse-args ["src/" "--change" "."])]
+      (is (= ["src/"] (:src-dirs opts)))
+      (is (= "." (:change opts)))))
+
+  (testing "--change with explicit path"
+    (is (= "/my/repo" (:change (sut/parse-args ["src/" "--change" "/my/repo"])))))
+
+  (testing "without --change, key is absent"
+    (is (nil? (:change (sut/parse-args ["src/"]))))))
+
+;;; ── analyze / change output ──────────────────────────────────────────────
+
+(deftest change-output-test
+  (testing "--change appends change coupling section to output"
+    (let [out (with-out-str
+                (sut/analyze {:src-dirs ["src/"] :change "."}))]
+      (is (str/includes? out "change coupling"))))
+
+  (testing "without --change no change coupling section"
+    (let [out (with-out-str (sut/analyze {:src-dirs ["resources/fixture"]}))]
+      (is (not (str/includes? out "change coupling")))))
+
+  (testing "build-report with change opts attaches pairs and threshold"
+    (let [report (sut/build-report ["src/"] nil {:change "." :min-co 1})]
+      (is (contains? report :change-pairs))
+      (is (contains? report :change-threshold))
+      (is (vector? (:change-pairs report)))))
+
+  (testing "build-report without change opts has no change keys"
+    (let [report (sut/build-report ["resources/fixture"])]
+      (is (not (contains? report :change-pairs))))))

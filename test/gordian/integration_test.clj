@@ -45,3 +45,28 @@
       (is (every? #(contains? #{'alpha 'beta 'gamma 'portable}
                               (:ns %))
                   (:nodes report))))))
+
+(deftest change-coupling-pipeline-test
+  (testing "change coupling runs against real gordian repo"
+    (let [report (main/build-report ["src/"] nil {:change "." :min-co 1})]
+      (is (contains? report :change-pairs))
+      (is (vector? (:change-pairs report)))
+      ;; gordian has real commit history — at least some pairs expected
+      (is (seq (:change-pairs report)))))
+
+  (testing "change pairs have required shape"
+    (let [pairs (:change-pairs (main/build-report ["src/"] nil {:change "." :min-co 1}))]
+      (doseq [p pairs]
+        (is (symbol? (:ns-a p)))
+        (is (symbol? (:ns-b p)))
+        (is (number? (:coupling p)))
+        (is (number? (:co-changes p)))
+        (is (boolean? (:structural-edge? p))))))
+
+  (testing "change pairs contain only project namespaces"
+    (let [report (main/build-report ["src/"] nil {:change "." :min-co 1})
+          graph  (:graph report)
+          pairs  (:change-pairs report)]
+      (doseq [{:keys [ns-a ns-b]} pairs]
+        (is (contains? graph ns-a))
+        (is (contains? graph ns-b))))))
