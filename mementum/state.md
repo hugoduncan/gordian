@@ -40,13 +40,16 @@ are core — pure, independent, maximally stable.
 
 ```
 scan.clj       edamame parse .clj → {ns→#{direct-deps}};   IO
-               scan-dirs merges multiple directories
+               scan-dirs merges multiple directories;
+               scan-terms / scan-terms-dirs (full-file parse → {ns→[term]})
 close.clj      transitive closure (BFS, cycle-safe)         pure
 aggregate.clj  propagation cost, reach, fan-in              pure
 metrics.clj    Ca, Ce, instability (Robert Martin)          pure
 scc.clj        Tarjan SCC → cycle detection                 pure
 classify.clj   core/peripheral/shared/isolated roles        pure
-output.clj     human-readable table                         pure
+conceptual.clj tokenize, extract-terms, build-tfidf,        pure
+               cosine-sim, coupling-terms, conceptual-pairs
+output.clj     human-readable table + conceptual section    pure
 dot.clj        Graphviz DOT string                          pure
 json.clj       JSON string (cheshire)                       pure
 edn.clj        EDN string (clojure.pprint)                  pure
@@ -112,8 +115,42 @@ ed5b520  --json to stdout, suppress table
 3613b3c  --edn output option (native Clojure types preserved)
 ```
 
+## Conceptual coupling — implemented (session 5)
+
+`gordian analyze src/ --conceptual 0.30` appends a conceptual coupling section.
+
+New modules:
+- `conceptual.clj` — tokenize, extract-terms, build-tfidf, cosine-sim, coupling-terms, conceptual-pairs (pure)
+- `scan.clj` extended — scan-terms, scan-terms-dirs (full-file edamame parse)
+- `output.clj` extended — format-conceptual (before format-report; ordering matters)
+- `main.clj` extended — --conceptual <float> CLI flag, build-report arity-2
+
+Self-analysis (0.20 threshold) reveals:
+- `gordian.close` ↔ `gordian.scc` sim=0.24, no structural edge ← graph traversal siblings
+- `gordian.conceptual` is now a `core` module (Ca=2, Ce=0) — scan + main both depend on it
+
+Tokenization note: backtick `` ` `` is not in the split pattern; docstring markdown
+`` `graph` `` appears as a token. Minor artifact, future refinement.
+
+## Session 5 commits
+
+```
+d89aa88  step 1  tokenize + extract-terms
+80634eb  step 2  scan-terms + scan-terms-dirs
+82eceaa  step 3  build-tfidf
+b12f097  step 4  cosine-sim + coupling-terms
+2742495  step 5  conceptual-pairs
+587ffee  step 6  format-conceptual
+7492713  step 7  wire --conceptual into CLI + pipeline
+```
+
+401 assertions, 71 tests, 0 failures.
+
 ## Potential next work
 
+- Tokenizer: add backtick/punctuation to split pattern (cleaner docstring tokens)
+- Keyword literal extraction (`:propagation-cost` → domain vocab, currently skipped)
+- `--conceptual-terms N` to control how many shared terms are shown
 - Self-analysis as a CI check (fail if PC > threshold)
 - Package-level rollup (group namespaces by prefix)
 - Historical trending (compare across commits)
