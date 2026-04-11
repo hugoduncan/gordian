@@ -175,16 +175,24 @@ Key stemmer design decisions:
 
 ```
 26d24f0  perf: algorithmic speedups for conceptual coupling analysis
+6dc3068  perf: parallelise all independent hot paths with pmap
 ```
 
 473 assertions, 76 tests, 0 failures.
 
-Five improvements:
+Algorithmic (session 7a):
 1. `memoize stem` — same token stemmed at most once per process
 2. `normalize-tfidf` — unit vectors pre-computed; cosine = dot product (no sqrt per pair)
 3. Inverted index in `conceptual-pairs` — only pairs sharing ≥1 term evaluated (skips zero-dot pairs)
 4. `dot-and-top-terms` — fused single pass replaces separate `cosine-sim` + `coupling-terms` calls
 5. `parse-file-all` / `scan-all` / `scan-all-dirs` — single file read+parse when `--conceptual` active
+
+Parallel (session 7b):
+- `scan`, `scan-terms`, `scan-all` — `pmap parse-file*` (IO + edamame parse per file)
+- `build-tfidf` — df sequential; per-ns weight vectors via `pmap`
+- `normalize-tfidf` — `pmap` over ns vectors
+- `conceptual-pairs` — `pmap` over candidate pairs
+- 12 cores available; all sites are embarrassingly parallel
 
 New public API: `normalize-tfidf`, `parse-file-all`, `scan-all`, `scan-all-dirs`
 
