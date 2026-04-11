@@ -191,8 +191,15 @@ Parallel (session 7b):
 - `scan`, `scan-terms`, `scan-all` — `pmap parse-file*` (IO + edamame parse per file)
 - `build-tfidf` — df sequential; per-ns weight vectors via `pmap`
 - `normalize-tfidf` — `pmap` over ns vectors
-- `conceptual-pairs` — `pmap` over candidate pairs
-- 12 cores available; all sites are embarrassingly parallel
+- `conceptual-pairs` — chunked `pmap` over candidate pairs (not per-pair: per-pair overhead > per-pair work)
+- 12 cores available
+
+Critical bug fix (session 7c):
+- `eval-candidates` was returning a lazy `(keep ...)` seq from inside `pmap`
+- pmap futures completed instantly; all eval happened on main thread via `(apply concat)`
+- This is why it appeared single-core — it WAS single-core
+- Fix: `(into [] (keep ...) pairs)` forces eval inside the future; `(into [] cat ...)` replaces `(apply concat)`
+- Memory stored: `mementum/memories/pmap-lazy-seq-antipattern.md`
 
 New public API: `normalize-tfidf`, `parse-file-all`, `scan-all`, `scan-all-dirs`
 
