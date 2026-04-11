@@ -6,7 +6,7 @@
 
 (def fixture-report
   "Unified report matching the fixture graph (alpha←beta←gamma, no cycles)."
-  {:src-dir          "test/fixture"
+  {:src-dirs         ["test/fixture"]
    :propagation-cost (/ 3.0 9.0)
    :cycles           []
    :nodes [{:ns 'gamma :reach (/ 2.0 3) :fan-in 0.0
@@ -95,7 +95,7 @@
 
 (deftest full-pipeline-integration-test
   (let [output (with-out-str
-                 (-> "test/fixture"
+                 (-> ["test/fixture"]
                      main/build-report
                      sut/print-report))]
     (testing "output mentions propagation cost"

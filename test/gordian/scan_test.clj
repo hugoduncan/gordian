@@ -77,8 +77,24 @@
            (sut/scan "test/fixture-cljc"))))
 
   (testing "empty directory"
-    (let [tmp (str (java.io.File/createTempFile "gordian-dir" ""))]
-      ;; use a fresh empty dir
-      (let [dir (doto (java.io.File. (str tmp "-dir")) .mkdirs)]
-        (is (= {} (sut/scan (str dir))))
-        (clojure.java.io/delete-file dir)))))
+    (let [tmp (str (java.io.File/createTempFile "gordian-dir" ""))
+          dir (doto (java.io.File. (str tmp "-dir")) .mkdirs)]
+      (is (= {} (sut/scan (str dir))))
+      (clojure.java.io/delete-file dir))))
+
+;;; ── scan-dirs ────────────────────────────────────────────────────────────
+
+(deftest scan-dirs-test
+  (testing "single dir — same as scan"
+    (is (= (sut/scan fixture-dir)
+           (sut/scan-dirs [fixture-dir]))))
+
+  (testing "merges two dirs into one graph"
+    (is (= {'alpha    #{}
+            'beta     '#{alpha}
+            'gamma    '#{alpha beta}
+            'portable '#{alpha beta}}
+           (sut/scan-dirs [fixture-dir "test/fixture-cljc"]))))
+
+  (testing "empty dirs list → empty graph"
+    (is (= {} (sut/scan-dirs [])))))

@@ -24,9 +24,9 @@
 
 (defn generate
   "Return a pretty-printed JSON string for the gordian report map."
-  [{:keys [src-dir propagation-cost cycles nodes]}]
+  [{:keys [src-dirs propagation-cost cycles nodes]}]
   (json/generate-string
-   {:src-dir          src-dir
+   {:src-dirs         src-dirs
     :propagation-cost (double propagation-cost)
     :cycles           (map serialize-cycle cycles)
     :nodes            (map serialize-node nodes)}

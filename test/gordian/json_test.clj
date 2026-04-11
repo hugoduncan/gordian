@@ -6,7 +6,7 @@
 
 (defn- parse [s] (json/parse-string s true))
 
-(def fixture-report (main/build-report "test/fixture"))
+(def fixture-report (main/build-report ["test/fixture"]))
 
 ;;; ── valid JSON ───────────────────────────────────────────────────────────
 
@@ -15,7 +15,7 @@
     (is (map? (parse (sut/generate fixture-report)))))
 
   (testing "empty report produces parseable JSON"
-    (let [r (sut/generate {:src-dir "x" :propagation-cost 0.0
+    (let [r (sut/generate {:src-dirs ["x"] :propagation-cost 0.0
                             :cycles [] :nodes []})]
       (is (map? (parse r))))))
 
@@ -23,8 +23,8 @@
 
 (deftest top-level-keys-test
   (let [parsed (parse (sut/generate fixture-report))]
-    (testing "src-dir present"
-      (is (= "test/fixture" (:src-dir parsed))))
+    (testing "src-dirs present as array"
+      (is (= ["test/fixture"] (:src-dirs parsed))))
 
     (testing "propagation-cost is a number"
       (is (number? (:propagation-cost parsed))))

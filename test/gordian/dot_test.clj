@@ -5,7 +5,7 @@
             [gordian.main :as main]))
 
 (def fixture-report
-  (-> "test/fixture" main/build-report))
+  (main/build-report ["test/fixture"]))
 
 ;;; ── generate structure ───────────────────────────────────────────────────
 

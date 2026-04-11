@@ -37,15 +37,15 @@
 
 (defn format-report
   "Return a vector of lines for the full coupling report.
-  `report` — {:src-dir :propagation-cost :cycles :nodes [node-maps]}."
-  [{:keys [src-dir propagation-cost cycles nodes]}]
+  `report` — {:src-dirs :propagation-cost :cycles :nodes [node-maps]}."
+  [{:keys [src-dirs propagation-cost cycles nodes]}]
   (let [{:keys [ns-col]} (column-widths nodes)
         header (str (pad-right ns-col "namespace")
                     "    reach   fan-in   Ce   Ca      I  role")
         rule   (apply str (repeat (count header) "─"))]
     (into
      (-> [(str "gordian — namespace coupling report")
-          (str "src: " src-dir)
+          (str "src: " (str/join " " src-dirs))
           ""
           (str "propagation cost: " (format "%.4f" propagation-cost)
                "  (on average " (format "%.1f" (* 100.0 propagation-cost))

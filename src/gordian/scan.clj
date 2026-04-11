@@ -62,3 +62,13 @@
   (->> (fs/glob src-dir "**.clj")
        (keep parse-file)
        (into {} (map (juxt :ns :deps)))))
+
+(defn scan-dirs
+  "Scan multiple src directories and merge their namespace graphs.
+  If the same namespace appears in more than one directory the last
+  directory's version wins (consistent with Clojure's own classpath
+  semantics)."
+  [src-dirs]
+  (->> src-dirs
+       (map scan)
+       (apply merge {})))

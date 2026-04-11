@@ -6,15 +6,21 @@
 
 ;;; ── parse-args ───────────────────────────────────────────────────────────
 
-(deftest parse-args-src-dir-test
-  (testing "bare src-dir"
-    (is (= {:src-dir "src/"} (sut/parse-args ["src/"]))))
+(deftest parse-args-src-dirs-test
+  (testing "single src-dir"
+    (is (= {:src-dirs ["src/"]} (sut/parse-args ["src/"]))))
 
-  (testing "analyze subcommand + src-dir"
-    (is (= {:src-dir "src/"} (sut/parse-args ["analyze" "src/"]))))
+  (testing "multiple src-dirs"
+    (is (= {:src-dirs ["src/" "test/"]} (sut/parse-args ["src/" "test/"]))))
 
-  (testing "extra positional args after src-dir are ignored"
-    (is (= {:src-dir "src/"} (sut/parse-args ["src/" "extra"])))))
+  (testing "analyze subcommand + src-dirs"
+    (is (= {:src-dirs ["src/" "test/"]}
+           (sut/parse-args ["analyze" "src/" "test/"]))))
+
+  (testing "options do not bleed into src-dirs"
+    (let [{:keys [src-dirs dot]} (sut/parse-args ["src/" "--dot" "out.dot"])]
+      (is (= ["src/"] src-dirs))
+      (is (= "out.dot" dot)))))
 
 (deftest parse-args-errors-test
   (testing "no args → error"
@@ -33,20 +39,20 @@
   (testing "--help flag → {:help true}"
     (is (= {:help true} (sut/parse-args ["--help"]))))
 
-  (testing "--help with src-dir → still {:help true}"
+  (testing "--help with src-dirs → still {:help true}"
     (is (= {:help true} (sut/parse-args ["src/" "--help"])))))
 
 (deftest parse-args-options-test
   (testing "--dot <file> captured"
-    (is (= {:src-dir "src/" :dot "out.dot"}
+    (is (= {:src-dirs ["src/"] :dot "out.dot"}
            (sut/parse-args ["src/" "--dot" "out.dot"]))))
 
   (testing "--json flag captured"
-    (is (= {:src-dir "src/" :json true}
+    (is (= {:src-dirs ["src/"] :json true}
            (sut/parse-args ["src/" "--json"]))))
 
   (testing "--edn flag captured"
-    (is (= {:src-dir "src/" :edn true}
+    (is (= {:src-dirs ["src/"] :edn true}
            (sut/parse-args ["src/" "--edn"])))))
 
 ;;; ── analyze / dot output ─────────────────────────────────────────────────
@@ -54,55 +60,65 @@
 (deftest dot-output-test
   (testing "--dot writes DOT file to given path"
     (let [tmp (str (java.io.File/createTempFile "gordian-dot" ".dot"))]
-      (with-out-str (sut/analyze {:src-dir "test/fixture" :dot tmp}))
+      (with-out-str (sut/analyze {:src-dirs ["test/fixture"] :dot tmp}))
       (let [content (slurp tmp)]
-        (is (clojure.string/includes? content "digraph gordian")))
+        (is (str/includes? content "digraph gordian")))
       (clojure.java.io/delete-file tmp)))
 
-  (testing "without --dot no extra file written to any sentinel path"
-    ;; analyze runs without throwing; DOT sentinel path untouched
+  (testing "without --dot no extra file written to sentinel path"
     (let [sentinel (str (java.io.File/createTempFile "gordian-no-dot" ".dot"))]
-      (clojure.java.io/delete-file sentinel)               ; ensure absent
-      (with-out-str (sut/analyze {:src-dir "test/fixture"})) ; suppress stdout
+      (clojure.java.io/delete-file sentinel)
+      (with-out-str (sut/analyze {:src-dirs ["test/fixture"]}))
       (is (not (.exists (java.io.File. sentinel)))))))
 
 ;;; ── analyze / json output ────────────────────────────────────────────────
 
 (deftest json-output-test
   (testing "--json outputs JSON to stdout"
-    (let [out (with-out-str (sut/analyze {:src-dir "test/fixture" :json true}))]
-      (is (clojure.string/includes? out "propagation-cost"))
-      (is (clojure.string/includes? out "\"alpha\""))
-      ;; valid JSON — parseable
+    (let [out (with-out-str (sut/analyze {:src-dirs ["test/fixture"] :json true}))]
+      (is (str/includes? out "propagation-cost"))
+      (is (str/includes? out "\"alpha\""))
       (is (map? (json/parse-string out true)))))
 
   (testing "--json suppresses human-readable table"
-    (let [out (with-out-str (sut/analyze {:src-dir "test/fixture" :json true}))]
-      (is (not (clojure.string/includes? out "gordian — namespace")))))
+    (let [out (with-out-str (sut/analyze {:src-dirs ["test/fixture"] :json true}))]
+      (is (not (str/includes? out "gordian — namespace")))))
 
   (testing "without --json outputs human-readable table"
-    (let [out (with-out-str (sut/analyze {:src-dir "test/fixture"}))]
-      (is (clojure.string/includes? out "gordian — namespace"))
-      (is (not (clojure.string/includes? out "\"propagation-cost\""))))))
+    (let [out (with-out-str (sut/analyze {:src-dirs ["test/fixture"]}))]
+      (is (str/includes? out "gordian — namespace"))
+      (is (not (str/includes? out "\"propagation-cost\""))))))
 
 ;;; ── analyze / edn output ─────────────────────────────────────────────────
 
 (deftest edn-output-test
   (testing "--edn outputs parseable EDN to stdout"
-    (let [out    (with-out-str (sut/analyze {:src-dir "test/fixture" :edn true}))
+    (let [out    (with-out-str (sut/analyze {:src-dirs ["test/fixture"] :edn true}))
           parsed (read-string out)]
       (is (map? parsed))
-      (is (= "test/fixture" (:src-dir parsed)))
-      ;; ns values are symbols, not strings
+      (is (= ["test/fixture"] (:src-dirs parsed)))
       (is (every? symbol? (map :ns (:nodes parsed))))))
 
   (testing "--edn suppresses human-readable table"
-    (let [out (with-out-str (sut/analyze {:src-dir "test/fixture" :edn true}))]
+    (let [out (with-out-str (sut/analyze {:src-dirs ["test/fixture"] :edn true}))]
       (is (not (str/includes? out "gordian — namespace")))))
 
   (testing "without --edn outputs human-readable table"
-    (let [out (with-out-str (sut/analyze {:src-dir "test/fixture"}))]
+    (let [out (with-out-str (sut/analyze {:src-dirs ["test/fixture"]}))]
       (is (str/includes? out "gordian — namespace")))))
+
+;;; ── multi-dir integration ────────────────────────────────────────────────
+
+(deftest multi-dir-analyze-test
+  (testing "two src-dirs — all namespaces appear in output"
+    (let [out (with-out-str
+                (sut/analyze {:src-dirs ["test/fixture" "test/fixture-cljc"]}))]
+      (doseq [ns-name ["alpha" "beta" "gamma" "portable"]]
+        (is (str/includes? out ns-name)))))
+
+  (testing "build-report with two dirs — merged node count"
+    (let [report (sut/build-report ["test/fixture" "test/fixture-cljc"])]
+      (is (= 4 (count (:nodes report)))))))
 
 ;;; ── print-help ───────────────────────────────────────────────────────────
 
