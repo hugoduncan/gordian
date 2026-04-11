@@ -67,7 +67,7 @@ Scope:
 
 ## 3. `gordian diagnose .` — summary / ranked findings
 
-**Status:** not started
+**Status:** ✅ done (6785576)
 
 Today gordian emits raw metrics. The most common follow-up is interpretation:
 what are the worst namespaces? What are the hidden couplings worth acting on?

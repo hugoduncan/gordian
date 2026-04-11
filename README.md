@@ -42,6 +42,11 @@ Options:
 gordian
 gordian .
 
+# ranked findings — auto-enables all analysis lenses
+gordian diagnose
+gordian diagnose .
+gordian diagnose --edn > findings.edn
+
 # auto-discover from a specific project
 gordian /path/to/project
 
@@ -244,6 +249,46 @@ gordian src/ --change --change-since "90 days ago"
 
 Research (Zimmermann et al. 2005) suggests recent history predicts future
 coupling better than full history.  90 days is a reasonable starting point.
+
+### Diagnose mode (`diagnose`)
+
+`gordian diagnose` synthesises all available metrics into ranked findings
+with severity levels. It auto-enables conceptual coupling (at threshold 0.15)
+and change coupling so you don't have to remember the flags.
+
+```bash
+gordian diagnose
+```
+
+```
+gordian diagnose — 11 findings
+src: ./src
+
+HEALTH
+  propagation cost: 5.2% (healthy)
+  cycles: none
+  namespaces: 18
+
+● MEDIUM  gordian.aggregate ↔ gordian.close
+  hidden conceptual coupling — score=0.37
+  shared terms: reach, transitive, node
+  → no structural edge
+
+● LOW  gordian.main
+  high-reach hub — 94.4% of project reachable
+  Ce=17 I=1.00 role=peripheral
+
+11 findings (0 high, 3 medium, 8 low)
+```
+
+Finding categories:
+- **cross-lens hidden** (high) — pair is hidden in both conceptual and change lenses
+- **cycle** (high) — namespace cycle detected
+- **hidden conceptual** (medium/low) — shared vocabulary, no structural edge
+- **hidden change** (medium) — co-changing in git, no structural edge
+- **SDP violation** (medium) — high Ca but high instability
+- **god module** (medium) — shared role with extreme reach and fan-in
+- **hub** (low) — very high reach, informational
 
 ## Example — gordian on itself
 
