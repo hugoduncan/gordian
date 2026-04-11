@@ -61,6 +61,43 @@
       (map (partial format-row ns-col) nodes)
       [""]))))
 
+;;; ── conceptual coupling section ──────────────────────────────────────────
+
+(defn- conceptual-ns-col
+  "Column width fitting the longest namespace name across all pairs."
+  [pairs]
+  (apply max 20
+         (mapcat (fn [{:keys [ns-a ns-b]}]
+                   [(count (str ns-a)) (count (str ns-b))])
+                 pairs)))
+
+(defn format-conceptual
+  "Return a vector of lines for the conceptual coupling section.
+  Returns [] when pairs is empty — the section is omitted entirely.
+  Shared terms are shown only for pairs without a structural edge (the
+  discovery rows); structural pairs show score only to reduce noise."
+  [pairs threshold]
+  (if (empty? pairs)
+    []
+    (let [ns-col (conceptual-ns-col pairs)
+          header (str (pad-right ns-col "namespace-a")
+                      "  " (pad-right ns-col "namespace-b")
+                      "  sim   structural  shared concepts")
+          rule   (apply str (repeat (count header) "─"))]
+      (into
+       [(str "conceptual coupling (sim ≥ " (format "%.2f" (double threshold)) "):")
+        ""
+        header
+        rule]
+       (map (fn [{:keys [ns-a ns-b sim structural-edge? shared-terms]}]
+              (str (pad-right ns-col (str ns-a))
+                   "  " (pad-right ns-col (str ns-b))
+                   "  " (format "%4.2f" (double sim))
+                   "  " (if structural-edge?
+                           "yes"
+                           (str "no  ←   " (str/join " " shared-terms)))))
+            pairs)))))
+
 ;;; ── IO ───────────────────────────────────────────────────────────────────
 
 (defn print-report

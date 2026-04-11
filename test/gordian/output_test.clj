@@ -91,6 +91,56 @@
                       (clojure.string/includes? % "b")) lines))
       (is (some #(clojure.string/includes? % "2 namespaces") lines)))))
 
+;;; ── format-conceptual ────────────────────────────────────────────────────
+
+(def ^:private sample-pairs
+  [{:ns-a 'gordian.output  :ns-b 'gordian.json   :sim 0.54
+    :structural-edge? false :shared-terms ["report" "format" "lines"]}
+   {:ns-a 'gordian.classify :ns-b 'gordian.scc   :sim 0.48
+    :structural-edge? true  :shared-terms ["cycle" "node"]}])
+
+(deftest format-conceptual-test
+  (testing "empty pairs → empty vector (section omitted)"
+    (is (= [] (sut/format-conceptual [] 0.30))))
+
+  (testing "returns a non-empty vector of strings"
+    (let [lines (sut/format-conceptual sample-pairs 0.30)]
+      (is (seq lines))
+      (is (every? string? lines))))
+
+  (testing "header includes threshold"
+    (let [lines (sut/format-conceptual sample-pairs 0.30)]
+      (is (some #(str/includes? % "0.30") lines))))
+
+  (testing "column header present"
+    (let [lines (sut/format-conceptual sample-pairs 0.30)]
+      (is (some #(str/includes? % "namespace-a") lines))
+      (is (some #(str/includes? % "structural") lines))
+      (is (some #(str/includes? % "shared concepts") lines))))
+
+  (testing "both namespace names appear"
+    (let [lines (sut/format-conceptual sample-pairs 0.30)]
+      (is (some #(str/includes? % "gordian.output") lines))
+      (is (some #(str/includes? % "gordian.json") lines))))
+
+  (testing "no-edge row shows ← and shared terms"
+    (let [lines (sut/format-conceptual sample-pairs 0.30)
+          no-row (first (filter #(str/includes? % "gordian.output") lines))]
+      (is (str/includes? no-row "←"))
+      (is (str/includes? no-row "report"))
+      (is (str/includes? no-row "format"))))
+
+  (testing "structural-edge row shows 'yes' and no shared terms"
+    (let [lines (sut/format-conceptual sample-pairs 0.30)
+          yes-row (first (filter #(str/includes? % "gordian.classify") lines))]
+      (is (str/includes? yes-row "yes"))
+      (is (not (str/includes? yes-row "cycle")))))
+
+  (testing "similarity score appears"
+    (let [lines (sut/format-conceptual sample-pairs 0.30)]
+      (is (some #(str/includes? % "0.54") lines))
+      (is (some #(str/includes? % "0.48") lines)))))
+
 ;;; ── integration: full pipeline via build-report ──────────────────────────
 
 (deftest full-pipeline-integration-test
