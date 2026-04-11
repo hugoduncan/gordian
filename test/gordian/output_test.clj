@@ -298,3 +298,87 @@
 
     (testing "summary line shows counts"
       (is (some #(str/includes? % "1 high, 1 medium, 1 low") lines)))))
+
+;;; ── format-explain-ns ────────────────────────────────────────────────────
+
+(def ^:private explain-ns-data
+  {:ns 'gordian.scan
+   :metrics {:reach 0.0 :fan-in 0.06 :ca 1 :ce 0 :instability 0.0 :role :core}
+   :direct-deps {:project [] :external ['babashka.fs 'edamame.core]}
+   :direct-dependents ['gordian.main]
+   :conceptual-pairs
+   [{:ns-a 'gordian.conceptual :ns-b 'gordian.scan :score 0.30
+     :kind :conceptual :structural-edge? false :shared-terms ["term" "extract"]}]
+   :change-pairs []
+   :cycles []})
+
+(deftest format-explain-ns-test
+  (let [lines (sut/format-explain-ns explain-ns-data)]
+
+    (testing "header shows ns name"
+      (is (some #(str/includes? % "gordian.scan") lines)))
+
+    (testing "shows role and metrics"
+      (is (some #(str/includes? % "core") lines))
+      (is (some #(str/includes? % "Ca=1") lines)))
+
+    (testing "shows external deps"
+      (is (some #(str/includes? % "babashka.fs") lines)))
+
+    (testing "shows dependents"
+      (is (some #(str/includes? % "gordian.main") lines)))
+
+    (testing "shows conceptual pairs"
+      (is (some #(str/includes? % "0.30") lines))
+      (is (some #(str/includes? % "hidden") lines)))
+
+    (testing "shows none for empty change pairs"
+      (let [change-section (drop-while #(not (str/includes? % "CHANGE COUPLING")) lines)]
+        (is (some #(str/includes? % "(none)") change-section))))
+
+    (testing "shows cycles: none"
+      (is (some #(str/includes? % "CYCLES: none") lines))))
+
+  (testing "error data → error message"
+    (let [lines (sut/format-explain-ns {:error "not found" :available ['a 'b]})]
+      (is (some #(str/includes? % "Error:") lines)))))
+
+;;; ── format-explain-pair ──────────────────────────────────────────────────
+
+(def ^:private explain-pair-data
+  {:ns-a 'gordian.aggregate :ns-b 'gordian.close
+   :structural {:direct-edge? false :direction nil :shortest-path nil}
+   :conceptual {:ns-a 'gordian.aggregate :ns-b 'gordian.close :score 0.37
+                :kind :conceptual :structural-edge? false
+                :shared-terms ["reach" "transitive" "node"]}
+   :change nil
+   :finding {:severity :medium :category :hidden-conceptual
+             :reason "hidden conceptual coupling — score=0.37"}})
+
+(deftest format-explain-pair-test
+  (let [lines (sut/format-explain-pair explain-pair-data)]
+
+    (testing "header shows both ns names"
+      (is (some #(and (str/includes? % "gordian.aggregate")
+                      (str/includes? % "gordian.close")) lines)))
+
+    (testing "shows no direct edge"
+      (is (some #(str/includes? % "direct edge: no") lines)))
+
+    (testing "shows no shortest path"
+      (is (some #(str/includes? % "(none)") lines)))
+
+    (testing "shows conceptual score + terms"
+      (is (some #(str/includes? % "0.37") lines))
+      (is (some #(str/includes? % "reach, transitive, node") lines)))
+
+    (testing "shows no change data"
+      (let [change-section (drop-while #(not (str/includes? % "CHANGE COUPLING")) lines)]
+        (is (some #(str/includes? % "(no data)") change-section))))
+
+    (testing "shows diagnosis"
+      (is (some #(str/includes? % "● MEDIUM") lines))))
+
+  (testing "error data → error message"
+    (let [lines (sut/format-explain-pair {:error "not found" :available ['a]})]
+      (is (some #(str/includes? % "Error:") lines)))))

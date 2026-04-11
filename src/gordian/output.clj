@@ -241,6 +241,120 @@
       [(str n-total " finding" (when (not= 1 n-total) "s")
             " (" n-high " high, " n-medium " medium, " n-low " low)")]))))
 
+;;; ── explain output ───────────────────────────────────────────────────────
+
+(defn- format-pair-line
+  "Format one coupling pair as a line for explain-ns output."
+  [ns-col pair]
+  (str "  " (pad-right ns-col (str (or (:ns-b pair) (:ns-a pair))))
+       "  score=" (format "%.2f" (:score pair))
+       "  " (if (:structural-edge? pair) "structural" "hidden")
+       (when (seq (:shared-terms pair))
+         (str "  shared: " (str/join ", " (:shared-terms pair))))
+       (when (:co-changes pair)
+         (str "  " (:co-changes pair) " co-changes"))))
+
+(defn format-explain-ns
+  "Format explain-ns data as human-readable lines."
+  [{:keys [ns metrics direct-deps direct-dependents
+           conceptual-pairs change-pairs cycles error available]}]
+  (if error
+    [(str "Error: " error)
+     (str "Available namespaces: " (str/join ", " (map str available)))]
+    (let [ns-col (max 20 (apply max 0
+                                (map #(count (str (or (:ns-a %) (:ns-b %))))
+                                     (concat conceptual-pairs change-pairs))))]
+      (into
+       [(str "gordian explain — " ns)
+        ""
+        (str "  role: " (if (:role metrics) (name (:role metrics)) "unknown")
+             "    Ca=" (or (:ca metrics) "-")
+             "  Ce=" (or (:ce metrics) "-")
+             "  I=" (if (:instability metrics)
+                      (format "%.2f" (:instability metrics))
+                      "-"))
+        (str "  reach: " (if (:reach metrics)
+                           (format "%.1f%%" (* 100.0 (:reach metrics)))
+                           "-")
+             "   fan-in: " (if (:fan-in metrics)
+                             (format "%.1f%%" (* 100.0 (:fan-in metrics)))
+                             "-"))
+        ""
+        (str "DIRECT DEPENDENCIES (" (count (:project direct-deps))
+             " project, " (count (:external direct-deps)) " external)")
+        (str "  project: " (if (seq (:project direct-deps))
+                             (str/join ", " (map str (:project direct-deps)))
+                             "(none)"))
+        (str "  external: " (if (seq (:external direct-deps))
+                              (str/join ", " (map str (:external direct-deps)))
+                              "(none)"))
+        ""
+        (str "DIRECT DEPENDENTS (" (count direct-dependents) ")")]
+       (concat
+        (if (seq direct-dependents)
+          (mapv #(str "  " %) direct-dependents)
+          ["  (none)"])
+        [""
+         (str "CONCEPTUAL COUPLING (" (count conceptual-pairs) " pairs)")]
+        (if (seq conceptual-pairs)
+          (mapv #(format-pair-line ns-col %) conceptual-pairs)
+          ["  (none)"])
+        [""
+         (str "CHANGE COUPLING (" (count change-pairs) " pairs)")]
+        (if (seq change-pairs)
+          (mapv #(format-pair-line ns-col %) change-pairs)
+          ["  (none)"])
+        [""
+         (str "CYCLES: " (if (seq cycles)
+                           (str (count cycles) " — "
+                                (str/join "; " (map #(str/join ", " (sort (map str %)))
+                                                    cycles)))
+                           "none"))])))))
+
+(defn format-explain-pair
+  "Format explain-pair data as human-readable lines."
+  [{:keys [ns-a ns-b structural conceptual change finding error available]}]
+  (if error
+    [(str "Error: " error)
+     (str "Available namespaces: " (str/join ", " (map str available)))]
+    (into
+     [(str "gordian explain-pair — " ns-a " ↔ " ns-b)
+      ""
+      "STRUCTURAL"
+      (str "  direct edge: "
+           (if (:direct-edge? structural)
+             (str "yes (" (name (:direction structural)) ")")
+             "no"))
+      (str "  shortest path: "
+           (if-let [p (:shortest-path structural)]
+             (str/join " → " (map str p))
+             "(none)"))]
+     (concat
+      [""
+       "CONCEPTUAL"]
+      (if conceptual
+        [(str "  score: " (format "%.2f" (:score conceptual)))
+         (str "  shared terms: " (str/join ", " (:shared-terms conceptual)))
+         (str "  hidden: " (if (:structural-edge? conceptual) "no" "yes"))]
+        ["  (no data)"])
+      [""
+       "CHANGE COUPLING"]
+      (if change
+        [(str "  score: " (format "%.2f" (:score change)))
+         (str "  co-changes: " (:co-changes change))
+         (str "  confidence: " (format "%.0f%%/%.0f%%"
+                                       (* 100.0 (:confidence-a change))
+                                       (* 100.0 (:confidence-b change))))]
+        ["  (no data)"])
+      (when finding
+        [""
+         "DIAGNOSIS"
+         (str "  " (case (:severity finding)
+                     :high   "● HIGH"
+                     :medium "● MEDIUM"
+                     :low    "● LOW")
+              " — " (:reason finding))])))))
+
 ;;; ── IO ───────────────────────────────────────────────────────────────────
 
 (defn print-report
@@ -253,3 +367,13 @@
   "Print a human-readable diagnose report to stdout."
   [report health findings]
   (run! println (format-diagnose report health findings)))
+
+(defn print-explain-ns
+  "Print a human-readable explain-ns report to stdout."
+  [data]
+  (run! println (format-explain-ns data)))
+
+(defn print-explain-pair
+  "Print a human-readable explain-pair report to stdout."
+  [data]
+  (run! println (format-explain-pair data)))
