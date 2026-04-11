@@ -12,8 +12,8 @@ Usage: `gordian` (auto-discovers from cwd) or `gordian src/` (explicit dirs)
 
 ## Current status
 
-**v0 alpha + usability improvements.** Schema normalized, auto-discovery,
-config file, namespace exclusion. 102 tests, 760 assertions, 0 failures.
+**v0.2.0 alpha.** Schema envelope, auto-discovery, config file, namespace
+exclusion, diagnose, explain, markdown. 145 tests, 1074 assertions, 0 failures.
 
 ## Architecture (src/gordian/)
 
@@ -293,9 +293,12 @@ scc.clj         Tarjan SCC → cycle detection                 pure
 classify.clj    core/peripheral/shared/isolated roles        pure
 conceptual.clj  TF-IDF + cosine coupling                    pure
 cc_change.clj   change-coupling-pairs (Jaccard)              pure
-output.clj      human-readable table                         pure
+diagnose.clj    ranked findings (7 categories)               pure
+explain.clj     drill-down queries (ns + pair)               pure
+envelope.clj    metadata envelope for EDN/JSON               pure
+output.clj      human-readable table + markdown              pure
 dot.clj         Graphviz DOT string                          pure
-json.clj        JSON string (cheshire)                       pure
+json.clj        JSON string (generic walker)                 pure
 edn.clj         EDN string (clojure.pprint)                  pure
 main.clj        pipeline + CLI + discovery wiring            IO
 ```
@@ -372,10 +375,21 @@ Real-world feedback from AI assistant using gordian on ~158-file Polylith
 project. 12 items analyzed and sequenced into phases. See
 `doc/design/006-user-feedback-analysis.md` for full analysis.
 
-**Phase A — Schema & Metadata** (next, ~1 session):
-- F2: Stable EDN/JSON schema envelope (`:gordian/version`, `:lenses`, `:thresholds`)
-- F6: Surface thresholds/lens activation in output
-- F9: Change-coupling diagnostics when empty
+**Phase A — Schema & Metadata** ✅ done:
+- F2: Stable EDN/JSON schema envelope — `:gordian/version`, `:lenses`, thresholds
+- F6: Surface thresholds/lens activation in output — in `:lenses` section
+- F9: Change-coupling diagnostics when empty — `:candidate-pairs`/`:reported-pairs`
+- Bug fix: JSON was dropping conceptual-pairs, change-pairs, findings, health
+- Bug fix: namespaced keyword serialization in JSON
+
+Session 12 commits:
+```
+5c7a393  step 1  fix: JSON generic walker
+95488fa  step 2  feat: candidate-pair counts
+7c3e8cc  step 3  feat: envelope.clj
+e6d5345  step 4  feat: wire envelope into commands
+5156ee7  step 6  docs: schema.md
+```
 
 **Phase B — Signal Quality** (~1-2 sessions):
 - F5: Façade-aware interpretation (`:facade` role)

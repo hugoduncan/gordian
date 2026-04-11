@@ -163,7 +163,7 @@ Driven by real-world feedback: doc/design/006-user-feedback-analysis.md
 
 ### 6. Stable EDN/JSON schema envelope
 
-**Status:** todo
+**Status:** ✅ done (5156ee7)
 
 Add metadata envelope to all command outputs:
 ```clojure
