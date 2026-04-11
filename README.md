@@ -392,9 +392,16 @@ Alexander didn't untangle the Gordian knot. He cut it.
 - Poshyvanyk, D., & Marcus, A. (2006). *The Conceptual Coupling Metrics for Object-Oriented Systems.* ICSM 2006.
 - Zimmermann, T., Weißgerber, P., Diehl, S., & Zeller, A. (2005). *Mining Version Histories to Guide Software Changes.* IEEE Transactions on Software Engineering, 31(6).
 
+## Machine-readable output schema
+
+All `--edn` and `--json` output is wrapped in a standard envelope with
+version, schema, command, lens parameters, and threshold metadata.
+See [doc/schema.md](doc/schema.md) for the complete output contract.
+
 ## Status
 
-Alpha. Metrics and output format may change.
+Alpha. Output shape is documented at schema version 1. Additive changes
+(new keys) are non-breaking. Breaking changes bump the schema integer.
 
 ## License
 
