@@ -2,7 +2,8 @@
   "Namespace family detection and family-scoped coupling metrics.
   A family is defined by the parent namespace prefix (drop last segment).
   All functions are pure."
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [gordian.text :as text]))
 
 (defn family-prefix
   "Return the family prefix for a namespace symbol.
@@ -54,3 +55,33 @@
                         :ce-family   ce-fam
                         :ce-external ce-ext}])))
           project)))
+
+;;; ── conceptual pair annotation ───────────────────────────────────────────
+
+(defn annotate-conceptual-pair
+  "Annotate a single conceptual pair with family metadata.
+  Adds :same-family?, :family-terms, :independent-terms.
+  family-terms are shared-terms that also appear in the tokenized shared
+  family prefix. independent-terms are the remainder."
+  [pair]
+  (let [a (:ns-a pair)
+        b (:ns-b pair)
+        sf? (same-family? a b)]
+    (if sf?
+      (let [prefix-tokens (set (text/tokenize (family-prefix a)))
+            shared        (or (:shared-terms pair) [])
+            family-t      (filterv prefix-tokens shared)
+            independent-t (filterv (complement prefix-tokens) shared)]
+        (assoc pair
+               :same-family?      true
+               :family-terms      family-t
+               :independent-terms independent-t))
+      (assoc pair
+             :same-family?      false
+             :family-terms      []
+             :independent-terms (or (:shared-terms pair) [])))))
+
+(defn annotate-conceptual-pairs
+  "Annotate all conceptual pairs with family metadata."
+  [pairs]
+  (mapv annotate-conceptual-pair pairs))
