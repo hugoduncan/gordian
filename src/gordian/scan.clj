@@ -1,6 +1,7 @@
 (ns gordian.scan
   (:require [babashka.fs :as fs]
-            [edamame.core :as e]))
+            [edamame.core :as e]
+            [gordian.conceptual :as conceptual]))
 
 ;;; ── require-entry extraction ─────────────────────────────────────────────
 
@@ -88,4 +89,49 @@
   [src-dirs]
   (->> src-dirs
        (map scan)
+       (apply merge {})))
+
+;;; ── full-file term scanning ───────────────────────────────────────────────
+
+(defn- read-all-forms
+  "Read all parseable top-level forms from content using edamame's incremental
+  reader.  Skips forms that fail to parse rather than aborting — same
+  resilience strategy as read-ns-form."
+  [content]
+  (let [rdr (e/reader content)]
+    (loop [forms []]
+      (let [form (try (e/parse-next rdr parse-opts)
+                      (catch Exception _ ::skip))]
+        (cond
+          (= ::e/eof form) forms
+          (= ::skip  form) (recur forms)
+          :else            (recur (conj forms form)))))))
+
+(defn parse-file-terms
+  "Read a .clj file and return [ns-sym [term]], or nil on failure.
+  Reads the full file body so that def names and docstrings are captured."
+  [path]
+  (try
+    (let [content (slurp (str path))
+          forms   (read-all-forms content)
+          ns-form (first (filter #(and (seq? %) (= 'ns (first %))) forms))
+          ns-sym  (when ns-form (second ns-form))]
+      (when ns-sym
+        [ns-sym (conceptual/extract-terms ns-sym forms)]))
+    (catch Exception _ nil)))
+
+(defn scan-terms
+  "Recursively scan src-dir for .clj files.
+  Returns {ns-sym → [term]} for all parseable files."
+  [src-dir]
+  (->> (fs/glob src-dir "**.clj")
+       (keep parse-file-terms)
+       (into {})))
+
+(defn scan-terms-dirs
+  "Scan multiple src directories and merge their term maps.
+  Later directories win on namespace collision."
+  [src-dirs]
+  (->> src-dirs
+       (map scan-terms)
        (apply merge {})))

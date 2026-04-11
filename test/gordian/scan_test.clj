@@ -82,6 +82,69 @@
       (is (= {} (sut/scan (str dir))))
       (clojure.java.io/delete-file dir))))
 
+;;; ── parse-file-terms ─────────────────────────────────────────────────────
+
+(deftest parse-file-terms-test
+  (testing "returns [ns-sym terms] pair"
+    (let [result (sut/parse-file-terms (str fixture-dir "/alpha.clj"))]
+      (is (vector? result))
+      (is (= 2 (count result)))))
+
+  (testing "ns sym is correct"
+    (let [[ns-sym _] (sut/parse-file-terms (str fixture-dir "/alpha.clj"))]
+      (is (= 'alpha ns-sym))))
+
+  (testing "ns name tokens present"
+    (let [[_ terms] (sut/parse-file-terms (str fixture-dir "/alpha.clj"))]
+      (is (some #{"alpha"} terms))))
+
+  (testing "def symbol tokens present"
+    (let [[_ terms] (sut/parse-file-terms (str fixture-dir "/beta.clj"))]
+      (is (some #{"hello"} terms))))
+
+  (testing "gamma includes run"
+    (let [[_ terms] (sut/parse-file-terms (str fixture-dir "/gamma.clj"))]
+      (is (some #{"run"} terms))))
+
+  (testing "missing file returns nil"
+    (is (nil? (sut/parse-file-terms "resources/fixture/no_such.clj")))))
+
+;;; ── scan-terms ───────────────────────────────────────────────────────────
+
+(deftest scan-terms-test
+  (testing "returns map keyed by ns syms"
+    (let [result (sut/scan-terms fixture-dir)]
+      (is (= '#{alpha beta gamma} (set (keys result))))))
+
+  (testing "each value is a non-empty term vector"
+    (doseq [[_ terms] (sut/scan-terms fixture-dir)]
+      (is (vector? terms))
+      (is (seq terms))))
+
+  (testing "alpha terms include 'alpha' and 'hello'"
+    (let [terms (get (sut/scan-terms fixture-dir) 'alpha)]
+      (is (some #{"alpha"} terms))
+      (is (some #{"hello"} terms))))
+
+  (testing "empty directory returns empty map"
+    (let [tmp (doto (java.io.File. (str (java.io.File/createTempFile "gordian" "") "-d")) .mkdirs)]
+      (is (= {} (sut/scan-terms (str tmp))))
+      (clojure.java.io/delete-file tmp))))
+
+;;; ── scan-terms-dirs ──────────────────────────────────────────────────────
+
+(deftest scan-terms-dirs-test
+  (testing "single dir — same as scan-terms"
+    (is (= (sut/scan-terms fixture-dir)
+           (sut/scan-terms-dirs [fixture-dir]))))
+
+  (testing "merges two dirs — keys are union of both"
+    (let [result (sut/scan-terms-dirs [fixture-dir "resources/fixture-cljc"])]
+      (is (= '#{alpha beta gamma portable} (set (keys result))))))
+
+  (testing "empty dirs list → empty map"
+    (is (= {} (sut/scan-terms-dirs [])))))
+
 ;;; ── scan-dirs ────────────────────────────────────────────────────────────
 
 (deftest scan-dirs-test
