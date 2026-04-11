@@ -10,11 +10,11 @@
    :propagation-cost (/ 3.0 9.0)
    :cycles           []
    :nodes [{:ns 'gamma :reach (/ 2.0 3) :fan-in 0.0
-             :ca 0 :ce 2 :instability 1.0}
+             :ca 0 :ce 2 :instability 1.0  :role :peripheral}
             {:ns 'beta  :reach (/ 1.0 3) :fan-in (/ 1.0 3)
-             :ca 1 :ce 1 :instability 0.5}
+             :ca 1 :ce 1 :instability 0.5  :role :shared}
             {:ns 'alpha :reach 0.0       :fan-in (/ 2.0 3)
-             :ca 2 :ce 0 :instability 0.0}]})
+             :ca 2 :ce 0 :instability 0.0  :role :core}]})
 
 ;;; ── column-widths ────────────────────────────────────────────────────────
 
@@ -66,7 +66,15 @@
     (testing "instability values appear"
       (is (some #(str/includes? % "1.00") lines))
       (is (some #(str/includes? % "0.50") lines))
-      (is (some #(str/includes? % "0.00") lines)))))
+      (is (some #(str/includes? % "0.00") lines)))
+
+    (testing "role column present in header"
+      (is (some #(str/includes? % "role") lines)))
+
+    (testing "role values appear"
+      (is (some #(str/includes? % "core")       lines))
+      (is (some #(str/includes? % "peripheral") lines))
+      (is (some #(str/includes? % "shared")     lines)))))
 
 ;;; ── cycles section in format-report ─────────────────────────────────────
 
@@ -105,4 +113,9 @@
 
     (testing "Ce and Ca columns present"
       (is (str/includes? output "Ce"))
-      (is (str/includes? output "Ca")))))
+      (is (str/includes? output "Ca")))
+
+    (testing "role column present"
+      (is (str/includes? output "role"))
+      (is (str/includes? output "core"))
+      (is (str/includes? output "peripheral")))))

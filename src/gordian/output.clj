@@ -14,13 +14,14 @@
 
 (defn format-row
   "Format one node row as a string."
-  [ns-col {:keys [ns reach fan-in ca ce instability]}]
+  [ns-col {:keys [ns reach fan-in ca ce instability role]}]
   (str (pad-right ns-col (str ns))
        "  " (pct reach)
        "  " (pct fan-in)
        "  " (pad-left 3 (str (or ce "-")))
        "  " (pad-left 3 (str (or ca "-")))
-       "  " (if instability (format "%4.2f" instability) "   -")))
+       "  " (if instability (format "%4.2f" instability) "   -")
+       "  " (if role (name role) "")))
 
 (defn- format-cycles
   "Return lines describing detected cycles, or a 'none' notice."
@@ -40,7 +41,7 @@
   [{:keys [src-dir propagation-cost cycles nodes]}]
   (let [{:keys [ns-col]} (column-widths nodes)
         header (str (pad-right ns-col "namespace")
-                    "    reach   fan-in   Ce   Ca      I")
+                    "    reach   fan-in   Ce   Ca      I  role")
         rule   (apply str (repeat (count header) "─"))]
     (into
      (-> [(str "gordian — namespace coupling report")

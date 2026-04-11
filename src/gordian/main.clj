@@ -4,6 +4,7 @@
             [gordian.aggregate :as aggregate]
             [gordian.metrics   :as metrics]
             [gordian.scc       :as scc]
+            [gordian.classify  :as classify]
             [gordian.output    :as output]))
 
 (defn parse-args
@@ -29,6 +30,7 @@
     (-> closed
         aggregate/aggregate
         (merge-node-metrics (metrics/compute direct))
+        (update :nodes classify/classify)
         (assoc :src-dir src-dir
                :cycles  (scc/find-cycles direct)))))
 
