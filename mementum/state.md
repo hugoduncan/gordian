@@ -85,6 +85,15 @@ db372c0  step 8  core/periphery classification
 ab291d3  step 11 bbin install + self-analysis
 ```
 
+## Session 4 commits
+
+```
+e49853e  move fixtures to resources/
+d5ff590  fix: edamame parse-next (was silently failing on 6 test files)
+bd7c02c  split unit/integration tests; fix dot/generate :src-dirs
+         PC src/+test/ 21.5% → 14.7% → 9.8%
+```
+
 ## Session 3 commits
 
 ```
