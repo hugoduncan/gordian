@@ -107,24 +107,26 @@
   TF  = term-count / total-terms-in-namespace
   IDF = log(N / document-frequency)
   Weight = TF × IDF
-  Terms absent from a namespace are absent from its map (implicit zero)."
+  Terms absent from a namespace are absent from its map (implicit zero).
+  df is computed once sequentially (requires all documents); per-ns weight
+  vectors are then computed in parallel (pmap)."
   [ns->terms]
   (let [n  (count ns->terms)
-        df (->> (vals ns->terms)            ; document frequency per term
+        df (->> (vals ns->terms)            ; document frequency per term — sequential
                 (mapcat distinct)
                 frequencies)]
     (into {}
-      (map (fn [[ns-sym terms]]
-             (let [tf    (term-freqs terms)
-                   total (count terms)]
-               [ns-sym
-                (into {}
-                  (keep (fn [[t cnt]]
-                          (let [w (* (/ (double cnt) total)
-                                     (Math/log (/ (double n) (get df t 1))))]
-                            (when (pos? w) [t w])))
-                        tf))]))
-           ns->terms))))
+      (pmap (fn [[ns-sym terms]]
+              (let [tf    (term-freqs terms)
+                    total (count terms)]
+                [ns-sym
+                 (into {}
+                   (keep (fn [[t cnt]]
+                           (let [w (* (/ (double cnt) total)
+                                      (Math/log (/ (double n) (get df t 1))))]
+                             (when (pos? w) [t w])))
+                         tf))]))
+            ns->terms))))
 
 ;;; ── similarity ────────────────────────────────────────────────────────────
 
@@ -141,15 +143,16 @@
   "Normalize each TF-IDF vector to unit length.
   Returns {ns → {term → normalized-weight}}.
   Cosine similarity of two unit vectors equals their dot product, so
-  magnitude computation is eliminated from the O(N²) pair loop."
+  magnitude computation is eliminated from the O(N²) pair loop.
+  Per-ns normalization is independent and runs in parallel (pmap)."
   [tfidf]
   (into {}
-    (map (fn [[ns v]]
-           (let [mag (Math/sqrt (reduce-kv (fn [s _ w] (+ s (* w w))) 0.0 v))]
-             [ns (if (zero? mag)
-                   v
-                   (into {} (map (fn [[t w]] [t (/ w mag)]) v)))]))
-         tfidf)))
+    (pmap (fn [[ns v]]
+            (let [mag (Math/sqrt (reduce-kv (fn [s _ w] (+ s (* w w))) 0.0 v))]
+              [ns (if (zero? mag)
+                    v
+                    (into {} (map (fn [[t w]] [t (/ w mag)]) v)))]))
+          tfidf)))
 
 (defn coupling-terms
   "Return the top-n terms driving the similarity between two TF-IDF vectors.
@@ -221,7 +224,7 @@
                                   [a b]))
                               (vals t->nss)))]
      (->> candidates
-          (keep (fn [[a b]]
+          (pmap (fn [[a b]]
                   (let [[sim terms] (dot-and-top-terms (get unit a) (get unit b) n-terms)]
                     (when (>= sim threshold)
                       {:ns-a             a
@@ -229,6 +232,7 @@
                        :sim              sim
                        :structural-edge? (structural-edge? graph a b)
                        :shared-terms     terms}))))
+          (keep identity)
           (sort-by :sim >)
           vec))))
 

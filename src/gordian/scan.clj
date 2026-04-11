@@ -75,10 +75,12 @@
 
 (defn scan
   "Recursively scan src-dir for .clj files.
-  Returns {ns-sym → #{dep-syms}} for all parseable files."
+  Returns {ns-sym → #{dep-syms}} for all parseable files.
+  Files are parsed in parallel (pmap)."
   [src-dir]
   (->> (fs/glob src-dir "**.clj")
-       (keep parse-file)
+       (pmap parse-file)
+       (keep identity)
        (into {} (map (juxt :ns :deps)))))
 
 (defn scan-dirs
@@ -122,10 +124,12 @@
 
 (defn scan-terms
   "Recursively scan src-dir for .clj files.
-  Returns {ns-sym → [term]} for all parseable files."
+  Returns {ns-sym → [term]} for all parseable files.
+  Files are parsed in parallel (pmap)."
   [src-dir]
   (->> (fs/glob src-dir "**.clj")
-       (keep parse-file-terms)
+       (pmap parse-file-terms)
+       (keep identity)
        (into {})))
 
 (defn scan-terms-dirs
@@ -158,10 +162,11 @@
 (defn scan-all
   "Recursively scan src-dir for .clj files in a single pass per file.
   Returns {:graph {ns → #{deps}} :ns->terms {ns → [term]}}.
-  Prefer this over calling scan + scan-terms separately when both are needed."
+  Files are parsed in parallel (pmap); results reduced sequentially."
   [src-dir]
   (->> (fs/glob src-dir "**.clj")
-       (keep parse-file-all)
+       (pmap parse-file-all)
+       (keep identity)
        (reduce (fn [acc {:keys [ns deps terms]}]
                  (-> acc
                      (assoc-in [:graph    ns] deps)
