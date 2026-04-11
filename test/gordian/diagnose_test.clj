@@ -166,3 +166,95 @@
 
     (testing "empty nodes → no findings"
       (is (empty? (sut/find-hubs []))))))
+
+;;; ── pair-level findings ─────────────────────────────────────────────────
+
+(def ^:private conceptual-pairs
+  [{:ns-a 'a :ns-b 'b :score 0.35 :kind :conceptual :structural-edge? false
+    :shared-terms ["reach" "close"]}
+   {:ns-a 'a :ns-b 'c :score 0.25 :kind :conceptual :structural-edge? true
+    :shared-terms ["scan" "file"]}
+   {:ns-a 'b :ns-b 'c :score 0.12 :kind :conceptual :structural-edge? false
+    :shared-terms ["util"]}])
+
+(def ^:private change-pairs
+  [{:ns-a 'a :ns-b 'b :score 0.40 :kind :change :structural-edge? false
+    :co-changes 4 :confidence-a 0.8 :confidence-b 0.6}
+   {:ns-a 'c :ns-b 'd :score 0.50 :kind :change :structural-edge? false
+    :co-changes 5 :confidence-a 1.0 :confidence-b 0.5}
+   {:ns-a 'a :ns-b 'c :score 0.30 :kind :change :structural-edge? true
+    :co-changes 3 :confidence-a 0.5 :confidence-b 0.5}])
+
+(deftest find-cross-lens-hidden-test
+  (testing "pair hidden in both → :high finding"
+    (let [{:keys [findings cross-keys]}
+          (sut/find-cross-lens-hidden conceptual-pairs change-pairs)]
+      (is (= 1 (count findings)))
+      (is (= :high (:severity (first findings))))
+      (is (= :cross-lens-hidden (:category (first findings))))
+      (is (contains? cross-keys #{'a 'b}))))
+
+  (testing "evidence contains both scores"
+    (let [f (first (:findings (sut/find-cross-lens-hidden conceptual-pairs change-pairs)))]
+      (is (= 0.35 (get-in f [:evidence :conceptual-score])))
+      (is (= 0.40 (get-in f [:evidence :change-score])))
+      (is (= 4 (get-in f [:evidence :co-changes])))))
+
+  (testing "structural pairs not flagged"
+    (let [{:keys [cross-keys]}
+          (sut/find-cross-lens-hidden conceptual-pairs change-pairs)]
+      (is (not (contains? cross-keys #{'a 'c})))))
+
+  (testing "empty pairs → empty"
+    (let [{:keys [findings cross-keys]}
+          (sut/find-cross-lens-hidden [] [])]
+      (is (empty? findings))
+      (is (empty? cross-keys)))))
+
+(deftest find-hidden-conceptual-test
+  (let [cross-keys #{#{'a 'b}}]
+
+    (testing "hidden pair not in cross-keys, score≥0.20 → :medium"
+      ;; no non-cross hidden pairs with score≥0.20 in fixture
+      ;; b↔c is hidden, score=0.12 (low), a↔b is cross-lens (excluded)
+      (let [findings (sut/find-hidden-conceptual conceptual-pairs cross-keys)]
+        (is (= 1 (count findings)))
+        (is (= :low (:severity (first findings))))
+        (is (= #{'b 'c} (set (vals (select-keys (:subject (first findings)) [:ns-a :ns-b])))))))
+
+    (testing "hidden pair score≥0.20 → :medium"
+      (let [pairs [{:ns-a 'x :ns-b 'y :score 0.25 :kind :conceptual
+                    :structural-edge? false :shared-terms ["foo"]}]
+            findings (sut/find-hidden-conceptual pairs #{})]
+        (is (= :medium (:severity (first findings))))))
+
+    (testing "structural pair → not flagged"
+      (let [findings (sut/find-hidden-conceptual
+                      [{:ns-a 'x :ns-b 'y :score 0.50 :structural-edge? true
+                        :shared-terms ["foo"]}]
+                      #{})]
+        (is (empty? findings))))
+
+    (testing "pair in cross-keys → not flagged"
+      (let [findings (sut/find-hidden-conceptual conceptual-pairs #{#{'a 'b} #{'b 'c}})]
+        (is (empty? findings))))))
+
+(deftest find-hidden-change-test
+  (let [cross-keys #{#{'a 'b}}]
+
+    (testing "hidden pair not in cross-keys → :medium"
+      (let [findings (sut/find-hidden-change change-pairs cross-keys)]
+        (is (= 1 (count findings)))
+        (is (= :medium (:severity (first findings))))
+        (is (= #{'c 'd} (set (vals (select-keys (:subject (first findings)) [:ns-a :ns-b])))))))
+
+    (testing "structural pair → not flagged"
+      (let [findings (sut/find-hidden-change
+                      [{:ns-a 'x :ns-b 'y :score 0.50 :structural-edge? true
+                        :co-changes 3 :confidence-a 1.0 :confidence-b 0.5}]
+                      #{})]
+        (is (empty? findings))))
+
+    (testing "pair in cross-keys → not flagged"
+      (let [findings (sut/find-hidden-change change-pairs #{#{'a 'b} #{'c 'd}})]
+        (is (empty? findings))))))

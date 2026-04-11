@@ -1,6 +1,7 @@
 (ns gordian.diagnose
   "Generate ranked findings from a gordian report.
-  All functions are pure — they take data and return data.")
+  All functions are pure — they take data and return data."
+  (:require [clojure.set :as set]))
 
 ;;; ── utilities ────────────────────────────────────────────────────────────
 
@@ -84,6 +85,79 @@
                                 :ca (:ca node) :ce (:ce node)
                                 :role role}})))
           nodes)))
+
+;;; ── pair-level findings ─────────────────────────────────────────────────
+
+(defn- hidden-pair-index
+  "Index hidden (non-structural-edge) pairs by pair-key.
+  Returns {#{ns-a ns-b} → pair-map}."
+  [pairs]
+  (into {} (comp (remove :structural-edge?)
+                 (map (juxt pair-key identity)))
+        pairs))
+
+(defn find-cross-lens-hidden
+  "Pairs hidden in both conceptual and change lenses — strongest signal.
+  Returns :high findings and the set of cross-lens pair-keys."
+  [conceptual-pairs change-pairs]
+  (let [hidden-c (hidden-pair-index conceptual-pairs)
+        hidden-x (hidden-pair-index change-pairs)
+        cross-keys (set/intersection (set (keys hidden-c)) (set (keys hidden-x)))]
+    {:findings
+     (mapv (fn [k]
+             (let [cp (get hidden-c k)
+                   xp (get hidden-x k)]
+               {:severity :high
+                :category :cross-lens-hidden
+                :subject  {:ns-a (:ns-a cp) :ns-b (:ns-b cp)}
+                :reason   (str "hidden in 2 lenses — conceptual="
+                               (format "%.2f" (:score cp))
+                               " change=" (format "%.2f" (:score xp)))
+                :evidence {:conceptual-score (:score cp)
+                           :shared-terms     (:shared-terms cp)
+                           :change-score     (:score xp)
+                           :co-changes       (:co-changes xp)
+                           :confidence-a     (:confidence-a xp)
+                           :confidence-b     (:confidence-b xp)}}))
+           cross-keys)
+     :cross-keys cross-keys}))
+
+(defn find-hidden-conceptual
+  "Pairs hidden in conceptual lens only (not already cross-lens).
+  Score ≥ 0.20 → :medium, score < 0.20 → :low."
+  [conceptual-pairs cross-keys]
+  (into []
+        (keep (fn [p]
+                (when (and (not (:structural-edge? p))
+                           (not (contains? cross-keys (pair-key p))))
+                  {:severity (if (>= (:score p) 0.20) :medium :low)
+                   :category :hidden-conceptual
+                   :subject  {:ns-a (:ns-a p) :ns-b (:ns-b p)}
+                   :reason   (str "hidden conceptual coupling — score="
+                                  (format "%.2f" (:score p)))
+                   :evidence {:score (:score p)
+                              :shared-terms (:shared-terms p)}})))
+        conceptual-pairs))
+
+(defn find-hidden-change
+  "Pairs hidden in change lens only (not already cross-lens).
+  Always :medium since change pairs already meet a coupling threshold."
+  [change-pairs cross-keys]
+  (into []
+        (keep (fn [p]
+                (when (and (not (:structural-edge? p))
+                           (not (contains? cross-keys (pair-key p))))
+                  {:severity :medium
+                   :category :hidden-change
+                   :subject  {:ns-a (:ns-a p) :ns-b (:ns-b p)}
+                   :reason   (str "hidden change coupling — score="
+                                  (format "%.2f" (:score p))
+                                  " (" (:co-changes p) " co-changes)")
+                   :evidence {:score (:score p)
+                              :co-changes (:co-changes p)
+                              :confidence-a (:confidence-a p)
+                              :confidence-b (:confidence-b p)}})))
+        change-pairs))
 
 (defn find-hubs
   "Namespaces with reach > 3× mean. Informational — entry points naturally
