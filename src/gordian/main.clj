@@ -6,7 +6,8 @@
             [gordian.scc       :as scc]
             [gordian.classify  :as classify]
             [gordian.output    :as output]
-            [gordian.dot       :as dot]))
+            [gordian.dot       :as dot]
+            [gordian.json      :as report-json]))
 
 (defn parse-args
   "Returns {:src-dir s} or {:error msg}."
@@ -37,11 +38,14 @@
                :cycles  (scc/find-cycles direct)))))
 
 (defn analyze [src-dir]
-  (let [report   (build-report src-dir)
-        dot-path "gordian-report.dot"]
+  (let [report    (build-report src-dir)
+        dot-path  "gordian-report.dot"
+        json-path "gordian-report.json"]
     (output/print-report report)
-    (spit dot-path (dot/generate report))
-    (println (str "DOT written to " dot-path))))
+    (spit dot-path  (dot/generate report))
+    (spit json-path (report-json/generate report))
+    (println (str "DOT  written to " dot-path))
+    (println (str "JSON written to " json-path))))
 
 (defn run [args]
   (let [{:keys [src-dir error]} (parse-args args)]
