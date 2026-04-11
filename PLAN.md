@@ -198,7 +198,7 @@ Small. Pure heuristic on existing data.
 
 ### 8. Family-noise suppression for conceptual coupling
 
-**Status:** todo
+**Status:** ✅ done (944585a)
 
 After namespace splitting, sibling pairs flood findings with shared
 namespace-prefix tokens ("mutation", "agent", "session"). True but not

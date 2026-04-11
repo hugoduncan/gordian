@@ -12,9 +12,9 @@ Usage: `gordian` (auto-discovers from cwd) or `gordian src/` (explicit dirs)
 
 ## Current status
 
-**v0.2.0 alpha.** Schema envelope, façade detection, family-scoped metrics,
-auto-discovery, config file, namespace exclusion, diagnose, explain, markdown.
-152 tests, 1161 assertions, 0 failures.
+**v0.2.0 alpha.** Schema envelope, façade detection, family-noise suppression,
+family-scoped metrics, auto-discovery, config, diagnose, explain, markdown.
+161 tests, 1219 assertions, 0 failures.
 
 ## Architecture (src/gordian/)
 
@@ -380,18 +380,28 @@ project. 12 items analyzed and sequenced into phases. See
 
 **Phase B — Signal Quality** (in progress):
 - F5 ✅: Façade-aware interpretation — family.clj + family-scoped Ca/Ce
-  - `family-prefix`, `same-family?`, `family-metrics` (pure, reusable by F3/F7)
-  - `find-god-modules` checks façade pattern → `:facade` at `:low` not `:god-module` at `:medium`
-  - Explain output shows family and family-scoped metrics
-  - Schema version still 1 (additive)
+- F3 ✅: Family-noise suppression — annotate pairs, downgrade naming noise
+  - `text.clj` extracted (tokenize + stem, shared utility)
+  - `annotate-conceptual-pair(s)` classifies shared-terms as family vs independent
+  - Same-family + no independent terms → `:low` + "likely naming similarity"
+  - Output shows family-terms vs independent-terms breakdown
 
-Session 12b commits:
+Session 12b commits (F5):
 ```
 1226c88  step 1  feat: family.clj
 b953717  step 2  feat: wire family-metrics into pipeline
 683a8e8  step 3  feat: façade detection in diagnose
 3fcf27b  step 4  feat: surface in explain output
 bd1c952  step 5  docs: schema + PLAN
+```
+
+Session 12c commits (F3):
+```
+bff010a  step 0  refactor: extract tokenizer into gordian.text
+6115880  step 1  feat: annotate-conceptual-pairs
+7b049af  step 2  feat: wire into build-report
+ab937ac  step 3  feat: severity adjustment in diagnose
+944585a  step 4  feat: output formatting
 ```
 
 **Phase A — Schema & Metadata** ✅ done.

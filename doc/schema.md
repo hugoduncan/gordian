@@ -90,8 +90,16 @@ Family is determined by dropping the last dot-separated segment
  :score            double      ; cosine similarity
  :kind             :conceptual
  :structural-edge? boolean     ; true if require edge exists
- :shared-terms     [string]}   ; top terms driving similarity
+ :shared-terms     [string]    ; top terms driving similarity
+ :same-family?     boolean     ; true if both ns share family prefix
+ :family-terms     [string]    ; shared terms derived from ns prefix (noise)
+ :independent-terms [string]}  ; shared terms NOT from prefix (signal)
 ```
+
+When `:same-family?` is true and `:independent-terms` is empty, the
+conceptual overlap is entirely from namespace naming convention — likely
+not actionable. Diagnose downgrades these to `:low` severity with a
+"likely naming similarity" annotation.
 
 ### Change pair shape
 
