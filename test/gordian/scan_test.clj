@@ -49,6 +49,12 @@
     (is (= {:ns 'gamma :deps '#{alpha beta}}
            (sut/parse-file (str fixture-dir "/gamma.clj")))))
 
+  (testing "reader conditional — #?(:clj ...) resolved with :clj feature"
+    ;; test/fixture-cljc/portable.clj requires [alpha] and #?(:clj [beta] :cljs [...])
+    ;; edamame with :features #{:clj} expands the :clj branch → deps #{alpha beta}
+    (is (= {:ns 'portable :deps '#{alpha beta}}
+           (sut/parse-file "test/fixture-cljc/portable.clj"))))
+
   (testing "missing file returns nil"
     (is (nil? (sut/parse-file "test/fixture/does_not_exist.clj"))))
 
@@ -65,6 +71,10 @@
             'beta  '#{alpha}
             'gamma '#{alpha beta}}
            (sut/scan fixture-dir))))
+
+  (testing "reader-cond fixture directory"
+    (is (= {'portable '#{alpha beta}}
+           (sut/scan "test/fixture-cljc"))))
 
   (testing "empty directory"
     (let [tmp (str (java.io.File/createTempFile "gordian-dir" ""))]

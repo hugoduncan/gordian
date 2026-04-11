@@ -1,5 +1,6 @@
 (ns gordian.scan
-  (:require [babashka.fs :as fs]))
+  (:require [babashka.fs :as fs]
+            [edamame.core :as e]))
 
 ;;; ── require-entry extraction ─────────────────────────────────────────────
 
@@ -35,11 +36,14 @@
   (first (filter #(and (seq? %) (= 'ns (first %))) forms)))
 
 (defn parse-file
-  "Read a .clj file and return {:ns sym :deps #{sym}}, or nil on failure."
+  "Read a .clj file and return {:ns sym :deps #{sym}}, or nil on failure.
+  Uses edamame for robust parsing — handles reader conditionals (#?),
+  tagged literals, and other Clojure-specific syntax."
   [path]
   (try
     (let [content (slurp (str path))
-          forms   (read-string (str "[" content "]"))
+          forms   (e/parse-string-all content {:read-cond :allow
+                                               :features  #{:clj}})
           ns-form (find-ns-form forms)]
       (when ns-form
         {:ns   (second ns-form)
