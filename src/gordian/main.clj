@@ -14,6 +14,7 @@
             [gordian.explain     :as explain]
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
+            [gordian.envelope    :as envelope]
             [gordian.dot         :as dot]
             [gordian.json        :as report-json]
             [gordian.edn         :as report-edn]
@@ -229,7 +230,8 @@ Examples:
   :change        — repo dir for change coupling analysis (git log)
   :change-since  — git date string limiting change coupling horizon
   :exclude       — vector of regex strings to exclude namespaces"
-  [{:keys [src-dirs dot json edn markdown conceptual change change-since exclude]}]
+  [{:keys [src-dirs dot json edn markdown conceptual change change-since exclude]
+    :as opts}]
   (let [change-dir  (when change (if (string? change) change "."))
         change-opts (when change-dir {:change change-dir :since change-since})
         report      (build-report src-dirs conceptual change-opts exclude)]
@@ -237,34 +239,35 @@ Examples:
       (spit dot (dot/generate report))
       (binding [*out* *err*] (println (str "DOT written to " dot))))
     (cond
-      json     (println (report-json/generate report))
-      edn      (print   (report-edn/generate  report))
+      json     (println (report-json/generate (envelope/wrap opts report :analyze)))
+      edn      (print   (report-edn/generate  (envelope/wrap opts report :analyze)))
       markdown (run! println (output/format-report-md report))
       :else    (output/print-report report))))
 
 (defn diagnose-cmd
   "Run diagnose with resolved opts map.
   Auto-enables conceptual (0.15) and change (.) when not explicitly set."
-  [{:keys [src-dirs json edn markdown conceptual change change-since exclude]}]
+  [{:keys [src-dirs json edn markdown conceptual change change-since exclude]
+    :as opts}]
   (let [conceptual  (or conceptual 0.15)
         change      (if (nil? change) true change)
         change-dir  (when change (if (string? change) change "."))
         change-opts (when change-dir {:change change-dir :since change-since})
         report      (build-report src-dirs conceptual change-opts exclude)
         health      (diagnose/health report)
-        findings    (diagnose/diagnose report)]
+        findings    (diagnose/diagnose report)
+        enriched    (assoc report :findings findings :health health)]
     (cond
-      json     (println (report-json/generate
-                         (assoc report :findings findings :health health)))
-      edn      (print   (report-edn/generate
-                         (assoc report :findings findings :health health)))
+      json     (println (report-json/generate (envelope/wrap opts enriched :diagnose)))
+      edn      (print   (report-edn/generate  (envelope/wrap opts enriched :diagnose)))
       markdown (run! println (output/format-diagnose-md report health findings))
       :else    (output/print-diagnose report health findings))))
 
 (defn explain-cmd
   "Run explain with resolved opts map.
   Auto-enables conceptual (0.15) and change (.) like diagnose."
-  [{:keys [src-dirs json edn markdown conceptual change change-since exclude explain-ns]}]
+  [{:keys [src-dirs json edn markdown conceptual change change-since exclude explain-ns]
+    :as opts}]
   (let [conceptual  (or conceptual 0.15)
         change      (if (nil? change) true change)
         change-dir  (when change (if (string? change) change "."))
@@ -272,15 +275,16 @@ Examples:
         report      (build-report src-dirs conceptual change-opts exclude)
         data        (explain/explain-ns report explain-ns)]
     (cond
-      json     (println (report-json/generate data))
-      edn      (print   (report-edn/generate data))
+      json     (println (report-json/generate (envelope/wrap opts data :explain)))
+      edn      (print   (report-edn/generate  (envelope/wrap opts data :explain)))
       markdown (run! println (output/format-explain-ns-md data))
       :else    (output/print-explain-ns data))))
 
 (defn explain-pair-cmd
   "Run explain-pair with resolved opts map."
   [{:keys [src-dirs json edn markdown conceptual change change-since exclude
-           explain-ns-a explain-ns-b]}]
+           explain-ns-a explain-ns-b]
+    :as opts}]
   (let [conceptual  (or conceptual 0.15)
         change      (if (nil? change) true change)
         change-dir  (when change (if (string? change) change "."))
@@ -288,8 +292,8 @@ Examples:
         report      (build-report src-dirs conceptual change-opts exclude)
         data        (explain/explain-pair-data report explain-ns-a explain-ns-b)]
     (cond
-      json     (println (report-json/generate data))
-      edn      (print   (report-edn/generate data))
+      json     (println (report-json/generate (envelope/wrap opts data :explain-pair)))
+      edn      (print   (report-edn/generate  (envelope/wrap opts data :explain-pair)))
       markdown (run! println (output/format-explain-pair-md data))
       :else    (output/print-explain-pair data))))
 

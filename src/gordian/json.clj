@@ -18,8 +18,13 @@
   [x]
   (cond
     (map? x)
-    (into {} (map (fn [[k v]] [(if (keyword? k) (name k) (str k))
-                               (serialize v)]))
+    (into {} (map (fn [[k v]]
+                    [(cond
+                       (keyword? k) (if (namespace k)
+                                      (str (namespace k) "/" (name k))
+                                      (name k))
+                       :else        (str k))
+                     (serialize v)]))
           x)
 
     (set? x)

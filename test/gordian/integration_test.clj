@@ -37,6 +37,48 @@
       (is (every? symbol? (map :ns (:nodes parsed))))
       (is (every? keyword? (map :role (:nodes parsed)))))))
 
+;;; ── envelope integration ─────────────────────────────────────────────────
+
+(deftest envelope-analyze-edn-test
+  (let [report (main/build-report fixture-dirs 0.01)
+        opts   {:src-dirs fixture-dirs :conceptual 0.01}
+        env    ((requiring-resolve 'gordian.envelope/wrap) opts report :analyze)
+        parsed (read-string (report-edn/generate env))]
+    (testing "envelope metadata in EDN output"
+      (is (= "0.2.0" (:gordian/version parsed)))
+      (is (= 1 (:gordian/schema parsed)))
+      (is (= :analyze (:gordian/command parsed))))
+
+    (testing "lenses describe what ran"
+      (is (true? (get-in parsed [:lenses :structural])))
+      (is (true? (get-in parsed [:lenses :conceptual :enabled])))
+      (is (= 0.01 (get-in parsed [:lenses :conceptual :threshold])))
+      (is (pos-int? (get-in parsed [:lenses :conceptual :candidate-pairs])))
+      (is (false? (get-in parsed [:lenses :change :enabled]))))
+
+    (testing "payload preserved through envelope"
+      (is (number? (:propagation-cost parsed)))
+      (is (vector? (:nodes parsed)))
+      (is (vector? (:conceptual-pairs parsed))))
+
+    (testing "internal keys stripped"
+      (is (not (contains? parsed :graph)))
+      (is (not (contains? parsed :conceptual-threshold))))))
+
+(deftest envelope-diagnose-json-test
+  (let [report   (main/build-report fixture-dirs 0.01)
+        health   ((requiring-resolve 'gordian.diagnose/health) report)
+        findings ((requiring-resolve 'gordian.diagnose/diagnose) report)
+        enriched (assoc report :findings findings :health health)
+        opts     {:src-dirs fixture-dirs :conceptual 0.01}
+        env      ((requiring-resolve 'gordian.envelope/wrap) opts enriched :diagnose)
+        parsed   (json/parse-string (report-json/generate env) true)]
+    (testing "diagnose JSON has envelope + findings"
+      (is (= "0.2.0" (get parsed (keyword "gordian/version"))))
+      (is (= "diagnose" (get parsed (keyword "gordian/command"))))
+      (is (vector? (:findings parsed)))
+      (is (map? (:health parsed))))))
+
 (deftest multi-dir-pipeline-test
   (testing "two dirs merged — all namespaces present"
     (let [report (main/build-report ["resources/fixture"
