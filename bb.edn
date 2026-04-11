@@ -25,6 +25,7 @@
                                      'gordian.dot-test
                                      'gordian.json-test
                                      'gordian.edn-test
-                                     'gordian.integration-test)
+                                     'gordian.integration-test
+                                     'gordian.conceptual-test)
                             (let [r (t/run-all-tests (re-pattern "gordian\\..*-test"))]
                               (System/exit (if (pos? (+ (:fail r) (:error r))) 1 0))))}}}
