@@ -1,101 +1,21 @@
 (ns gordian.conceptual
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [gordian.text :as text]))
 
 (def ^:private def-syms
   "Top-level forms whose second element is a name we want to mine."
   #{'defn 'defn- 'def 'def- 'defmulti 'defmethod
     'defprotocol 'defrecord 'deftype 'defmacro})
 
-;;; ── stemming ──────────────────────────────────────────────────────────────
-
-(defn- strip-suffix
-  "Return the stem of word after removing suffix, provided the stem would be
-  at least min-len characters.  Returns nil otherwise."
-  [word suffix min-len]
-  (when (and (str/ends-with? word suffix)
-             (>= (- (count word) (count suffix)) min-len))
-    (subs word 0 (- (count word) (count suffix)))))
-
-(defn- dedup-final
-  "Collapse a trailing doubled consonant so that the stemmer can match
-  roots across -ing/-ed/-er variants: 'scann' → 'scan', 'coupl' → 'coupl'."
-  [s]
-  (let [n (count s)]
-    (if (and (>= n 2)
-             (= (nth s (- n 1)) (nth s (- n 2)))
-             (not (#{\a \e \i \o \u} (nth s (- n 1)))))
-      (subs s 0 (dec n))
-      s)))
-
-(defn- stem*
-  "Implementation — see `stem`."
-  [word]
-  (or
-   (strip-suffix word "nesses" 3)              ; emptiness → empti
-   (strip-suffix word "ness"   3)              ; randomness → random
-   (strip-suffix word "ments"  3)              ; measurements → measur
-   (strip-suffix word "ment"   3)              ; measurement → measur
-   (strip-suffix word "ables"  3)              ; reachables → reach (rare)
-   (strip-suffix word "able"   3)              ; reachable → reach
-   (strip-suffix word "ibles"  3)
-   (strip-suffix word "ible"   3)              ; compatible → compat
-   (some-> (strip-suffix word "ings" 3) dedup-final)  ; couplings → coupl
-   (some-> (strip-suffix word "ing"  3) dedup-final)  ; scanning → scan
-   (some-> (strip-suffix word "ies"  2) (str "y"))    ; dependencies → dependency
-   (some-> (strip-suffix word "ers"  3) dedup-final)  ; scanners → scan
-   (some-> (strip-suffix word "ed"   3) dedup-final)  ; scanned → scan
-   (some-> (strip-suffix word "er"   3) dedup-final)  ; scanner → scan
-   (strip-suffix word "ly"     3)              ; directly → direct, transitively → transitivel
-   ;; -es only for sibilant stems (processes → process, indexes → index).
-   ;; A stem ending in 'c/l/r/etc' means the 'e' belongs to the root
-   ;; (namespaces = namespace+s, not namespac+es) — fall through to -s in that case.
-   (when-let [s (strip-suffix word "es" 4)]
-     (when (or (str/ends-with? s "ss")
-               (str/ends-with? s "x")
-               (str/ends-with? s "z"))
-       s))
-   (when-let [s (strip-suffix word "s" 3)]     ; returns → return, deps → dep
-     (when-not (or (str/ends-with? word "ss")  ; class, process — protected
-                   (str/ends-with? word "us")  ; status — protected
-                   (str/ends-with? word "is")) ; analysis — protected
-       s))
-   word))
+;;; ── delegated to gordian.text ─────────────────────────────────────────────
 
 (def stem
-  "Reduce a lowercase English word to an approximate stem.
-  Rules are applied in order of specificity (longest suffix first) so that
-  'nesses' is tried before 'ness', etc.  Not a full Porter stemmer — targeted
-  at the patterns that appear in Clojure identifier names and docstrings.
-  Memoized: the same token is stemmed at most once per process."
-  (memoize stem*))
+  "Delegate to gordian.text/stem for backward compatibility."
+  text/stem)
 
-;;; ── tokenization ──────────────────────────────────────────────────────────
-
-(def ^:private stop-words
-  "English function words that are never domain vocabulary.
-  IDF alone does not suppress these adequately in small corpora (≤20 ns)."
-  #{"a" "an" "the" "of" "to" "in" "for" "on" "at" "by" "from" "with"
-    "as" "into" "via" "and" "or" "but" "if" "when" "not" "nor" "so"
-    "it" "its" "they" "their" "this" "that" "these" "those" "which"
-    "is" "are" "was" "were" "be" "been" "has" "have" "had"
-    "do" "does" "did" "can" "will" "would" "should" "could" "may"
-    "there" "both" "all" "each" "only" "also" "any" "no" "own"
-    "then" "than" "same" "how" "what" "where" "here" "more" "such"})
-
-(defn tokenize
-  "Split a string or symbol into lowercase terms.
-  Splits on any non-alphanumeric character — handles kebab-case, dots,
-  slashes, backticks, braces, markdown punctuation, and all other noise.
-  Removes English function words (stop words) and tokens shorter than 2 chars.
-  Uses a single transducer pass — no intermediate lazy sequences."
-  [s]
-  (when s
-    (into []
-          (comp (remove #(< (count %) 2))
-                (remove stop-words)
-                (map stem)
-                (remove #(< (count %) 2)))
-          (str/split (str/lower-case (str s)) #"[^a-zA-Z0-9]+"))))
+(def tokenize
+  "Delegate to gordian.text/tokenize for backward compatibility."
+  text/tokenize)
 
 ;;; ── TF-IDF ────────────────────────────────────────────────────────────────
 

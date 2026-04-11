@@ -54,6 +54,7 @@
                                      'gordian.integration-test
                                      'gordian.conceptual-test
                                      'gordian.cc-change-test
-                                     'gordian.git-test)
+                                     'gordian.git-test
+                                     'gordian.text-test)
                             (let [r (t/run-all-tests (re-pattern "gordian\\..*-test"))]
                               (System/exit (if (pos? (+ (:fail r) (:error r))) 1 0))))}}}
