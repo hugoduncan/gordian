@@ -169,3 +169,74 @@
       (is (str/includes? output "role"))
       (is (str/includes? output "core"))
       (is (str/includes? output "peripheral")))))
+
+;;; ── format-change-coupling ───────────────────────────────────────────────
+
+(def ^:private change-pairs
+  [{:ns-a 'gordian.output :ns-b 'gordian.main
+    :coupling 0.6667 :co-changes 2
+    :confidence-a 0.6667 :confidence-b 1.0
+    :structural-edge? true}
+   {:ns-a 'gordian.scan :ns-b 'gordian.output
+    :coupling 0.5 :co-changes 2
+    :confidence-a 0.6667 :confidence-b 0.6667
+    :structural-edge? false}])
+
+(deftest format-change-coupling-test
+  (testing "empty pairs → empty vector (section omitted)"
+    (is (= [] (sut/format-change-coupling [] 0.30))))
+
+  (testing "returns a non-empty vector of strings"
+    (let [lines (sut/format-change-coupling change-pairs 0.30)]
+      (is (seq lines))
+      (is (every? string? lines))))
+
+  (testing "header includes threshold"
+    (let [lines (sut/format-change-coupling change-pairs 0.30)]
+      (is (some #(str/includes? % "0.30") lines))))
+
+  (testing "column header present"
+    (let [lines (sut/format-change-coupling change-pairs 0.30)]
+      (is (some #(str/includes? % "namespace-a") lines))
+      (is (some #(str/includes? % "Jaccard") lines))
+      (is (some #(str/includes? % "conf-a") lines))
+      (is (some #(str/includes? % "structural") lines))))
+
+  (testing "both ns names appear in output"
+    (let [lines (sut/format-change-coupling change-pairs 0.30)]
+      (is (some #(str/includes? % "gordian.output") lines))
+      (is (some #(str/includes? % "gordian.main") lines))
+      (is (some #(str/includes? % "gordian.scan") lines))))
+
+  (testing "coupling values appear"
+    (let [lines (sut/format-change-coupling change-pairs 0.30)]
+      (is (some #(str/includes? % "0.6667") lines))
+      (is (some #(str/includes? % "0.5000") lines))))
+
+  (testing "co-change count appears"
+    (let [lines (sut/format-change-coupling change-pairs 0.30)]
+      (is (some #(str/includes? % " 2") lines))))
+
+  (testing "structural-edge row shows 'yes' without ←"
+    (let [lines  (sut/format-change-coupling change-pairs 0.30)
+          yes-row (first (filter #(str/includes? % "gordian.main") lines))]
+      (is (str/includes? yes-row "yes"))
+      (is (not (str/includes? yes-row "←")))))
+
+  (testing "non-structural row shows ← discovery marker"
+    (let [lines   (sut/format-change-coupling change-pairs 0.30)
+          no-row  (first (filter #(str/includes? % "gordian.scan") lines))]
+      (is (str/includes? no-row "←"))
+      (is (not (str/includes? no-row "yes")))))
+
+  (testing "change section absent from report when no :change-pairs"
+    (let [lines (sut/format-report fixture-report)]
+      (is (not (some #(str/includes? % "change coupling") lines)))))
+
+  (testing "change section present in report when :change-pairs provided"
+    (let [report (assoc fixture-report
+                        :change-pairs change-pairs
+                        :change-threshold 0.30)
+          lines  (sut/format-report report)]
+      (is (some #(str/includes? % "change coupling") lines))
+      (is (some #(str/includes? % "gordian.main") lines)))))
