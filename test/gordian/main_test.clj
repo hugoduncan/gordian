@@ -85,6 +85,25 @@
       (is (clojure.string/includes? out "gordian — namespace"))
       (is (not (clojure.string/includes? out "\"propagation-cost\""))))))
 
+;;; ── analyze / edn output ─────────────────────────────────────────────────
+
+(deftest edn-output-test
+  (testing "--edn outputs parseable EDN to stdout"
+    (let [out    (with-out-str (sut/analyze {:src-dir "test/fixture" :edn true}))
+          parsed (read-string out)]
+      (is (map? parsed))
+      (is (= "test/fixture" (:src-dir parsed)))
+      ;; ns values are symbols, not strings
+      (is (every? symbol? (map :ns (:nodes parsed))))))
+
+  (testing "--edn suppresses human-readable table"
+    (let [out (with-out-str (sut/analyze {:src-dir "test/fixture" :edn true}))]
+      (is (not (str/includes? out "gordian — namespace")))))
+
+  (testing "without --edn outputs human-readable table"
+    (let [out (with-out-str (sut/analyze {:src-dir "test/fixture"}))]
+      (is (str/includes? out "gordian — namespace")))))
+
 ;;; ── print-help ───────────────────────────────────────────────────────────
 
 (deftest print-help-test

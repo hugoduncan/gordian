@@ -8,6 +8,7 @@
             [gordian.output    :as output]
             [gordian.dot       :as dot]
             [gordian.json      :as report-json]
+            [gordian.edn       :as report-edn]
             [babashka.cli      :as cli]))
 
 ;;; ── CLI spec ─────────────────────────────────────────────────────────────
@@ -76,18 +77,19 @@ Examples:
 
 (defn analyze
   "Run analysis with parsed opts map.
-  :src-dir   — required source directory
-  :dot <file>— write Graphviz DOT to <file>
-  :json true — print JSON to stdout (suppresses human-readable table)
-  :edn  true — handled in next step"
-  [{:keys [src-dir dot json]}]
+  :src-dir    — required source directory
+  :dot <file> — write Graphviz DOT to <file> (stderr status line)
+  :json true  — print JSON to stdout, suppress human-readable table
+  :edn  true  — print EDN to stdout, suppress human-readable table"
+  [{:keys [src-dir dot json edn]}]
   (let [report (build-report src-dir)]
     (when dot
       (spit dot (dot/generate report))
       (binding [*out* *err*] (println (str "DOT written to " dot))))
-    (if json
-      (println (report-json/generate report))
-      (output/print-report report))))
+    (cond
+      json (println (report-json/generate report))
+      edn  (print   (report-edn/generate  report))
+      :else (output/print-report report))))
 
 (defn run [args]
   (let [opts (parse-args args)]
