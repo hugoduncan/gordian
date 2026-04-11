@@ -69,8 +69,18 @@ Payload keys (alongside envelope):
  :ca          integer     ; afferent coupling (direct dependents)
  :ce          integer     ; efferent coupling (direct dependencies)
  :instability double      ; Ce / (Ca + Ce), ∈ [0, 1]
- :role        keyword}    ; :core, :peripheral, :shared, or :isolated
+ :role        keyword     ; :core, :peripheral, :shared, or :isolated
+ :family      string      ; namespace family prefix (parent, drop last segment)
+ :ca-family   integer     ; direct dependents in same family
+ :ca-external integer     ; direct dependents outside family
+ :ce-family   integer     ; direct dependencies in same family
+ :ce-external integer}    ; direct dependencies outside family
 ```
+
+Family-scoped metrics decompose Ca and Ce by namespace family boundary.
+`Ca = Ca-family + Ca-external`, `Ce = Ce-family + Ce-external`.
+Family is determined by dropping the last dot-separated segment
+(`gordian.scan` → `"gordian"`, `psi.agent-session.core` → `"psi.agent-session"`).
 
 ### Conceptual pair shape
 
@@ -135,6 +145,8 @@ Finding categories:
 - `hidden-change` — co-changing in git, no structural edge (medium)
 - `sdp-violation` — high Ca but high instability (medium)
 - `god-module` — shared role with extreme reach and fan-in (medium)
+- `facade` — would be god-module but matches façade pattern: high Ca-external,
+  low Ce-external, delegates to family siblings (low)
 - `hub` — very high reach (low)
 
 ---

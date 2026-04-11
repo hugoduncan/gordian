@@ -187,7 +187,7 @@ Add metadata envelope to all command outputs:
 
 ### 7. Façade-aware interpretation
 
-**Status:** todo
+**Status:** ✅ done (3fcf27b)
 
 Detect façade pattern: high Ca, low direct Ce, delegates to family submodules.
 - New `:facade` role or `:likely-facade` annotation
