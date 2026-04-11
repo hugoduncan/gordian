@@ -69,3 +69,80 @@ Search terms that surface the rest of the literature: *propagation cost
 software*, *design structure matrix software architecture*, *architectural
 complexity MacCormack*, *software coupling metrics empirical*, *software as a
 complex network*.
+
+
+## Change coupling (logical / evolutionary coupling)
+
+- Gall, H., Hajek, K., & Jazayeri, M. (1998). *Detection of Logical Coupling
+  Based on Product Release History*. Proceedings of ICSM 1998, 190–198.
+
+- Gall, H., Jazayeri, M., & Krajewski, J. (2003). *CVS Release History Data for
+  Detecting Logical Coupling*. IWPSE 2003.
+
+- Zimmermann, T., Weißgerber, P., Diehl, S., & Zeller, A. (2005). *Mining
+  Version Histories to Guide Software Changes*. IEEE Transactions on Software
+  Engineering, 31(6), 429–445.
+
+- D'Ambros, M., Lanza, M., & Robbes, R. (2009). *On the Relationship Between
+  Change Coupling and Software Defects*. WCRE 2009.
+
+- Oliva, G. A., & Gerosa, M. A. (2015). *Experience Report: How Do Structural
+  Dependencies Influence Change Propagation? An Empirical Study*. ISSRE 2015.
+
+## Architecture conformance and layering violations
+
+- Murphy, G. C., Notkin, D., & Sullivan, K. (1995). *Software Reflexion Models:
+  Bridging the Gap Between Source and High-Level Models*. FSE 1995. Extended
+  in IEEE Transactions on Software Engineering (2001), 27(4), 364–380.
+
+- Koschke, R., & Simon, D. (2003). *Hierarchical Reflexion Models*. WCRE 2003.
+
+- Passos, L., Terra, R., Valente, M. T., Diniz, R., & Mendonca, N. (2010).
+  *Static Architecture-Conformance Checking: An Illustrative Overview*. IEEE
+  Software, 27(5), 82–89.
+
+- Herold, S., & Rausch, A. (2013). *Complementing Model-Driven Development for
+  the Detection of Software Architecture Erosion*. MiSE 2013.
+
+### Tooling prior art
+
+- **ArchUnit** — architecture conformance testing for Java.
+- **dependency-cruiser** — dependency rule enforcement for JavaScript.
+
+## Conceptual coupling (TF-IDF cosine similarity on namespace vocabulary)
+
+gordian's conceptual coupling analysis extracts terms from namespace names,
+function names, and docstrings; builds TF-IDF vectors per namespace; and
+ranks pairs by cosine similarity.  Terms are normalised by a targeted English
+suffix stemmer (Porter-style rules for -ing, -ed, -er, -able, -ness, -ly,
+-es, -s) and a stop-word list.
+
+### Conceptual coupling metrics
+
+- Poshyvanyk, D., & Marcus, A. (2006). *The Conceptual Coupling Metrics for
+  Object-Oriented Systems*. ICSM 2006, 469–478.  Original definition of
+  conceptual coupling between classes using IR techniques.
+
+- Poshyvanyk, D., Gueheneuc, Y.-G., Marcus, A., Antoniol, G., & Rajlich, V.
+  (2007). *Feature Location Using Probabilistic Ranking of Methods Based on
+  Execution Scenarios and Information Retrieval*. IEEE Transactions on
+  Software Engineering, 33(6), 420–432.
+
+- Bavota, G., Dit, B., Oliveto, R., Di Penta, M., Poshyvanyk, D., & De Lucia,
+  A. (2013). *An Empirical Study on the Developers' Perception of Software
+  Coupling*. ICSE 2013.
+
+### Information retrieval foundations
+
+- Salton, G., & Buckley, C. (1988). *Term-Weighting Approaches in Automatic
+  Text Retrieval*. Information Processing & Management, 24(5), 513–523.
+  Foundational paper for TF-IDF weighting.
+
+- Porter, M. F. (1980). *An Algorithm for Suffix Stripping*. Program, 14(3),
+  130–137.  The Porter stemmer algorithm; gordian implements a targeted
+  subset of the suffix rules.
+
+### Informal / rationale sources
+
+- Hickey, R. *The Language of the System*. Conference talk.
+- Hickey, R. *Maybe Not*. Clojure/conj talk.

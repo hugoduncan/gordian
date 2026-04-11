@@ -11,12 +11,13 @@ from gordian's own self-analysis.
 ```
 gordian analyze src/
 
-propagation cost: 0.0826  (on average 8.3% of project reachable per change)
+propagation cost: 0.0833  (on average 8.3% of project reachable per change)
 
 namespace               reach   fan-in   Ce   Ca      I  role
 ─────────────────────────────────────────────────────────────
-gordian.main           90.9%    0.0%   10    0  1.00  peripheral
-gordian.aggregate       0.0%    9.1%    0    1  0.00  core
+gordian.main           91.7%    0.0%   11    0  1.00  peripheral
+gordian.conceptual      0.0%   16.7%    0    2  0.00  core
+gordian.aggregate       0.0%    8.3%    0    1  0.00  isolated
 ...
 ```
 
@@ -95,12 +96,109 @@ investigating.  The number is most useful as a trend, not an absolute threshold.
 **Gordian on itself:**
 
 ```
-gordian src/   →   PC = 0.0826
+gordian src/   →   PC = 0.0833
 ```
 
-Star topology: one peripheral entry point (`gordian.main`) and ten independent
+Star topology: one peripheral entry point (`gordian.main`) and independent
 core modules.  PC is low because no module transitively depends on any other
 project module.
+
+---
+
+## Conceptual coupling
+
+Structural coupling (the `require` graph) is not the only way namespaces
+can be coupled.  Two namespaces that share vocabulary — the same function
+names, the same domain terms in their docstrings — are *conceptually coupled*
+even if neither imports the other.
+
+```bash
+gordian src/ --conceptual 0.30
+```
+
+gordian extracts terms from namespace names, function names, and docstrings,
+applies TF-IDF weighting (so common English words and noise are suppressed),
+and reports pairs whose cosine similarity meets the threshold.
+
+### Reading the output
+
+```
+conceptual coupling (sim ≥ 0.20):
+
+namespace-a           namespace-b           sim   structural  shared concepts
+─────────────────────────────────────────────────────────────────────────────
+gordian.close         gordian.aggregate     0.31  no  ←    reach transitive close
+gordian.scan          gordian.main          0.23  yes      file src read
+```
+
+Each row shows a pair of namespaces, their similarity score, whether a
+structural (`require`) edge exists, and the terms most responsible for the
+similarity.
+
+**`←` rows (no structural edge)** are the primary discovery signal.
+`gordian.close` and `gordian.aggregate` share vocabulary around reachability
+(`reach`, `transitive`, `close`) but neither requires the other.  This is
+expected here — they are independent algorithms on the same graph domain —
+but in a less deliberate codebase it might reveal a hidden abstraction waiting
+to be named.
+
+**`yes` rows (structural edge)** confirm that the structural coupling is
+*about* the right thing.  `gordian.scan` and `gordian.main` are coupled on
+file/directory IO vocabulary (`file`, `src`, `read`), which is exactly what
+you'd expect: `main` orchestrates `scan`'s IO work.  If the shared terms
+looked unrelated to what the dependency is supposed to be, that would be worth
+investigating.
+
+### What the shared concepts column tells you
+
+The similarity score tells you how similar two namespaces are.  The shared
+concepts tell you *why*.  Without the terms you would have to read both files
+to understand the relationship; with them the nature of the coupling is
+immediately visible.
+
+Three patterns to watch for:
+
+**1. Hidden concept (← row, domain terms)**
+
+```
+my.app.invoice    my.app.payment    0.45  no  ←   amount due total format
+```
+
+Both namespaces talk about amounts, due dates, and formatting but neither
+requires the other.  This is often a sign that a shared abstraction (`Money`,
+`LineItem`) exists in the domain but has not been given a home in the code.
+
+**2. Accidental concept (yes row, unrelated terms)**
+
+```
+my.app.render    my.app.database    0.38  yes    row col format table
+```
+
+`render` requires `database`, and they share table/column vocabulary.  The
+structural dependency is real, but the conceptual overlap suggests rendering
+logic has drifted into the database layer (or vice versa).  The shared terms
+name the leakage.
+
+**3. Expected concept (yes row, domain terms)**
+
+```
+my.app.invoice    my.app.invoice-pdf    0.61  yes    invoice line total format
+```
+
+High similarity, structural edge, domain terms: the coupling is intentional and
+well-named.  Nothing to do here.
+
+### Threshold guidance
+
+| threshold | what you see |
+|-----------|-------------|
+| 0.15–0.25 | Many pairs, including weak signals; useful for exploration |
+| 0.25–0.40 | Strong signals only; good for routine audits |
+| 0.40+     | Only the most tightly coupled pairs |
+
+Start at 0.20 to explore.  For a routine check, 0.30 is a reasonable default.
+The score is most useful as a ranking — the highest-scoring `←` rows are the
+most actionable.
 
 ---
 
@@ -128,19 +226,19 @@ reading the test code.
 **Gordian on itself:**
 
 ```
-gordian src/ test/   →   PC = 0.0983
+gordian src/ test/   →   PC = 0.0944
 
-gordian.integration-test   47.8%   isolated  ← pipeline tests, correctly labelled
-gordian.main-test          47.8%             ← tests the wiring layer, expected
-gordian.output-test        47.8%             ← tests formatted output via pipeline
-gordian.aggregate-test      4.3%   isolated  ← unit test
-gordian.close-test          4.3%   isolated  ← unit test
-gordian.dot-test            4.3%   isolated  ← unit test
-gordian.scc-test            4.3%   isolated  ← unit test
+gordian.integration-test   48.0%   peripheral  ← pipeline tests, correctly labelled
+gordian.main-test          48.0%   peripheral  ← tests the wiring layer, expected
+gordian.output-test        48.0%   peripheral  ← tests formatted output via pipeline
+gordian.aggregate-test      4.0%   isolated    ← unit test
+gordian.close-test          4.0%   isolated    ← unit test
+gordian.conceptual-test     4.0%   isolated    ← unit test
+gordian.dot-test            4.0%   isolated    ← unit test
 ...
 ```
 
-The nine module tests each require exactly one project namespace with no further
+The module tests each require exactly one project namespace with no further
 project deps; they are pure unit tests and the metric confirms it.
 
 **A test namespace with unexpectedly high reach** is the most common signal that
@@ -163,10 +261,10 @@ directly exercised.
 
 ```
 ;; src/ view
-gordian.close    Ca=1   core   (only gordian.main depends on it)
+gordian.close    Ca=1   isolated   (only gordian.main depends on it)
 
 ;; src/ test/ view
-gordian.close    Ca=2   core   (main + close-test)
+gordian.close    Ca=2   core       (main + close-test)
 ```
 
 `gordian.close-test` shows up in the Ca count, confirming direct test coverage.
@@ -188,15 +286,14 @@ A test namespace with Ca > 0 means one of:
 ### Interpret the PC delta
 
 ```
-gordian src/        →  PC = 0.0826
-gordian src/ test/  →  PC = 0.0983
+gordian src/        →  PC = 0.0833
+gordian src/ test/  →  PC = 0.0944
 ```
 
-The increase (0.0826 → 0.0983) reflects how broadly the tests connect to the
-source graph.  A small increase is healthy: tests are targeted.  A large
-increase means tests are pulling in wide swathes of the project, which often
-indicates either over-coupled tests or insufficient isolation in the source
-itself.
+The increase reflects how broadly the tests connect to the source graph.  A
+small increase is healthy: tests are targeted.  A large increase means tests
+are pulling in wide swathes of the project, which often indicates either
+over-coupled tests or insufficient isolation in the source itself.
 
 If PC barely changes when you add tests, your tests are not exercising the
 coupling structure — likely all integration tests testing only the outermost
