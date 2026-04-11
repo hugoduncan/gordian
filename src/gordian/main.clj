@@ -203,9 +203,10 @@ Examples:
                            :cycles   (scc/find-cycles direct)))
          report (if conceptual-threshold
                   (let [tfidf  (conceptual/build-tfidf ns->terms)
-                        result (conceptual/conceptual-pairs tfidf direct conceptual-threshold 3)]
+                        result (conceptual/conceptual-pairs tfidf direct conceptual-threshold 3)
+                        pairs  (family/annotate-conceptual-pairs (:pairs result))]
                     (assoc report
-                           :conceptual-pairs           (:pairs result)
+                           :conceptual-pairs           pairs
                            :conceptual-candidate-count (:candidate-count result)
                            :conceptual-threshold       conceptual-threshold))
                   report)]

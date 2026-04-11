@@ -95,6 +95,16 @@
         (is (= ca (+ ca-family ca-external))
             (str ns " Ca decomposition"))))))
 
+(deftest family-annotation-pipeline-test
+  (testing "conceptual pairs have family annotation"
+    (let [report (main/build-report fixture-dirs 0.01)]
+      (doseq [p (:conceptual-pairs report)]
+        (is (contains? p :same-family?) (str (:ns-a p) " ↔ " (:ns-b p)))
+        (is (contains? p :family-terms))
+        (is (contains? p :independent-terms))
+        (is (vector? (:family-terms p)))
+        (is (vector? (:independent-terms p)))))))
+
 (deftest multi-dir-pipeline-test
   (testing "two dirs merged — all namespaces present"
     (let [report (main/build-report ["resources/fixture"
