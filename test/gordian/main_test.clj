@@ -175,6 +175,48 @@
       (is (str/includes? out "--include-tests"))
       (is (str/includes? out "--exclude")))))
 
+;;; ── parse-args / diagnose subcommand ──────────────────────────────────────
+
+(deftest parse-args-diagnose-test
+  (testing "diagnose . → command :diagnose"
+    (let [opts (sut/parse-args ["diagnose" "."])]
+      (is (= :diagnose (:command opts)))
+      (is (= ["."] (:src-dirs opts)))))
+
+  (testing "diagnose alone → command :diagnose, defaults to ."
+    (let [opts (sut/parse-args ["diagnose"])]
+      (is (= :diagnose (:command opts)))
+      (is (= ["."] (:src-dirs opts)))))
+
+  (testing "diagnose with --conceptual override"
+    (let [opts (sut/parse-args ["diagnose" "." "--conceptual" "0.30"])]
+      (is (= :diagnose (:command opts)))
+      (is (= 0.30 (:conceptual opts)))))
+
+  (testing "plain src/ → no :command (backward compat)"
+    (is (nil? (:command (sut/parse-args ["src/"])))))
+
+  (testing "analyze subcommand → no :command"
+    (is (nil? (:command (sut/parse-args ["analyze" "src/"]))))))
+
+;;; ── diagnose integration ─────────────────────────────────────────────────
+
+(deftest diagnose-integration-test
+  (testing "diagnose on fixture-project produces output"
+    (let [out (with-out-str
+                (sut/diagnose-cmd {:src-dirs ["resources/fixture-project/src"]}))]
+      (is (str/includes? out "gordian diagnose"))
+      (is (str/includes? out "HEALTH"))))
+
+  (testing "diagnose with --edn includes :findings"
+    (let [out (with-out-str
+                (sut/diagnose-cmd {:src-dirs ["resources/fixture-project/src"]
+                                   :edn true}))
+          parsed (read-string out)]
+      (is (contains? parsed :findings))
+      (is (contains? parsed :health))
+      (is (vector? (:findings parsed))))))
+
 ;;; ── parse-args / --include-tests + --exclude ─────────────────────────────
 
 (deftest parse-args-include-tests-test

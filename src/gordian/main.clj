@@ -9,6 +9,7 @@
             [gordian.conceptual  :as conceptual]
             [gordian.git         :as git]
             [gordian.cc-change   :as cc-change]
+            [gordian.diagnose    :as diagnose]
             [gordian.discover    :as discover]
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
@@ -32,10 +33,14 @@
    :help          {:desc "Show this help message"                   :coerce :boolean}})
 
 (def ^:private usage-summary
-  "Usage: gordian [analyze] [<dir-or-src>...] [options]
+  "Usage: gordian [analyze|diagnose] [<dir-or-src>...] [options]
 
 When given a project root (dir with deps.edn, bb.edn, etc.), gordian
 auto-discovers source directories. With no arguments, defaults to '.'.
+
+Commands:
+  analyze   (default) Raw metrics table + optional coupling sections
+  diagnose  Ranked findings with severity levels (auto-enables all lenses)
 
 Options:
   --dot  <file>         Write Graphviz DOT graph to <file>
@@ -58,7 +63,9 @@ Examples:
   gordian src/ test/                  explicit multiple dirs
   gordian src/ --conceptual 0.30
   gordian src/ --change
-  gordian src/ --change --change-since \"90 days ago\"")
+  gordian src/ --change --change-since \"90 days ago\"
+  gordian diagnose                    ranked findings (auto-enables all lenses)
+  gordian diagnose . --edn            machine-readable diagnose output")
 
 (defn print-help []
   (println usage-summary))
@@ -66,17 +73,22 @@ Examples:
 ;;; ── arg parsing ──────────────────────────────────────────────────────────
 
 (defn parse-args
-  "Parse command-line args. Strips optional 'analyze' subcommand.
+  "Parse command-line args. Recognises 'analyze' and 'diagnose' subcommands.
   Positional args are treated as dirs (project roots or explicit src-dirs).
   No positional args → defaults to [\".\"] for auto-discovery.
   Returns one of:
     {:help true}
     {:error <msg>}
-    {:src-dirs [<s> ...] ...opts}"
+    {:src-dirs [<s> ...] ...opts}
+    {:command :diagnose :src-dirs [<s> ...] ...opts}"
   [raw-args]
-  (let [raw-args (if (= "analyze" (first raw-args)) (rest raw-args) raw-args)
+  (let [command  (when (#{"analyze" "diagnose"} (first raw-args)) (first raw-args))
+        raw-args (if command (rest raw-args) raw-args)
         {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})
-        src-dirs (if (seq args) (vec args) ["."])]
+        src-dirs (if (seq args) (vec args) ["."])
+        opts     (if (= "diagnose" command)
+                   (assoc opts :command :diagnose)
+                   opts)]
     (cond
       (:help opts)                     {:help true}
       (and (:json opts) (:edn opts))   {:error "--json and --edn are mutually exclusive"}
@@ -196,6 +208,24 @@ Examples:
       edn  (print   (report-edn/generate  report))
       :else (output/print-report report))))
 
+(defn diagnose-cmd
+  "Run diagnose with resolved opts map.
+  Auto-enables conceptual (0.15) and change (.) when not explicitly set."
+  [{:keys [src-dirs json edn conceptual change change-since exclude]}]
+  (let [conceptual  (or conceptual 0.15)
+        change      (if (nil? change) true change)
+        change-dir  (when change (if (string? change) change "."))
+        change-opts (when change-dir {:change change-dir :since change-since})
+        report      (build-report src-dirs conceptual change-opts exclude)
+        health      (diagnose/health report)
+        findings    (diagnose/diagnose report)]
+    (cond
+      json (println (report-json/generate
+                     (assoc report :findings findings :health health)))
+      edn  (print   (report-edn/generate
+                     (assoc report :findings findings :health health)))
+      :else (output/print-diagnose report health findings))))
+
 (defn run [args]
   (let [parsed (parse-args args)]
     (cond
@@ -210,7 +240,9 @@ Examples:
                               (println)
                               (print-help)
                               (System/exit 1))
-                          (analyze opts))))))
+                          (if (= :diagnose (:command opts))
+                            (diagnose-cmd opts)
+                            (analyze opts)))))))
 
 (defn -main [& args]
   (run args))
