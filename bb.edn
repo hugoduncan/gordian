@@ -1,0 +1,15 @@
+{:paths ["src" "test"]
+ :tasks
+ {:requires ([gordian.main :as main]
+             [clojure.test :as t])
+
+  analyze {:doc  "Analyze namespace coupling: bb analyze <src-dir>"
+           :task (main/run *command-line-args*)}
+
+  test    {:doc  "Run all tests"
+           :task (do (require 'gordian.main-test
+                              'gordian.scan-test
+                              'gordian.close-test
+                              'gordian.aggregate-test)
+                     (let [r (t/run-all-tests (re-pattern "gordian\\..*-test"))]
+                       (System/exit (if (pos? (+ (:fail r) (:error r))) 1 0))))}}}
