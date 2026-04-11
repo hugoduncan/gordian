@@ -107,10 +107,14 @@
            'x.scan #{'ext.fs}
            'x.close #{}
            'x.scc  #{}}
-   :nodes [{:ns 'x.main  :reach 0.5 :fan-in 0.0 :ca 0 :ce 2 :instability 1.0 :role :peripheral}
-           {:ns 'x.scan  :reach 0.0 :fan-in 0.25 :ca 1 :ce 0 :instability 0.0 :role :core}
-           {:ns 'x.close :reach 0.0 :fan-in 0.25 :ca 1 :ce 0 :instability 0.0 :role :core}
-           {:ns 'x.scc   :reach 0.0 :fan-in 0.0 :ca 0 :ce 0 :instability 0.0 :role :isolated}]
+   :nodes [{:ns 'x.main  :reach 0.5 :fan-in 0.0 :ca 0 :ce 2 :instability 1.0 :role :peripheral
+            :family "x" :ca-family 0 :ca-external 0 :ce-family 2 :ce-external 0}
+           {:ns 'x.scan  :reach 0.0 :fan-in 0.25 :ca 1 :ce 0 :instability 0.0 :role :core
+            :family "x" :ca-family 1 :ca-external 0 :ce-family 0 :ce-external 0}
+           {:ns 'x.close :reach 0.0 :fan-in 0.25 :ca 1 :ce 0 :instability 0.0 :role :core
+            :family "x" :ca-family 1 :ca-external 0 :ce-family 0 :ce-external 0}
+           {:ns 'x.scc   :reach 0.0 :fan-in 0.0 :ca 0 :ce 0 :instability 0.0 :role :isolated
+            :family "x" :ca-family 0 :ca-external 0 :ce-family 0 :ce-external 0}]
    :cycles [#{'x.scan 'x.close}]
    :propagation-cost 0.05
    :conceptual-pairs
@@ -133,6 +137,13 @@
     (testing ":metrics has node metrics"
       (is (= 0.0 (get-in result [:metrics :reach])))
       (is (= :core (get-in result [:metrics :role]))))
+
+    (testing ":metrics includes family-scoped metrics"
+      (is (= "x" (get-in result [:metrics :family])))
+      (is (= 1 (get-in result [:metrics :ca-family])))
+      (is (= 0 (get-in result [:metrics :ca-external])))
+      (is (= 0 (get-in result [:metrics :ce-family])))
+      (is (= 0 (get-in result [:metrics :ce-external]))))
 
     (testing ":direct-deps splits project/external"
       (is (empty? (get-in result [:direct-deps :project])))

@@ -69,7 +69,9 @@
        :available (vec (sort-by str project-nss))}
       (let [node (first (filter #(= ns-sym (:ns %)) nodes))]
         {:ns                ns-sym
-         :metrics           (select-keys node [:reach :fan-in :ca :ce :instability :role])
+         :metrics           (select-keys node [:reach :fan-in :ca :ce :instability :role
+                                               :family :ca-family :ca-external
+                                               :ce-family :ce-external])
          :direct-deps       (direct-deps graph project-nss ns-sym)
          :direct-dependents (direct-dependents graph ns-sym)
          :conceptual-pairs  (ns-pairs (or conceptual-pairs []) ns-sym)

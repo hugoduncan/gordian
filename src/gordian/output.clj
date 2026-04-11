@@ -287,6 +287,11 @@
              "   fan-in: " (if (:fan-in metrics)
                              (format "%.1f%%" (* 100.0 (:fan-in metrics)))
                              "-"))
+        (str "  family: " (or (:family metrics) "-")
+             "    Ca-fam=" (or (:ca-family metrics) "-")
+             "  Ca-ext=" (or (:ca-external metrics) "-")
+             "  Ce-fam=" (or (:ce-family metrics) "-")
+             "  Ce-ext=" (or (:ce-external metrics) "-"))
         ""
         (str "DIRECT DEPENDENCIES (" (count (:project direct-deps))
              " project, " (count (:external direct-deps)) " external)")
@@ -558,7 +563,12 @@
       (str "| Reach | " (if (:reach metrics)
                           (md-pct (:reach metrics)) "-") " |")
       (str "| Fan-in | " (if (:fan-in metrics)
-                           (md-pct (:fan-in metrics)) "-") " |")]
+                           (md-pct (:fan-in metrics)) "-") " |")
+      (str "| Family | `" (or (:family metrics) "-") "` |")
+      (str "| Ca-family | " (or (:ca-family metrics) "-") " |")
+      (str "| Ca-external | " (or (:ca-external metrics) "-") " |")
+      (str "| Ce-family | " (or (:ce-family metrics) "-") " |")
+      (str "| Ce-external | " (or (:ce-external metrics) "-") " |")]
      (concat
       ;; deps
       ["" "## Direct Dependencies" ""
