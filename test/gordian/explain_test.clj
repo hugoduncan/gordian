@@ -100,6 +100,76 @@
   (testing "empty pairs → empty"
     (is (empty? (sut/ns-pairs [] 'a)))))
 
+;;; ── verdict ──────────────────────────────────────────────────────────────
+
+(deftest verdict-test
+  (testing "1. direct structural edge → :expected-structural"
+    (let [v (sut/verdict {:direct-edge? true :shortest-path ['a 'b]}
+                         {:score 0.30 :same-family? true :independent-terms ["x"]}
+                         {:score 0.40})]
+      (is (= :expected-structural (:category v)))))
+
+  (testing "2. hidden + same-family + no independent → :family-naming-noise"
+    (let [v (sut/verdict {:direct-edge? false :shortest-path nil}
+                         {:score 0.25 :same-family? true
+                          :family-terms ["agent" "session"]
+                          :independent-terms []}
+                         nil)]
+      (is (= :family-naming-noise (:category v)))))
+
+  (testing "3. hidden + same-family + independent terms → :family-siblings"
+    (let [v (sut/verdict {:direct-edge? false :shortest-path nil}
+                         {:score 0.30 :same-family? true
+                          :family-terms ["session"]
+                          :independent-terms ["mutation"]}
+                         nil)]
+      (is (= :family-siblings (:category v)))))
+
+  (testing "4. hidden + conceptual + change + cross-family → :likely-missing-abstraction"
+    (let [v (sut/verdict {:direct-edge? false :shortest-path nil}
+                         {:score 0.35 :same-family? false
+                          :independent-terms ["data"]}
+                         {:score 0.40 :co-changes 5})]
+      (is (= :likely-missing-abstraction (:category v)))))
+
+  (testing "5. hidden + conceptual only + cross-family → :hidden-conceptual"
+    (let [v (sut/verdict {:direct-edge? false :shortest-path nil}
+                         {:score 0.25 :same-family? false
+                          :independent-terms ["file"]}
+                         nil)]
+      (is (= :hidden-conceptual (:category v)))))
+
+  (testing "6. hidden + change only → :hidden-change"
+    (let [v (sut/verdict {:direct-edge? false :shortest-path nil}
+                         nil
+                         {:score 0.50 :co-changes 3})]
+      (is (= :hidden-change (:category v)))))
+
+  (testing "7. transitive path, no coupling → :transitive-only"
+    (let [v (sut/verdict {:direct-edge? false :shortest-path ['a 'b 'c]}
+                         nil
+                         nil)]
+      (is (= :transitive-only (:category v)))))
+
+  (testing "8. nothing → :unrelated"
+    (let [v (sut/verdict {:direct-edge? false :shortest-path nil}
+                         nil
+                         nil)]
+      (is (= :unrelated (:category v)))))
+
+  (testing "all verdicts have :explanation string"
+    (doseq [[s c x] [[{:direct-edge? true} nil nil]
+                     [{:direct-edge? false} {:same-family? true :independent-terms []} nil]
+                     [{:direct-edge? false} {:same-family? true :independent-terms ["x"]} nil]
+                     [{:direct-edge? false} {:same-family? false :independent-terms ["x"]} {:score 0.4}]
+                     [{:direct-edge? false} {:same-family? false :independent-terms ["x"]} nil]
+                     [{:direct-edge? false} nil {:score 0.4}]
+                     [{:direct-edge? false :shortest-path ['a 'b]} nil nil]
+                     [{:direct-edge? false} nil nil]]]
+      (let [v (sut/verdict s c x)]
+        (is (keyword? (:category v)) (str "category for " s))
+        (is (string? (:explanation v)) (str "explanation for " s))))))
+
 ;;; ── explain-ns ──────────────────────────────────────────────────────────
 
 (def ^:private test-report

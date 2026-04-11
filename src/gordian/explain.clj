@@ -57,6 +57,55 @@
                        (= ns-sym (:ns-b p))))
            pairs))
 
+;;; ── verdict ──────────────────────────────────────────────────────────────
+
+(defn verdict
+  "Derive an opinionated interpretation from explain-pair signals.
+  Returns {:category keyword :explanation string}.
+  Rules evaluated top-down, first match wins.
+  structural — {:direct-edge? bool :shortest-path vec-or-nil}
+  conceptual — conceptual pair map or nil (with family annotation)
+  change     — change pair map or nil"
+  [structural conceptual change]
+  (let [direct?      (:direct-edge? structural)
+        path?        (some? (:shortest-path structural))
+        concept?     (some? conceptual)
+        change?      (some? change)
+        same-fam?    (:same-family? conceptual)
+        independent? (seq (:independent-terms conceptual))]
+    (cond
+      direct?
+      {:category    :expected-structural
+       :explanation "Expected — direct structural dependency."}
+
+      (and concept? same-fam? (not independent?))
+      {:category    :family-naming-noise
+       :explanation "Likely naming similarity — shared terms are from namespace prefix."}
+
+      (and concept? same-fam? independent?)
+      {:category    :family-siblings
+       :explanation "Family siblings with shared domain vocabulary — consider whether a shared abstraction is warranted."}
+
+      (and concept? change? (not same-fam?))
+      {:category    :likely-missing-abstraction
+       :explanation "Likely missing abstraction — hidden in both conceptual and change lenses."}
+
+      (and concept? (not change?) (not same-fam?))
+      {:category    :hidden-conceptual
+       :explanation "Hidden conceptual coupling — shared vocabulary with no structural link."}
+
+      (and (not concept?) change?)
+      {:category    :hidden-change
+       :explanation "Hidden change coupling — co-changing without structural or conceptual link. Possible vestigial dependency."}
+
+      path?
+      {:category    :transitive-only
+       :explanation "Transitively connected only — no direct coupling signal."}
+
+      :else
+      {:category    :unrelated
+       :explanation "No coupling detected."})))
+
 ;;; ── composite explain functions ─────────────────────────────────────────
 
 (defn explain-ns
