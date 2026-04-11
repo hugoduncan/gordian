@@ -33,7 +33,8 @@
 
   test    {:doc         "Run all tests"
            :extra-paths ["test"]
-           :task        (do (require 'gordian.main-test
+           :task        (do (require 'gordian.discover-test
+                                     'gordian.main-test
                                      'gordian.scan-test
                                      'gordian.close-test
                                      'gordian.aggregate-test
