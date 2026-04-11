@@ -413,6 +413,29 @@
     (let [lines (sut/format-explain-pair {:error "not found" :available ['a]})]
       (is (some #(str/includes? % "Error:") lines)))))
 
+(deftest format-explain-pair-verdict-test
+  (testing "verdict section appears in text output"
+    (let [data  (assoc explain-pair-data
+                       :verdict {:category :family-siblings
+                                 :explanation "Family siblings with shared domain vocabulary."})
+          lines (sut/format-explain-pair data)]
+      (is (some #(str/includes? % "VERDICT") lines))
+      (is (some #(str/includes? % "family-siblings") lines))
+      (is (some #(str/includes? % "Family siblings") lines))))
+
+  (testing "verdict section appears in markdown output"
+    (let [data  (assoc explain-pair-data
+                       :verdict {:category :likely-missing-abstraction
+                                 :explanation "Likely missing abstraction."})
+          lines (sut/format-explain-pair-md data)]
+      (is (some #(str/includes? % "## Verdict") lines))
+      (is (some #(str/includes? % "likely missing abstraction") lines))
+      (is (some #(str/includes? % "🔴") lines))))
+
+  (testing "no verdict → no section"
+    (let [lines (sut/format-explain-pair explain-pair-data)]
+      (is (not (some #(str/includes? % "VERDICT") lines))))))
+
 ;;; ── format-report-md ─────────────────────────────────────────────────────
 
 (deftest format-report-md-test

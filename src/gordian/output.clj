@@ -335,7 +335,7 @@
 
 (defn format-explain-pair
   "Format explain-pair data as human-readable lines."
-  [{:keys [ns-a ns-b structural conceptual change finding error available]}]
+  [{:keys [ns-a ns-b structural conceptual change finding verdict error available]}]
   (if error
     [(str "Error: " error)
      (str "Available namespaces: " (str/join ", " (map str available)))]
@@ -375,7 +375,12 @@
                      :high   "● HIGH"
                      :medium "● MEDIUM"
                      :low    "● LOW")
-              " — " (:reason finding))])))))
+              " — " (:reason finding))])
+      (when verdict
+        [""
+         "VERDICT"
+         (str "  " (name (:category verdict)))
+         (str "  " (:explanation verdict))])))))
 
 ;;; ── markdown output ──────────────────────────────────────────────────────
 
@@ -638,9 +643,19 @@
          (str/join "; " (map #(str/join ", " (sort (map str %))) cycles))
          "none")]))))
 
+(def ^:private verdict-emoji
+  {:expected-structural       ""
+   :family-naming-noise       ""
+   :family-siblings           "🟡"
+   :likely-missing-abstraction "🔴"
+   :hidden-conceptual          "🟡"
+   :hidden-change              "🟡"
+   :transitive-only            "🟢"
+   :unrelated                  ""})
+
 (defn format-explain-pair-md
   "Markdown rendering of explain-pair data."
-  [{:keys [ns-a ns-b structural conceptual change finding error available]}]
+  [{:keys [ns-a ns-b structural conceptual change finding verdict error available]}]
   (if error
     [(str "**Error:** " error)
      ""
@@ -689,7 +704,14 @@
                 :medium "🟡"
                 :low    "🟢")
               " **" (str/upper-case (name (:severity finding)))
-              "** — " (:reason finding))])))))
+              "** — " (:reason finding))])
+      ;; verdict
+      (when verdict
+        (let [emoji (get verdict-emoji (:category verdict) "")]
+          ["" "## Verdict" ""
+           (str (when (seq emoji) (str emoji " "))
+                "**" (str/replace (name (:category verdict)) "-" " ")
+                "** — " (:explanation verdict))]))))))
 
 ;;; ── IO ───────────────────────────────────────────────────────────────────
 
