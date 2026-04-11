@@ -31,7 +31,19 @@
     (is (= ["fan" "in"] (sut/tokenize 'fan_in))))
 
   (testing "nil returns nil"
-    (is (nil? (sut/tokenize nil)))))
+    (is (nil? (sut/tokenize nil))))
+
+  (testing "backtick-wrapped token — markdown code style"
+    (is (= ["graph"] (sut/tokenize "`graph`"))))
+
+  (testing "brace-contaminated token from docstring"
+    (is (= ["node"] (sut/tokenize "{node}"))))
+
+  (testing "mixed clojure syntax noise stripped"
+    (is (= ["return" "dep"] (sut/tokenize "return: #{dep}"))))
+
+  (testing "ellipsis and punctuation stripped"
+    (is (= ["ns" "deps"] (sut/tokenize "{ns→#{deps}}")))))
 
 ;;; ── term-freqs ────────────────────────────────────────────────────────────
 

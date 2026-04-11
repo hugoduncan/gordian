@@ -10,11 +10,12 @@
 
 (defn tokenize
   "Split a string or symbol into lowercase terms.
-  Splits on hyphens, underscores, dots, slashes, and whitespace.
+  Splits on any non-alphanumeric character — handles kebab-case, dots,
+  slashes, backticks, braces, markdown punctuation, and all other noise.
   Drops tokens shorter than 2 characters."
   [s]
   (when s
-    (->> (str/split (str/lower-case (str s)) #"[-_./\s]+")
+    (->> (str/split (str/lower-case (str s)) #"[^a-zA-Z0-9]+")
          (remove #(< (count %) 2)))))
 
 ;;; ── TF-IDF ────────────────────────────────────────────────────────────────
