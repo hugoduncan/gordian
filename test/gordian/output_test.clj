@@ -299,6 +299,36 @@
     (testing "summary line shows counts"
       (is (some #(str/includes? % "1 high, 1 medium, 1 low") lines)))))
 
+(deftest format-diagnose-family-noise-test
+  (let [report   {:src-dirs ["src/"]}
+        findings [{:severity :low
+                   :category :hidden-conceptual
+                   :subject {:ns-a 'psi.session.core :ns-b 'psi.session.ui}
+                   :reason "hidden conceptual coupling — score=0.30 — likely naming similarity"
+                   :evidence {:score 0.30 :shared-terms ["session" "psi"]
+                              :same-family? true
+                              :family-terms ["session" "psi"]
+                              :independent-terms []}}
+                  {:severity :medium
+                   :category :hidden-conceptual
+                   :subject {:ns-a 'psi.session.core :ns-b 'psi.session.mutations}
+                   :reason "hidden conceptual coupling — score=0.35"
+                   :evidence {:score 0.35 :shared-terms ["session" "mutation"]
+                              :same-family? true
+                              :family-terms ["session"]
+                              :independent-terms ["mutation"]}}]
+        lines    (sut/format-diagnose report diagnose-health findings)]
+
+    (testing "family-noise finding shows family terms line"
+      (is (some #(str/includes? % "family terms: session, psi") lines)))
+
+    (testing "mixed finding shows both family and independent terms"
+      (is (some #(str/includes? % "family terms: session") lines))
+      (is (some #(str/includes? % "independent: mutation") lines)))
+
+    (testing "naming similarity appears in reason"
+      (is (some #(str/includes? % "naming similarity") lines)))))
+
 ;;; ── format-explain-ns ────────────────────────────────────────────────────
 
 (def ^:private explain-ns-data

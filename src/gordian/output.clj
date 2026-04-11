@@ -178,8 +178,17 @@
      "  → no structural edge"]
 
     :hidden-conceptual
-    [(str "  shared terms: " (str/join ", " (:shared-terms evidence)))
-     "  → no structural edge"]
+    (if (and (:same-family? evidence)
+             (seq (:family-terms evidence)))
+      (cond-> [(str "  shared terms: " (str/join ", " (:shared-terms evidence)))]
+        (seq (:family-terms evidence))
+        (conj (str "  family terms: " (str/join ", " (:family-terms evidence))))
+        (seq (:independent-terms evidence))
+        (conj (str "  independent: " (str/join ", " (:independent-terms evidence))))
+        true
+        (conj "  → no structural edge"))
+      [(str "  shared terms: " (str/join ", " (:shared-terms evidence)))
+       "  → no structural edge"])
 
     :hidden-change
     [(str "  " (:co-changes evidence) " co-changes"
@@ -463,8 +472,17 @@
      "- → No structural edge"]
 
     :hidden-conceptual
-    [(str "- Shared terms: " (str/join ", " (:shared-terms evidence)))
-     "- → No structural edge"]
+    (if (and (:same-family? evidence)
+             (seq (:family-terms evidence)))
+      (cond-> [(str "- Shared terms: " (str/join ", " (:shared-terms evidence)))]
+        (seq (:family-terms evidence))
+        (conj (str "- Family terms: " (str/join ", " (:family-terms evidence))))
+        (seq (:independent-terms evidence))
+        (conj (str "- Independent: " (str/join ", " (:independent-terms evidence))))
+        true
+        (conj "- → No structural edge"))
+      [(str "- Shared terms: " (str/join ", " (:shared-terms evidence)))
+       "- → No structural edge"])
 
     :hidden-change
     [(str "- " (:co-changes evidence) " co-changes"
