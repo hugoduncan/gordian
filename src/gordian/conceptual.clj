@@ -191,6 +191,34 @@
         terms (->> contribs (sort-by second >) (take n) (mapv first))]
     [dot terms]))
 
+(def ^:private n-cores
+  "Available CPU cores — used to size parallel work chunks."
+  (.availableProcessors (Runtime/getRuntime)))
+
+(defn- pair-chunk-size
+  "Target ~200 chunks so each chunk is large enough to amortise pmap
+  dispatch overhead (~0.1 ms) while keeping load well balanced.
+  Floor of 50 pairs ensures tiny candidate sets don't over-chunk."
+  [n-candidates]
+  (max 50 (quot n-candidates 200)))
+
+(defn- eval-candidates
+  "Evaluate a seq of [a b] candidate pairs against unit-tfidf vectors.
+  Returns a *vector* (not a lazy seq) of result maps for pairs meeting threshold.
+  Using into [] forces full evaluation inside the pmap future so the work
+  runs on a worker thread, not lazily on the calling thread during concat."
+  [unit graph threshold n-terms pairs]
+  (into []
+    (keep (fn [[a b]]
+            (let [[sim terms] (dot-and-top-terms (get unit a) (get unit b) n-terms)]
+              (when (>= sim threshold)
+                {:ns-a             a
+                 :ns-b             b
+                 :sim              sim
+                 :structural-edge? (structural-edge? graph a b)
+                 :shared-terms     terms}))))
+    pairs))
+
 (defn conceptual-pairs
   "Compute all namespace pairs whose conceptual similarity meets threshold.
   Returns a vector of maps sorted by :sim desc:
@@ -205,7 +233,10 @@
   - Vectors pre-normalized to unit length → cosine = dot product (no sqrt per pair).
   - Inverted index (term → #{ns}) prunes pairs with zero dot product before
     any arithmetic: only namespace pairs that share ≥1 term are evaluated.
-  - dot product and top-n terms computed in a single fused pass per pair."
+  - dot product and top-n terms computed in a single fused pass per pair.
+  - Candidates partitioned into coarse chunks; pmap dispatches one future per
+    chunk rather than one per pair — amortises thread-dispatch overhead for
+    the microsecond-scale work of evaluating a single pair."
   ([tfidf graph] (conceptual-pairs tfidf graph 0.30 3))
   ([tfidf graph threshold] (conceptual-pairs tfidf graph threshold 3))
   ([tfidf graph threshold n-terms]
@@ -222,17 +253,11 @@
                                 (for [a nss b nss
                                       :when (neg? (compare (str a) (str b)))]
                                   [a b]))
-                              (vals t->nss)))]
-     (->> candidates
-          (pmap (fn [[a b]]
-                  (let [[sim terms] (dot-and-top-terms (get unit a) (get unit b) n-terms)]
-                    (when (>= sim threshold)
-                      {:ns-a             a
-                       :ns-b             b
-                       :sim              sim
-                       :structural-edge? (structural-edge? graph a b)
-                       :shared-terms     terms}))))
-          (keep identity)
+                              (vals t->nss)))
+         chunk-size (pair-chunk-size (count candidates))]
+     (->> (partition-all chunk-size candidates)
+          (pmap #(eval-candidates unit graph threshold n-terms %))
+          (into [] cat)          ; eager flatten — avoids lazy apply-concat on main thread
           (sort-by :sim >)
           vec))))
 
