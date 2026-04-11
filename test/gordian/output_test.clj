@@ -130,11 +130,11 @@
       (is (str/includes? no-row "report"))
       (is (str/includes? no-row "format"))))
 
-  (testing "structural-edge row shows 'yes' and no shared terms"
+  (testing "structural-edge row shows 'yes' and shared terms"
     (let [lines (sut/format-conceptual sample-pairs 0.30)
           yes-row (first (filter #(str/includes? % "gordian.classify") lines))]
       (is (str/includes? yes-row "yes"))
-      (is (not (str/includes? yes-row "cycle")))))
+      (is (str/includes? yes-row "cycle"))))
 
   (testing "similarity score appears"
     (let [lines (sut/format-conceptual sample-pairs 0.30)]

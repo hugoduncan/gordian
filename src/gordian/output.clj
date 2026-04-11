@@ -48,8 +48,8 @@
 (defn format-conceptual
   "Return a vector of lines for the conceptual coupling section.
   Returns [] when pairs is empty — the section is omitted entirely.
-  Shared terms shown only for pairs without a structural edge (the discovery
-  rows); structural pairs show score only to reduce noise."
+  Shared terms shown for all pairs: ← flags no-structural-edge rows (the
+  discovery rows); terms on structural rows show what the coupling is about."
   [pairs threshold]
   (if (empty? pairs)
     []
@@ -68,8 +68,8 @@
                    "  " (pad-right ns-col (str ns-b))
                    "  " (format "%4.2f" (double sim))
                    "  " (if structural-edge?
-                           "yes"
-                           (str "no  ←   " (str/join " " shared-terms)))))
+                           (str "yes      " (str/join " " shared-terms))
+                           (str "no  ←    " (str/join " " shared-terms)))))
             pairs)))))
 
 ;;; ── full report ──────────────────────────────────────────────────────────
