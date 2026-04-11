@@ -63,9 +63,22 @@
                               :role (:role node)}})))
         nodes))
 
+(defn- facade?
+  "True if the node looks like a façade: high external fan-in,
+  low external efferent coupling, delegates to family siblings.
+  Requires family-scoped metrics on the node."
+  [{:keys [ca-external ce-external ce-family]}]
+  (and (some? ca-external)
+       (>= ca-external 2)
+       (<= (or ce-external 0) 1)
+       (>= (or ce-family 0) 1)))
+
 (defn find-god-modules
   "Shared-role namespaces with reach or fan-in > 2× the mean.
-  These are bottlenecks through which too much flows in both directions."
+  These are bottlenecks through which too much flows in both directions.
+  When a candidate matches the façade pattern (high Ca-external, low
+  Ce-external, delegates to family siblings), it is emitted as a :facade
+  finding at :low severity instead of :god-module at :medium."
   [nodes]
   (let [reach-mean  (mean (map :reach nodes))
         fan-in-mean (mean (map :fan-in nodes))]
@@ -74,16 +87,35 @@
                   (when (and (= role :shared)
                              (or (> reach (* 2.0 reach-mean))
                                  (> fan-in (* 2.0 fan-in-mean))))
-                    {:severity :medium
-                     :category :god-module
-                     :subject  {:ns ns}
-                     :reason   (str "shared module — reach="
-                                    (format "%.1f%%" (* 100.0 reach))
-                                    " fan-in="
-                                    (format "%.1f%%" (* 100.0 fan-in)))
-                     :evidence {:reach reach :fan-in fan-in
-                                :ca (:ca node) :ce (:ce node)
-                                :role role}})))
+                    (let [fam-evidence {:ca-family   (:ca-family node)
+                                        :ca-external (:ca-external node)
+                                        :ce-family   (:ce-family node)
+                                        :ce-external (:ce-external node)
+                                        :family      (:family node)}]
+                      (if (facade? node)
+                        {:severity :low
+                         :category :facade
+                         :subject  {:ns ns}
+                         :reason   (str "likely façade — Ca-ext="
+                                        (:ca-external node)
+                                        " Ce-ext=" (:ce-external node)
+                                        " Ce-fam=" (:ce-family node)
+                                        " — delegates to family, outside world depends on it")
+                         :evidence (merge {:reach reach :fan-in fan-in
+                                           :ca (:ca node) :ce (:ce node)
+                                           :role role}
+                                          fam-evidence)}
+                        {:severity :medium
+                         :category :god-module
+                         :subject  {:ns ns}
+                         :reason   (str "shared module — reach="
+                                        (format "%.1f%%" (* 100.0 reach))
+                                        " fan-in="
+                                        (format "%.1f%%" (* 100.0 fan-in)))
+                         :evidence (merge {:reach reach :fan-in fan-in
+                                           :ca (:ca node) :ce (:ce node)
+                                           :role role}
+                                          fam-evidence)})))))
           nodes)))
 
 ;;; ── pair-level findings ─────────────────────────────────────────────────

@@ -199,6 +199,12 @@
     [(str "  reach=" (format "%.1f%%" (* 100.0 (:reach evidence)))
           " fan-in=" (format "%.1f%%" (* 100.0 (:fan-in evidence))))]
 
+    :facade
+    [(str "  Ca-ext=" (:ca-external evidence)
+          " Ce-ext=" (:ce-external evidence)
+          " Ce-fam=" (:ce-family evidence)
+          " family=" (:family evidence))]
+
     :hub
     [(str "  Ce=" (:ce evidence)
           " I=" (format "%.2f" (or (:instability evidence) 0.0))
@@ -472,6 +478,12 @@
     :god-module
     [(str "- Reach=" (md-pct (:reach evidence))
           " Fan-in=" (md-pct (:fan-in evidence)))]
+
+    :facade
+    [(str "- Ca-ext=" (:ca-external evidence)
+          " Ce-ext=" (:ce-external evidence)
+          " Ce-fam=" (:ce-family evidence)
+          " family=`" (:family evidence) "`")]
 
     :hub
     [(str "- Ce=" (:ce evidence)
