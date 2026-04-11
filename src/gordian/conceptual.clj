@@ -17,6 +17,37 @@
     (->> (str/split (str/lower-case (str s)) #"[-_./\s]+")
          (remove #(< (count %) 2)))))
 
+;;; ── TF-IDF ────────────────────────────────────────────────────────────────
+
+(defn term-freqs
+  "Return {term → count} for a sequence of terms."
+  [terms]
+  (frequencies terms))
+
+(defn build-tfidf
+  "Convert {ns → [term]} to {ns → {term → tfidf-weight}}.
+  TF  = term-count / total-terms-in-namespace
+  IDF = log(N / document-frequency)
+  Weight = TF × IDF
+  Terms absent from a namespace are absent from its map (implicit zero)."
+  [ns->terms]
+  (let [n  (count ns->terms)
+        df (->> (vals ns->terms)            ; document frequency per term
+                (mapcat distinct)
+                frequencies)]
+    (into {}
+      (map (fn [[ns-sym terms]]
+             (let [tf    (term-freqs terms)
+                   total (count terms)]
+               [ns-sym
+                (into {}
+                  (keep (fn [[t cnt]]
+                          (let [w (* (/ (double cnt) total)
+                                     (Math/log (/ (double n) (get df t 1))))]
+                            (when (pos? w) [t w])))
+                        tf))]))
+           ns->terms))))
+
 ;;; ── term extraction ───────────────────────────────────────────────────────
 
 (defn- docstring-tokens [form]

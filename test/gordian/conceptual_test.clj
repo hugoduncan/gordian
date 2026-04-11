@@ -33,6 +33,67 @@
   (testing "nil returns nil"
     (is (nil? (sut/tokenize nil)))))
 
+;;; ── term-freqs ────────────────────────────────────────────────────────────
+
+(deftest term-freqs-test
+  (testing "counts occurrences correctly"
+    (is (= {"scan" 3 "file" 1 "dir" 2}
+           (sut/term-freqs ["scan" "file" "scan" "dir" "scan" "dir"]))))
+
+  (testing "empty sequence → empty map"
+    (is (= {} (sut/term-freqs []))))
+
+  (testing "single term"
+    (is (= {"cost" 1} (sut/term-freqs ["cost"])))))
+
+;;; ── build-tfidf ───────────────────────────────────────────────────────────
+
+(def ^:private small-corpus
+  "Three namespaces with controlled term overlap for TF-IDF verification.
+  'cost' appears in ns-a and ns-b (common).
+  'propagation' and 'scan' appear only in ns-a (specific).
+  'report' appears only in ns-b (specific).
+  'format' appears in ns-b and ns-c (common)."
+  {'ns-a ["cost" "cost" "propagation" "scan"]
+   'ns-b ["cost" "format" "report" "report"]
+   'ns-c ["format" "format" "output" "output"]})
+
+(deftest build-tfidf-test
+  (let [tfidf (sut/build-tfidf small-corpus)]
+
+    (testing "returns a map keyed by ns syms"
+      (is (= '#{ns-a ns-b ns-c} (set (keys tfidf)))))
+
+    (testing "each namespace value is a map of term → weight"
+      (doseq [[_ tv] tfidf]
+        (is (map? tv))
+        (is (every? string? (keys tv)))
+        (is (every? number? (vals tv)))))
+
+    (testing "all weights are positive"
+      (doseq [[_ tv] tfidf
+              [_ w]  tv]
+        (is (pos? w))))
+
+    (testing "term absent from a namespace is absent from its map"
+      (is (nil? (get-in tfidf ['ns-a "report"])))
+      (is (nil? (get-in tfidf ['ns-c "cost"]))))
+
+    (testing "unique terms weight more than shared terms within same namespace"
+      ;; In ns-a: 'propagation' (df=1) should outweigh 'cost' (df=2) despite same TF
+      (let [tv (get tfidf 'ns-a)]
+        (is (> (get tv "propagation") (get tv "cost")))))
+
+    (testing "higher frequency term weighs more than lower frequency within same namespace"
+      ;; In ns-b: 'report' appears twice, 'cost' once — but 'report' is also unique (df=1)
+      ;; vs 'cost' df=2, so 'report' wins on both TF and IDF
+      (let [tv (get tfidf 'ns-b)]
+        (is (> (get tv "report") (get tv "cost")))))
+
+    (testing "single-namespace corpus — IDF is log(1/1)=0, all weights zero → empty maps"
+      (let [solo (sut/build-tfidf {'only-ns ["alpha" "beta"]})]
+        (is (= {} (get solo 'only-ns)))))))
+
 ;;; ── extract-terms ─────────────────────────────────────────────────────────
 
 (deftest extract-terms-test
