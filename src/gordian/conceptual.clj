@@ -8,15 +8,27 @@
 
 ;;; ── tokenization ──────────────────────────────────────────────────────────
 
+(def ^:private stop-words
+  "English function words that are never domain vocabulary.
+  IDF alone does not suppress these adequately in small corpora (≤20 ns)."
+  #{"a" "an" "the" "of" "to" "in" "for" "on" "at" "by" "from" "with"
+    "as" "into" "via" "and" "or" "but" "if" "when" "not" "nor" "so"
+    "it" "its" "they" "their" "this" "that" "these" "those" "which"
+    "is" "are" "was" "were" "be" "been" "has" "have" "had"
+    "do" "does" "did" "can" "will" "would" "should" "could" "may"
+    "there" "both" "all" "each" "only" "also" "any" "no" "own"
+    "then" "than" "same" "how" "what" "where" "here" "more" "such"})
+
 (defn tokenize
   "Split a string or symbol into lowercase terms.
   Splits on any non-alphanumeric character — handles kebab-case, dots,
   slashes, backticks, braces, markdown punctuation, and all other noise.
-  Drops tokens shorter than 2 characters."
+  Removes English function words (stop words) and tokens shorter than 2 chars."
   [s]
   (when s
     (->> (str/split (str/lower-case (str s)) #"[^a-zA-Z0-9]+")
-         (remove #(< (count %) 2)))))
+         (remove #(< (count %) 2))
+         (remove stop-words))))
 
 ;;; ── TF-IDF ────────────────────────────────────────────────────────────────
 

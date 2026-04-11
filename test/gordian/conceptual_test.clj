@@ -24,14 +24,24 @@
   (testing "plain string tokenizes same as symbol"
     (is (= ["propagation" "cost"] (sut/tokenize "propagation-cost"))))
 
-  (testing "whitespace-separated prose"
-    (is (= ["return" "the" "cost"] (sut/tokenize "return the cost"))))
+  (testing "whitespace-separated prose — stop words removed"
+    (is (= ["return" "cost"] (sut/tokenize "return the cost"))))
 
-  (testing "underscores treated as separators"
-    (is (= ["fan" "in"] (sut/tokenize 'fan_in))))
+  (testing "underscores treated as separators; 'in' is a stop word"
+    (is (= ["fan"] (sut/tokenize 'fan_in))))
 
   (testing "nil returns nil"
     (is (nil? (sut/tokenize nil))))
+
+  (testing "english function words removed"
+    (is (= [] (sut/tokenize "the of to and or but")))
+    (is (= [] (sut/tokenize "is are was were be been")))
+    (is (= [] (sut/tokenize "it its this that which"))))
+
+  (testing "domain words are not stop-worded"
+    (is (= ["propagation" "cost"] (sut/tokenize "propagation-cost")))
+    (is (= ["report"] (sut/tokenize "report")))
+    (is (= ["scan"] (sut/tokenize "scan"))))
 
   (testing "backtick-wrapped token — markdown code style"
     (is (= ["graph"] (sut/tokenize "`graph`"))))
