@@ -14,6 +14,7 @@
                               'gordian.output-test
                               'gordian.metrics-test
                               'gordian.scc-test
-                              'gordian.classify-test)
+                              'gordian.classify-test
+                              'gordian.dot-test)
                      (let [r (t/run-all-tests (re-pattern "gordian\\..*-test"))]
                        (System/exit (if (pos? (+ (:fail r) (:error r))) 1 0))))}}}

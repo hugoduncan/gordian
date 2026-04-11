@@ -1,0 +1,90 @@
+(ns gordian.dot-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [clojure.string :as str]
+            [gordian.dot  :as sut]
+            [gordian.main :as main]))
+
+(def fixture-report
+  (-> "test/fixture" main/build-report))
+
+;;; ── generate structure ───────────────────────────────────────────────────
+
+(deftest generate-structure-test
+  (testing "starts with digraph declaration"
+    (let [dot (sut/generate fixture-report)]
+      (is (str/includes? dot "digraph gordian {"))))
+
+  (testing "ends with closing brace"
+    (let [dot (sut/generate fixture-report)]
+      (is (str/ends-with? (str/trim dot) "}"))))
+
+  (testing "includes rankdir"
+    (is (str/includes? (sut/generate fixture-report) "rankdir")))
+
+  (testing "empty graph produces valid skeleton"
+    (let [dot (sut/generate {:graph {} :nodes [] :src-dir "x"})]
+      (is (str/includes? dot "digraph gordian {"))
+      (is (str/ends-with? (str/trim dot) "}")))))
+
+;;; ── nodes ────────────────────────────────────────────────────────────────
+
+(deftest generate-nodes-test
+  (let [dot (sut/generate fixture-report)]
+    (testing "all fixture namespaces appear as DOT nodes"
+      (doseq [ns-name ["alpha" "beta" "gamma"]]
+        (is (str/includes? dot (str "\"" ns-name "\"")))))
+
+    (testing "node includes instability value"
+      (is (str/includes? dot "I=1.00"))
+      (is (str/includes? dot "I=0.50"))
+      (is (str/includes? dot "I=0.00")))
+
+    (testing "node includes role"
+      (is (str/includes? dot "core"))
+      (is (str/includes? dot "peripheral")))
+
+    (testing "node has fillcolor attribute"
+      (is (str/includes? dot "fillcolor")))))
+
+;;; ── role colours ─────────────────────────────────────────────────────────
+
+(deftest role-color-test
+  (let [dot (sut/generate fixture-report)]
+    (testing "core node gets green fill"
+      ;; alpha is :core in the fixture
+      (let [alpha-line (first (filter #(and (str/includes? % "\"alpha\"")
+                                            (str/includes? % "fillcolor"))
+                                      (str/split-lines dot)))]
+        (is (str/includes? alpha-line "#a8d8a8"))))
+
+    (testing "peripheral node gets red fill"
+      ;; gamma is :peripheral in the fixture
+      (let [gamma-line (first (filter #(and (str/includes? % "\"gamma\"")
+                                            (str/includes? % "fillcolor"))
+                                      (str/split-lines dot)))]
+        (is (str/includes? gamma-line "#ffb3b3"))))))
+
+;;; ── edges ────────────────────────────────────────────────────────────────
+
+(deftest generate-edges-test
+  (let [dot (sut/generate fixture-report)]
+    (testing "beta→alpha edge present"
+      (is (str/includes? dot "\"beta\" -> \"alpha\"")))
+
+    (testing "gamma→alpha edge present"
+      (is (str/includes? dot "\"gamma\" -> \"alpha\"")))
+
+    (testing "gamma→beta edge present"
+      (is (str/includes? dot "\"gamma\" -> \"beta\"")))
+
+    (testing "no self-edges for acyclic fixture"
+      (is (not (str/includes? dot "\"alpha\" -> \"alpha\""))))))
+
+(deftest external-dep-not-an-edge-test
+  ;; If a namespace requires an external lib, no DOT edge should appear
+  (let [report {:graph {'A '#{ext-lib}}
+                :nodes [{:ns 'A :role :peripheral :instability 1.0}]
+                :src-dir "src"}
+        dot    (sut/generate report)]
+    (testing "external dep produces no edge"
+      (is (not (str/includes? dot "ext-lib"))))))

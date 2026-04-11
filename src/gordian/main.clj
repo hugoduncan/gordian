@@ -5,7 +5,8 @@
             [gordian.metrics   :as metrics]
             [gordian.scc       :as scc]
             [gordian.classify  :as classify]
-            [gordian.output    :as output]))
+            [gordian.output    :as output]
+            [gordian.dot       :as dot]))
 
 (defn parse-args
   "Returns {:src-dir s} or {:error msg}."
@@ -32,10 +33,15 @@
         (merge-node-metrics (metrics/compute direct))
         (update :nodes classify/classify)
         (assoc :src-dir src-dir
+               :graph   direct
                :cycles  (scc/find-cycles direct)))))
 
 (defn analyze [src-dir]
-  (output/print-report (build-report src-dir)))
+  (let [report   (build-report src-dir)
+        dot-path "gordian-report.dot"]
+    (output/print-report report)
+    (spit dot-path (dot/generate report))
+    (println (str "DOT written to " dot-path))))
 
 (defn run [args]
   (let [{:keys [src-dir error]} (parse-args args)]
