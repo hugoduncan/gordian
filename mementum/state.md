@@ -36,6 +36,36 @@ main.clj       pipeline wiring + CLI entry point           IO
 `gordian.main` is the only peripheral (wires everything). All other modules
 are core — pure, independent, maximally stable.
 
+## Architecture (src/gordian/) — current
+
+```
+scan.clj       edamame parse .clj → {ns→#{direct-deps}}   IO
+close.clj      transitive closure (BFS, cycle-safe)         pure
+aggregate.clj  propagation cost, reach, fan-in              pure
+metrics.clj    Ca, Ce, instability (Robert Martin)          pure
+scc.clj        Tarjan SCC → cycle detection                 pure
+classify.clj   core/peripheral/shared/isolated roles        pure
+output.clj     human-readable table                         pure
+dot.clj        Graphviz DOT string                          pure
+json.clj       JSON string (cheshire)                       pure
+edn.clj        EDN string (clojure.pprint)                  pure
+main.clj       pipeline + CLI (babashka.cli)                IO
+```
+
+## CLI
+
+```
+gordian [analyze] <src-dir> [options]
+
+  --dot  <file>   Write DOT graph to <file> (status to stderr)
+  --json          JSON to stdout, suppress table
+  --edn           EDN to stdout, suppress table
+  --help          Usage summary
+```
+
+Output modes are mutually exclusive (--json / --edn).
+Can combine --dot with any output mode.
+
 ## Commits this session
 
 ```
@@ -50,6 +80,16 @@ db372c0  step 8  core/periphery classification
 2671aab  step 9  DOT file output
 265b475  step 10 JSON report output
 ab291d3  step 11 bbin install + self-analysis
+```
+
+## Session 2 commits
+
+```
+d9192ec  edamame parsing (+ :fn :deref :regex options)
+ef2ee7d  --help switch (babashka.cli, parse-args redesign)
+7bebd09  --dot <file> option; fix edamame options for #() @deref #regex
+ed5b520  --json to stdout, suppress table
+3613b3c  --edn output option (native Clojure types preserved)
 ```
 
 ## Potential next work
