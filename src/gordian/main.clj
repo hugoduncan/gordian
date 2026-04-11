@@ -7,30 +7,65 @@
             [gordian.classify  :as classify]
             [gordian.output    :as output]
             [gordian.dot       :as dot]
-            [gordian.json      :as report-json]))
+            [gordian.json      :as report-json]
+            [babashka.cli      :as cli]))
+
+;;; ── CLI spec ─────────────────────────────────────────────────────────────
+
+(def ^:private cli-spec
+  {:dot  {:desc "Write Graphviz DOT graph to <file>"}
+   :json {:desc "Output JSON to stdout (suppresses table)" :coerce :boolean}
+   :edn  {:desc "Output EDN to stdout (suppresses table)"  :coerce :boolean}
+   :help {:desc "Show this help message"                   :coerce :boolean}})
+
+(def ^:private usage-summary
+  "Usage: gordian [analyze] <src-dir> [options]
+
+Options:
+  --dot  <file>   Write Graphviz DOT graph to <file>
+  --json          Output JSON to stdout (suppresses human-readable table)
+  --edn           Output EDN to stdout (suppresses human-readable table)
+  --help          Show this help message
+
+Examples:
+  gordian analyze src/
+  gordian src/ --dot deps.dot
+  gordian src/ --json > report.json
+  gordian src/ --edn  > report.edn")
+
+(defn print-help []
+  (println usage-summary))
+
+;;; ── arg parsing ──────────────────────────────────────────────────────────
 
 (defn parse-args
-  "Strip optional 'analyze' subcommand, then return {:src-dir s} or {:error msg}.
-  Accepts: gordian <src-dir>  OR  gordian analyze <src-dir>"
-  [[first-arg & rest-args :as args]]
-  (let [[src-dir] (if (= "analyze" first-arg) rest-args args)]
-    (if src-dir
-      {:src-dir src-dir}
-      {:error "src-dir is required"})))
+  "Parse command-line args. Strips optional 'analyze' subcommand.
+  Returns one of:
+    {:help true}
+    {:error <msg>}
+    {:src-dir <s> [:dot <file>] [:json true] [:edn true]}"
+  [raw-args]
+  (let [raw-args (if (= "analyze" (first raw-args)) (rest raw-args) raw-args)
+        {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})
+        src-dir  (first args)]
+    (cond
+      (:help opts)                     {:help true}
+      (nil? src-dir)                   {:error "src-dir is required"}
+      (and (:json opts) (:edn opts))   {:error "--json and --edn are mutually exclusive"}
+      :else                            (assoc opts :src-dir src-dir))))
 
-(defn- merge-node-metrics
-  "Merge per-node metrics map into the :nodes vector of a report."
-  [report metrics-map]
+;;; ── pipeline ─────────────────────────────────────────────────────────────
+
+(defn- merge-node-metrics [report metrics-map]
   (update report :nodes
           (fn [nodes]
             (mapv #(merge % (get metrics-map (:ns %) {})) nodes))))
 
 (defn build-report
-  "Full pipeline: scan → close → aggregate + metrics + cycles → unified report map.
-  Returns {:src-dir :propagation-cost :cycles :nodes [{:ns :reach :fan-in :ca :ce :instability}]}."
+  "Full pipeline: scan → close → aggregate + metrics + cycles → unified report map."
   [src-dir]
-  (let [direct  (scan/scan src-dir)
-        closed  (close/close direct)]
+  (let [direct (scan/scan src-dir)
+        closed (close/close direct)]
     (-> closed
         aggregate/aggregate
         (merge-node-metrics (metrics/compute direct))
@@ -50,9 +85,11 @@
     (println (str "JSON written to " json-path))))
 
 (defn run [args]
-  (let [{:keys [src-dir error]} (parse-args args)]
-    (if error
-      (do (println (str "Error: " error))
-          (println "Usage: bb analyze <src-dir>")
-          (System/exit 1))
-      (analyze src-dir))))
+  (let [opts (parse-args args)]
+    (cond
+      (:help opts)  (do (print-help) (System/exit 0))
+      (:error opts) (do (println (str "Error: " (:error opts)))
+                        (println)
+                        (print-help)
+                        (System/exit 1))
+      :else         (analyze (:src-dir opts)))))
