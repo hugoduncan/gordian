@@ -1,5 +1,6 @@
 (ns gordian.scan-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.java.io :as io]
+            [clojure.test :refer [deftest is testing]]
             [gordian.conceptual :as conceptual]
             [gordian.scan :as sut]))
 
@@ -81,7 +82,7 @@
     (let [tmp (str (java.io.File/createTempFile "gordian-dir" ""))
           dir (doto (java.io.File. (str tmp "-dir")) .mkdirs)]
       (is (= {} (sut/scan (str dir))))
-      (clojure.java.io/delete-file dir))))
+      (io/delete-file dir))))
 
 ;;; ── parse-file-terms ─────────────────────────────────────────────────────
 
@@ -130,7 +131,7 @@
   (testing "empty directory returns empty map"
     (let [tmp (doto (java.io.File. (str (java.io.File/createTempFile "gordian" "") "-d")) .mkdirs)]
       (is (= {} (sut/scan-terms conceptual/extract-terms (str tmp))))
-      (clojure.java.io/delete-file tmp))))
+      (io/delete-file tmp))))
 
 ;;; ── scan-terms-dirs ──────────────────────────────────────────────────────
 
@@ -212,7 +213,7 @@
           result (sut/scan-all conceptual/extract-terms (str tmp))]
       (is (= {} (:graph result)))
       (is (= {} (:ns->terms result)))
-      (clojure.java.io/delete-file tmp))))
+      (io/delete-file tmp))))
 
 ;;; ── scan-all-dirs ────────────────────────────────────────────────────────
 

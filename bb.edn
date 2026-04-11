@@ -27,6 +27,9 @@
   fmt-fix {:doc  "Fix formatting with cljfmt (src/ and test/)"
            :task (shell "cljfmt fix src test")}
 
+  install-hooks {:doc  "Install pre-commit hooks (cljfmt fix + clj-kondo)"
+                 :task (shell "pre-commit install")}
+
   test    {:doc         "Run all tests"
            :extra-paths ["test"]
            :task        (do (require 'gordian.main-test

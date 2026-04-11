@@ -195,10 +195,6 @@
         terms (->> contribs (sort-by second >) (take n) (mapv first))]
     [dot terms]))
 
-(def ^:private n-cores
-  "Available CPU cores — used to size parallel work chunks."
-  (.availableProcessors (Runtime/getRuntime)))
-
 (defn- pair-chunk-size
   "Target ~200 chunks so each chunk is large enough to amortise pmap
   dispatch overhead (~0.1 ms) while keeping load well balanced.

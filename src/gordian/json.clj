@@ -8,7 +8,7 @@
 
 (defn- serialize-node
   "Normalise a node map for JSON output."
-  [{:keys [ns reach fan-in ca ce instability role] :as node}]
+  [{:keys [ns reach fan-in ca ce instability role]}]
   (cond-> {:ns          (str ns)
            :reach       (double reach)
            :fan-in      (double fan-in)}

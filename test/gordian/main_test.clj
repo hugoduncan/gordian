@@ -1,5 +1,6 @@
 (ns gordian.main-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.java.io :as io]
+            [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
             [cheshire.core :as json]
             [gordian.main :as sut]))
@@ -63,11 +64,11 @@
       (with-out-str (sut/analyze {:src-dirs ["resources/fixture"] :dot tmp}))
       (let [content (slurp tmp)]
         (is (str/includes? content "digraph gordian")))
-      (clojure.java.io/delete-file tmp)))
+      (io/delete-file tmp)))
 
   (testing "without --dot no extra file written to sentinel path"
     (let [sentinel (str (java.io.File/createTempFile "gordian-no-dot" ".dot"))]
-      (clojure.java.io/delete-file sentinel)
+      (io/delete-file sentinel)
       (with-out-str (sut/analyze {:src-dirs ["resources/fixture"]}))
       (is (not (.exists (java.io.File. sentinel)))))))
 

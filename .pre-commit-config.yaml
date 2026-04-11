@@ -1,0 +1,15 @@
+repos:
+  - repo: local
+    hooks:
+      - id: cljfmt-fix
+        name: cljfmt fix
+        language: system
+        entry: cljfmt fix
+        files: '\.clj[sc]?$'
+
+      - id: clj-kondo
+        name: clj-kondo lint
+        language: system
+        entry: clj-kondo --lint
+        files: '\.clj[sc]?$'
+        exclude: '^resources/'

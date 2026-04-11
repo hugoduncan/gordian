@@ -1,5 +1,6 @@
 (ns gordian.scc-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.set :as set]
+            [clojure.test :refer [deftest is testing]]
             [gordian.scc :as sut]))
 
 ;;; ── tarjan ───────────────────────────────────────────────────────────────
@@ -13,7 +14,7 @@
     (let [sccs (sut/tarjan {'A '#{B} 'B '#{C} 'C #{}})]
       (is (= 3 (count sccs)))
       (is (every? #(= 1 (count %)) sccs))
-      (is (= #{'A 'B 'C} (apply clojure.set/union sccs)))))
+      (is (= #{'A 'B 'C} (apply set/union sccs)))))
 
   (testing "fixture graph — three trivial SCCs"
     (let [sccs (sut/tarjan {'alpha #{}
