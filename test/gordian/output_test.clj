@@ -79,9 +79,9 @@
 ;;; ── cycles section in format-report ─────────────────────────────────────
 
 (deftest format-report-cycles-test
-  (testing "no cycles → 'cycles: none'"
+  (testing "no cycles → cycle section absent entirely"
     (let [lines (sut/format-report fixture-report)]
-      (is (some #(clojure.string/includes? % "cycles: none") lines))))
+      (is (not (some #(clojure.string/includes? % "cycles") lines)))))
 
   (testing "with cycles → lists members"
     (let [report (assoc fixture-report :cycles [#{'a 'b}])

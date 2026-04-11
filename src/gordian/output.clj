@@ -24,10 +24,10 @@
        "  " (if role (name role) "")))
 
 (defn- format-cycles
-  "Return lines describing detected cycles, or a 'none' notice."
+  "Return lines describing detected cycles.
+  Returns [] when there are no cycles — the section is omitted entirely."
   [cycles]
-  (if (empty? cycles)
-    ["cycles: none"]
+  (when (seq cycles)
     (into ["cycles:"]
           (map-indexed (fn [i members]
                          (str "  [" (inc i) "] "
@@ -37,22 +37,26 @@
 
 (defn format-report
   "Return a vector of lines for the full coupling report.
-  `report` — {:src-dirs :propagation-cost :cycles :nodes [node-maps]}."
+  `report` — {:src-dirs :propagation-cost :cycles :nodes [node-maps]}.
+  Cycles section is omitted entirely when there are none."
   [{:keys [src-dirs propagation-cost cycles nodes]}]
   (let [{:keys [ns-col]} (column-widths nodes)
         header (str (pad-right ns-col "namespace")
                     "    reach   fan-in   Ce   Ca      I  role")
-        rule   (apply str (repeat (count header) "─"))]
+        rule   (apply str (repeat (count header) "─"))
+        cycle-lines (format-cycles cycles)
+        middle (if cycle-lines
+                 (concat [""] cycle-lines ["" header rule])
+                 ["" header rule])]
     (into
-     (-> [(str "gordian — namespace coupling report")
-          (str "src: " (str/join " " src-dirs))
-          ""
-          (str "propagation cost: " (format "%.4f" propagation-cost)
-               "  (on average " (format "%.1f" (* 100.0 propagation-cost))
-               "% of project reachable per change)")
-          ""]
-         (into (format-cycles cycles))
-         (conj "" header rule))
+     (into
+      [(str "gordian — namespace coupling report")
+       (str "src: " (str/join " " src-dirs))
+       ""
+       (str "propagation cost: " (format "%.4f" propagation-cost)
+            "  (on average " (format "%.1f" (* 100.0 propagation-cost))
+            "% of project reachable per change)")]
+      middle)
      (concat
       (map (partial format-row ns-col) nodes)
       [""]))))
