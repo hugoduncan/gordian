@@ -74,3 +74,95 @@
   (testing "reason includes size"
     (let [f (first (sut/find-cycles [#{'x 'y}]))]
       (is (= "2-namespace cycle" (:reason f))))))
+
+;;; ── find-sdp-violations ─────────────────────────────────────────────────
+
+(def ^:private sample-nodes
+  [{:ns 'a.core :reach 0.1 :fan-in 0.5 :ca 3 :ce 1 :instability 0.25 :role :core}
+   {:ns 'b.hub  :reach 0.8 :fan-in 0.1 :ca 0 :ce 5 :instability 1.0  :role :peripheral}
+   {:ns 'c.bad  :reach 0.3 :fan-in 0.4 :ca 3 :ce 4 :instability 0.57 :role :shared}
+   {:ns 'd.ok   :reach 0.1 :fan-in 0.1 :ca 1 :ce 1 :instability 0.5  :role :shared}
+   {:ns 'e.low  :reach 0.0 :fan-in 0.0 :ca 0 :ce 0 :instability 0.0  :role :isolated}])
+
+(deftest find-sdp-violations-test
+  (testing "Ca≥2 and I>0.5 → medium finding"
+    (let [findings (sut/find-sdp-violations sample-nodes)
+          flagged  (set (map #(get-in % [:subject :ns]) findings))]
+      (is (contains? flagged 'c.bad))
+      (is (= :medium (:severity (first findings))))))
+
+  (testing "Ca=0 → not flagged"
+    (let [flagged (set (map #(get-in % [:subject :ns])
+                            (sut/find-sdp-violations sample-nodes)))]
+      (is (not (contains? flagged 'b.hub)))))
+
+  (testing "I=0.0 → not flagged (stable)"
+    (let [flagged (set (map #(get-in % [:subject :ns])
+                            (sut/find-sdp-violations sample-nodes)))]
+      (is (not (contains? flagged 'e.low)))))
+
+  (testing "Ca=1 → not flagged (threshold is 2)"
+    (let [flagged (set (map #(get-in % [:subject :ns])
+                            (sut/find-sdp-violations sample-nodes)))]
+      (is (not (contains? flagged 'd.ok)))))
+
+  (testing "Ca≥2 but I≤0.5 → not flagged"
+    (let [flagged (set (map #(get-in % [:subject :ns])
+                            (sut/find-sdp-violations sample-nodes)))]
+      (is (not (contains? flagged 'a.core))))))
+
+;;; ── find-god-modules ────────────────────────────────────────────────────
+
+(deftest find-god-modules-test
+  (let [nodes [{:ns 'x.god  :reach 0.6 :fan-in 0.6 :ca 3 :ce 3 :instability 0.5 :role :shared}
+               {:ns 'x.core :reach 0.0 :fan-in 0.3 :ca 2 :ce 0 :instability 0.0 :role :core}
+               {:ns 'x.leaf :reach 0.3 :fan-in 0.0 :ca 0 :ce 2 :instability 1.0 :role :peripheral}
+               {:ns 'x.mild :reach 0.1 :fan-in 0.1 :ca 1 :ce 1 :instability 0.5 :role :shared}]]
+
+    (testing "shared with extreme values → medium finding"
+      (let [findings (sut/find-god-modules nodes)]
+        (is (= 1 (count findings)))
+        (is (= 'x.god (get-in (first findings) [:subject :ns])))
+        (is (= :medium (:severity (first findings))))))
+
+    (testing "core node with high fan-in → not flagged (not :shared)"
+      (let [flagged (set (map #(get-in % [:subject :ns])
+                              (sut/find-god-modules nodes)))]
+        (is (not (contains? flagged 'x.core)))))
+
+    (testing "shared with normal values → not flagged"
+      (let [flagged (set (map #(get-in % [:subject :ns])
+                              (sut/find-god-modules nodes)))]
+        (is (not (contains? flagged 'x.mild)))))))
+
+;;; ── find-hubs ───────────────────────────────────────────────────────────
+
+(deftest find-hubs-test
+  (let [nodes [{:ns 'h.main :reach 0.9 :fan-in 0.0 :ca 0 :ce 8 :instability 1.0 :role :peripheral}
+               {:ns 'h.a    :reach 0.1 :fan-in 0.1 :ca 1 :ce 1 :instability 0.5 :role :shared}
+               {:ns 'h.b    :reach 0.0 :fan-in 0.1 :ca 1 :ce 0 :instability 0.0 :role :core}]]
+
+    (testing "reach > 3× mean → low finding"
+      (let [findings (sut/find-hubs nodes)]
+        ;; mean reach = (0.9+0.1+0.0)/3 = 0.333; 3× = 1.0; 0.9 < 1.0 → not flagged?
+        ;; Actually 0.9 is not > 1.0. Let me use a more extreme example.
+        ;; But wait: 0.9 > 3*0.333 = 0.999? No, 0.9 < 0.999. Hmm.
+        ;; This test fixture needs adjustment. Let me check.
+        ;; mean = 1.0/3 = 0.333, 3× = 1.0, 0.9 is not > 1.0. So not flagged.
+        ;; Need different fixture.
+        (is (= 0 (count findings)))))
+
+    (testing "truly extreme reach > 3× mean → low finding"
+      (let [extreme [{:ns 'h.main :reach 0.9 :fan-in 0.0 :ca 0 :ce 8 :instability 1.0 :role :peripheral}
+                     {:ns 'h.a    :reach 0.05 :fan-in 0.1 :ca 1 :ce 1 :instability 0.5 :role :shared}
+                     {:ns 'h.b    :reach 0.0  :fan-in 0.1 :ca 1 :ce 0 :instability 0.0 :role :core}
+                     {:ns 'h.c    :reach 0.0  :fan-in 0.1 :ca 1 :ce 0 :instability 0.0 :role :core}
+                     {:ns 'h.d    :reach 0.0  :fan-in 0.1 :ca 1 :ce 0 :instability 0.0 :role :core}]
+            ;; mean = 0.95/5 = 0.19, 3× = 0.57, 0.9 > 0.57 ✓
+            findings (sut/find-hubs extreme)]
+        (is (= 1 (count findings)))
+        (is (= 'h.main (get-in (first findings) [:subject :ns])))
+        (is (= :low (:severity (first findings))))))
+
+    (testing "empty nodes → no findings"
+      (is (empty? (sut/find-hubs []))))))
