@@ -256,12 +256,14 @@
                                           :when (neg? (compare (str a) (str b)))]
                                       [a b]))
                                   (vals t->nss)))
-         chunk-size (pair-chunk-size (count candidates))]
-     (->> (partition-all chunk-size candidates)
-          (pmap #(eval-candidates unit graph threshold n-terms %))
-          (into [] cat)          ; eager flatten — avoids lazy apply-concat on main thread
-          (sort-by :score >)
-          vec))))
+         chunk-size (pair-chunk-size (count candidates))
+         pairs      (->> (partition-all chunk-size candidates)
+                         (pmap #(eval-candidates unit graph threshold n-terms %))
+                         (into [] cat)
+                         (sort-by :score >)
+                         vec)]
+     {:pairs           pairs
+      :candidate-count (count candidates)})))
 
 ;;; ── term extraction ───────────────────────────────────────────────────────
 

@@ -101,11 +101,20 @@
 ;;;   structural edges: scan→main (yes), output (none)
 
 (deftest change-coupling-pairs-test
-  (testing "returns a vector"
-    (is (vector? (sut/change-coupling-pairs commits graph))))
+  (testing "returns a map with :pairs and :candidate-count"
+    (let [result (sut/change-coupling-pairs commits graph)]
+      (is (map? result))
+      (is (contains? result :pairs))
+      (is (contains? result :candidate-count))
+      (is (vector? (:pairs result)))
+      (is (pos-int? (:candidate-count result)))))
+
+  (testing "candidate-count >= reported pairs"
+    (let [result (sut/change-coupling-pairs commits graph 0.01 1)]
+      (is (>= (:candidate-count result) (count (:pairs result))))))
 
   (testing "each entry has required keys"
-    (doseq [p (sut/change-coupling-pairs commits graph 0.01 1)]
+    (doseq [p (:pairs (sut/change-coupling-pairs commits graph 0.01 1))]
       (is (contains? p :ns-a))
       (is (contains? p :ns-b))
       (is (contains? p :score))
@@ -117,7 +126,7 @@
       (is (contains? p :structural-edge?))))
 
   (testing "Jaccard coupling values correct"
-    (let [pairs (sut/change-coupling-pairs commits graph 0.01 1)
+    (let [pairs (:pairs (sut/change-coupling-pairs commits graph 0.01 1))
           by-ns (into {} (map (fn [p] [#{(:ns-a p) (:ns-b p)} p]) pairs))]
       (is (< (Math/abs (- 0.50 (:score (get by-ns #{'gordian.main 'gordian.scan})))) 1e-9))
       (is (< (Math/abs (- (/ 2.0 3) (:score (get by-ns #{'gordian.output 'gordian.scan})))) 1e-9))
@@ -125,38 +134,38 @@
 
   (testing "confidence values correct"
     ;; [output scan]: output changed 2 times, co=2 → conf-a=1.0; scan changed 3 times → conf-b=2/3
-    (let [pairs (sut/change-coupling-pairs commits graph 0.01 1)
+    (let [pairs (:pairs (sut/change-coupling-pairs commits graph 0.01 1))
           by-ns (into {} (map (fn [p] [#{(:ns-a p) (:ns-b p)} p]) pairs))
           p     (get by-ns #{'gordian.output 'gordian.scan})]
       (is (= 1.0  (max (:confidence-a p) (:confidence-b p))))
       (is (< (Math/abs (- (/ 2.0 3) (min (:confidence-a p) (:confidence-b p)))) 1e-9))))
 
   (testing "sorted by coupling descending"
-    (let [pairs  (sut/change-coupling-pairs commits graph 0.01 1)
+    (let [pairs  (:pairs (sut/change-coupling-pairs commits graph 0.01 1))
           values (map :score pairs)]
       (is (= values (sort > values)))))
 
   (testing "threshold filters pairs below minimum coupling"
     ;; [main output] Jaccard=0.25 excluded at default threshold=0.30
-    (let [pairs (sut/change-coupling-pairs commits graph 0.30 1)
+    (let [pairs (:pairs (sut/change-coupling-pairs commits graph 0.30 1))
           ns-sets (set (map (fn [p] #{(:ns-a p) (:ns-b p)}) pairs))]
       (is (not (contains? ns-sets #{'gordian.main 'gordian.output})))))
 
   (testing "min-co filters pairs with insufficient raw count"
     ;; [main output] co=1 excluded at min-co=2
-    (let [pairs (sut/change-coupling-pairs commits graph 0.01 2)
+    (let [pairs (:pairs (sut/change-coupling-pairs commits graph 0.01 2))
           ns-sets (set (map (fn [p] #{(:ns-a p) (:ns-b p)}) pairs))]
       (is (not (contains? ns-sets #{'gordian.main 'gordian.output})))))
 
   (testing "structural-edge? true when require edge exists"
     ;; graph has scan → main; canonical pair is [main scan]
-    (let [pairs  (sut/change-coupling-pairs commits graph 0.01 1)
+    (let [pairs  (:pairs (sut/change-coupling-pairs commits graph 0.01 1))
           by-ns  (into {} (map (fn [p] [#{(:ns-a p) (:ns-b p)} p]) pairs))
           p      (get by-ns #{'gordian.main 'gordian.scan})]
       (is (true? (:structural-edge? p)))))
 
   (testing "structural-edge? false when no require edge"
-    (let [pairs  (sut/change-coupling-pairs commits graph 0.01 1)
+    (let [pairs  (:pairs (sut/change-coupling-pairs commits graph 0.01 1))
           by-ns  (into {} (map (fn [p] [#{(:ns-a p) (:ns-b p)} p]) pairs))
           p      (get by-ns #{'gordian.output 'gordian.scan})]
       (is (false? (:structural-edge? p)))))
@@ -164,13 +173,15 @@
   (testing "namespaces not in graph are excluded from pairs"
     (let [commits-with-ext [{:sha "x" :nss #{'gordian.scan 'external.lib}}
                             {:sha "y" :nss #{'gordian.scan 'external.lib}}]
-          pairs (sut/change-coupling-pairs commits-with-ext graph 0.01 1)]
+          pairs (:pairs (sut/change-coupling-pairs commits-with-ext graph 0.01 1))]
       (is (every? #(and (contains? graph (:ns-a %))
                         (contains? graph (:ns-b %)))
                   pairs))))
 
-  (testing "empty commits → empty vector"
-    (is (= [] (sut/change-coupling-pairs [] graph))))
+  (testing "empty commits → empty pairs"
+    (let [result (sut/change-coupling-pairs [] graph)]
+      (is (empty? (:pairs result)))
+      (is (zero? (:candidate-count result)))))
 
   (testing "threshold 1.0 excludes all non-identical pairs"
-    (is (empty? (sut/change-coupling-pairs commits graph 1.0 1)))))
+    (is (empty? (:pairs (sut/change-coupling-pairs commits graph 1.0 1))))))

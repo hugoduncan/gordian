@@ -51,23 +51,29 @@
   External deps that appeared in commits but were not scanned are excluded."
   ([commits graph] (change-coupling-pairs commits graph 0.30 2))
   ([commits graph threshold min-co]
-   (let [project   (set (keys graph))
-         n-changes (ns-change-counts commits)
-         co-counts (co-change-counts commits)]
-     (->> co-counts
-          (keep (fn [[[a b] co]]
-                  (when (and (project a) (project b) (>= co min-co))
-                    (let [ca       (get n-changes a 0)
-                          cb       (get n-changes b 0)
-                          coupling (/ (double co) (+ ca cb (- co)))]
-                      (when (>= coupling threshold)
-                        {:ns-a             a
-                         :ns-b             b
-                         :score            coupling
-                         :kind             :change
-                         :co-changes       co
-                         :confidence-a     (/ (double co) ca)
-                         :confidence-b     (/ (double co) cb)
-                         :structural-edge? (structural-edge? graph a b)})))))
-          (sort-by :score >)
-          vec))))
+   (let [project    (set (keys graph))
+         n-changes  (ns-change-counts commits)
+         co-counts  (co-change-counts commits)
+         ;; candidates: project-internal pairs with ≥1 co-change
+         candidates (filterv (fn [[[a b] _co]]
+                               (and (project a) (project b)))
+                             co-counts)
+         pairs      (->> candidates
+                         (keep (fn [[[a b] co]]
+                                 (when (>= co min-co)
+                                   (let [ca       (get n-changes a 0)
+                                         cb       (get n-changes b 0)
+                                         coupling (/ (double co) (+ ca cb (- co)))]
+                                     (when (>= coupling threshold)
+                                       {:ns-a             a
+                                        :ns-b             b
+                                        :score            coupling
+                                        :kind             :change
+                                        :co-changes       co
+                                        :confidence-a     (/ (double co) ca)
+                                        :confidence-b     (/ (double co) cb)
+                                        :structural-edge? (structural-edge? graph a b)})))))
+                         (sort-by :score >)
+                         vec)]
+     {:pairs           pairs
+      :candidate-count (count candidates)})))

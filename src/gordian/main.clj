@@ -199,11 +199,12 @@ Examples:
                            :graph    direct
                            :cycles   (scc/find-cycles direct)))
          report (if conceptual-threshold
-                  (let [tfidf (conceptual/build-tfidf ns->terms)
-                        pairs (conceptual/conceptual-pairs tfidf direct conceptual-threshold 3)]
+                  (let [tfidf  (conceptual/build-tfidf ns->terms)
+                        result (conceptual/conceptual-pairs tfidf direct conceptual-threshold 3)]
                     (assoc report
-                           :conceptual-pairs     pairs
-                           :conceptual-threshold conceptual-threshold))
+                           :conceptual-pairs           (:pairs result)
+                           :conceptual-candidate-count (:candidate-count result)
+                           :conceptual-threshold       conceptual-threshold))
                   report)]
      (if-let [change-dir (:change change-opts)]
        (let [min-co    (get change-opts :min-co 2)
@@ -211,10 +212,11 @@ Examples:
              since     (get change-opts :since)
              commits   (-> (git/commits change-dir since)
                            (git/commits-as-ns src-dirs direct))
-             pairs     (cc-change/change-coupling-pairs commits direct threshold min-co)]
+             result    (cc-change/change-coupling-pairs commits direct threshold min-co)]
          (assoc report
-                :change-pairs     pairs
-                :change-threshold threshold))
+                :change-pairs           (:pairs result)
+                :change-candidate-count (:candidate-count result)
+                :change-threshold       threshold))
        report))))
 
 (defn analyze

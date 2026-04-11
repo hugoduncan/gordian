@@ -285,10 +285,18 @@
    'ns-c #{}})
 
 (deftest conceptual-pairs-test
-  (let [pairs (sut/conceptual-pairs small-tfidf small-graph 0.01 3)]
+  (let [result (sut/conceptual-pairs small-tfidf small-graph 0.01 3)
+        pairs  (:pairs result)]
 
-    (testing "returns a vector"
-      (is (vector? pairs)))
+    (testing "returns a map with :pairs and :candidate-count"
+      (is (map? result))
+      (is (contains? result :pairs))
+      (is (contains? result :candidate-count))
+      (is (vector? pairs))
+      (is (pos-int? (:candidate-count result))))
+
+    (testing "candidate-count >= reported pairs"
+      (is (>= (:candidate-count result) (count pairs))))
 
     (testing "each entry has required keys"
       (doseq [p pairs]
@@ -330,10 +338,12 @@
         (is (= ["cost"] (:shared-terms p))))))
 
   (testing "threshold filters out all pairs"
-    (is (empty? (sut/conceptual-pairs small-tfidf small-graph 1.0 3))))
+    (is (empty? (:pairs (sut/conceptual-pairs small-tfidf small-graph 1.0 3)))))
 
   (testing "empty tfidf → empty result"
-    (is (empty? (sut/conceptual-pairs {} {} 0.01 3)))))
+    (let [result (sut/conceptual-pairs {} {} 0.01 3)]
+      (is (empty? (:pairs result)))
+      (is (zero? (:candidate-count result))))))
 
 ;;; ── extract-terms ─────────────────────────────────────────────────────────
 
