@@ -171,6 +171,23 @@ Key stemmer design decisions:
 - dedup-final collapses double consonants: "scann"→"scan", "coupl"→"coupl" (only doubles)
 - Stop words applied before stemming; length filter applied after stemming (safety net)
 
+## Session 7 commits — conceptual coupling performance
+
+```
+26d24f0  perf: algorithmic speedups for conceptual coupling analysis
+```
+
+473 assertions, 76 tests, 0 failures.
+
+Five improvements:
+1. `memoize stem` — same token stemmed at most once per process
+2. `normalize-tfidf` — unit vectors pre-computed; cosine = dot product (no sqrt per pair)
+3. Inverted index in `conceptual-pairs` — only pairs sharing ≥1 term evaluated (skips zero-dot pairs)
+4. `dot-and-top-terms` — fused single pass replaces separate `cosine-sim` + `coupling-terms` calls
+5. `parse-file-all` / `scan-all` / `scan-all-dirs` — single file read+parse when `--conceptual` active
+
+New public API: `normalize-tfidf`, `parse-file-all`, `scan-all`, `scan-all-dirs`
+
 ## Potential next work
 
 - Tokenizer: add backtick/punctuation to split pattern (cleaner docstring tokens)
