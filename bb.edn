@@ -10,6 +10,7 @@
            :task (do (require 'gordian.main-test
                               'gordian.scan-test
                               'gordian.close-test
-                              'gordian.aggregate-test)
+                              'gordian.aggregate-test
+                              'gordian.output-test)
                      (let [r (t/run-all-tests (re-pattern "gordian\\..*-test"))]
                        (System/exit (if (pos? (+ (:fail r) (:error r))) 1 0))))}}}
