@@ -7,7 +7,7 @@ depend on earlier ones being done first.
 
 ## 1. Schema normalization
 
-**Status:** not started
+**Status:** ✅ done (63fe1e6)
 
 Align the EDN record shape across all three coupling lenses (structural,
 conceptual, change). Today the keys differ:
