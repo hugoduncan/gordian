@@ -28,7 +28,7 @@ producers + consumers together in one commit. 87 tests, 689 assertions.
 
 ## 2. `gordian .` auto-discovery + `.gordian.edn` config
 
-**Status:** not started
+**Status:** ✅ done (35c5ccf)
 
 **Auto-discovery:** When given a directory (or `.`), gordian should detect
 common Clojure project layouts and infer src dirs without requiring the user

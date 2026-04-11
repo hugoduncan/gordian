@@ -16,8 +16,15 @@ just hard to read.
 ## Usage
 
 ```bash
-gordian [analyze] <src-dir>... [options]
+gordian [analyze] [<dir-or-src>...] [options]
+```
 
+When given a project root (a directory containing `deps.edn`, `bb.edn`,
+`project.clj`, etc.), gordian **auto-discovers** source directories —
+including Polylith `components/*/src`, `bases/*/src`, etc. With no arguments
+it defaults to the current directory.
+
+```bash
 Options:
   --dot  <file>              Write Graphviz DOT graph to <file>
   --json                     Output JSON to stdout (suppresses human-readable table)
@@ -25,31 +32,59 @@ Options:
   --conceptual <float>       Conceptual coupling analysis at given similarity threshold
   --change [<repo-dir>]      Change coupling analysis; repo dir defaults to .
   --change-since <date>      Limit change coupling to commits after <date>
+  --include-tests            Include test directories in auto-discovery
+  --exclude <regex>          Exclude namespaces matching regex (repeatable)
   --help                     Show this help message
 ```
 
 ```bash
-# single source tree
-gordian src/
+# auto-discover from current directory
+gordian
+gordian .
 
-# source and tests together
+# auto-discover from a specific project
+gordian /path/to/project
+
+# include test directories
+gordian . --include-tests
+
+# exclude namespaces by pattern
+gordian . --exclude 'user|scratch'
+
+# explicit source directories (no auto-discovery)
+gordian src/
 gordian analyze src/ test/
 
 # machine-readable output
-gordian src/ --json > report.json
-gordian src/ --edn  > report.edn
+gordian --json > report.json
+gordian --edn  > report.edn
 
 # dependency graph
-gordian src/ --dot deps.dot && dot -Tsvg deps.dot > deps.svg
+gordian --dot deps.dot && dot -Tsvg deps.dot > deps.svg
 
 # conceptual coupling — namespaces that share vocabulary
-gordian src/ --conceptual 0.30
+gordian --conceptual 0.30
 
 # change coupling — namespaces that co-change in git history
-gordian src/ --change
-gordian src/ --change --change-since "90 days ago"
-gordian src/ --change /other/repo --change-since "2024-01-01"
+gordian --change
+gordian --change --change-since "90 days ago"
+gordian --change /other/repo --change-since "2024-01-01"
 ```
+
+### Project configuration
+
+Create `.gordian.edn` in your project root for defaults:
+
+```edn
+{:src-dirs      ["components" "bases"]  ;; override auto-discovery
+ :include-tests false
+ :conceptual    0.20
+ :change        true
+ :change-since  "90 days ago"
+ :exclude       ["user" ".*-scratch"]}
+```
+
+CLI flags override config values. Config `:src-dirs` replaces auto-discovery.
 
 ## Install via bbin
 
@@ -213,10 +248,10 @@ coupling better than full history.  90 days is a reasonable starting point.
 ## Example — gordian on itself
 
 ```
-gordian src/
+gordian
 
 gordian — namespace coupling report
-src: src/
+src: ./src
 
 propagation cost: 0.0663  (on average 6.6% of project reachable per change)
 
