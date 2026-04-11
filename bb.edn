@@ -35,6 +35,7 @@
            :extra-paths ["test"]
            :task        (do (require 'gordian.config-test
                                      'gordian.discover-test
+                                     'gordian.filter-test
                                      'gordian.main-test
                                      'gordian.scan-test
                                      'gordian.close-test
