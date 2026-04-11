@@ -11,6 +11,7 @@ just hard to read.
 ## Requirements
 
 - [Babashka](https://github.com/babashka/babashka) 1.3+
+- Git (for change coupling analysis)
 
 ## Usage
 
@@ -18,11 +19,13 @@ just hard to read.
 gordian [analyze] <src-dir>... [options]
 
 Options:
-  --dot  <file>         Write Graphviz DOT graph to <file>
-  --json                Output JSON to stdout (suppresses human-readable table)
-  --edn                 Output EDN to stdout (suppresses human-readable table)
-  --conceptual <float>  Conceptual coupling analysis at given similarity threshold
-  --help                Show this help message
+  --dot  <file>              Write Graphviz DOT graph to <file>
+  --json                     Output JSON to stdout (suppresses human-readable table)
+  --edn                      Output EDN to stdout (suppresses human-readable table)
+  --conceptual <float>       Conceptual coupling analysis at given similarity threshold
+  --change [<repo-dir>]      Change coupling analysis; repo dir defaults to .
+  --change-since <date>      Limit change coupling to commits after <date>
+  --help                     Show this help message
 ```
 
 ```bash
@@ -41,6 +44,11 @@ gordian src/ --dot deps.dot && dot -Tsvg deps.dot > deps.svg
 
 # conceptual coupling — namespaces that share vocabulary
 gordian src/ --conceptual 0.30
+
+# change coupling — namespaces that co-change in git history
+gordian src/ --change
+gordian src/ --change --change-since "90 days ago"
+gordian src/ --change /other/repo --change-since "2024-01-01"
 ```
 
 ## Install via bbin
@@ -142,8 +150,8 @@ conceptual coupling (sim ≥ 0.20):
 
 namespace-a           namespace-b           sim   structural  shared concepts
 ─────────────────────────────────────────────────────────────────────────────
-gordian.close         gordian.aggregate     0.31  no  ←    reach transitive close
-gordian.scan          gordian.main          0.23  yes      file src read
+gordian.aggregate     gordian.close         0.35  no  ←    reach transitive node
+gordian.conceptual    gordian.scan          0.25  no  ←    term per extract
 ```
 
 **`←` (no structural edge)** — these namespaces share vocabulary but neither
@@ -152,11 +160,55 @@ warrant a named abstraction, or evidence of hidden coupling not visible in the
 require graph.
 
 **`yes` (structural edge)** — the coupling is also conceptual.  The shared
-terms confirm *what* the structural dependency is about.  Structural dependencies
-whose shared terms look unrelated are worth scrutinising.
+terms confirm *what* the structural dependency is about.
 
-A threshold of 0.20–0.30 works well for most projects.  Start lower to see
-more pairs; raise it to focus on the strongest signals.
+A threshold of 0.20–0.30 works well for most projects.
+
+### Change coupling (`--change`)
+
+Structural and conceptual coupling both analyse the codebase as it stands
+today.  Change coupling analyses the *git history*: namespaces that frequently
+appear in the same commit are logically coupled, regardless of whether they
+import each other.
+
+```bash
+gordian src/ --change                              # git log in current directory
+gordian src/ --change /other/repo                  # git log elsewhere
+gordian src/ --change --change-since "90 days ago" # limit history window
+gordian src/ --change --change-since "2024-01-01"  # or an explicit date
+```
+
+gordian runs `git log`, maps changed file paths to namespace symbols, and
+reports pairs ranked by Jaccard coupling
+(`co-changes / (changes-a + changes-b - co-changes)`).
+
+```
+change coupling (Jaccard ≥ 0.30):
+
+namespace-a           namespace-b           Jaccard  co  conf-a  conf-b  structural
+───────────────────────────────────────────────────────────────────────────────────
+gordian.main          gordian.output        0.4000   6   42.9%   85.7%  yes
+gordian.conceptual    gordian.scan          0.3750   3   60.0%   50.0%  no  ←
+```
+
+**`←` (no structural edge)** — these namespaces co-change in version control
+but neither requires the other.  This is the sharpest change-coupling signal:
+an implicit contract not expressed in the `require` graph.
+
+**`conf-a` / `conf-b`** — conditional probabilities: "when `a` changed, `b`
+also changed X% of the time".  Asymmetric confidence (conf-a=100%, conf-b=20%)
+signals a satellite: `a` always moves with `b`, but `b` moves independently.
+
+**Horizon:** the full git history is used by default.  Old coupling from early
+development survives indefinitely in raw counts even after a refactor.
+`--change-since` scopes the window to recent pressure:
+
+```bash
+gordian src/ --change --change-since "90 days ago"
+```
+
+Research (Zimmermann et al. 2005) suggests recent history predicts future
+coupling better than full history.  90 days is a reasonable starting point.
 
 ## Example — gordian on itself
 
@@ -166,27 +218,28 @@ gordian src/
 gordian — namespace coupling report
 src: src/
 
-propagation cost: 0.0833  (on average 8.3% of project reachable per change)
+propagation cost: 0.0663  (on average 6.6% of project reachable per change)
 
 namespace               reach   fan-in   Ce   Ca      I  role
 ─────────────────────────────────────────────────────────────
-gordian.main           91.7%    0.0%   11    0  1.00  peripheral
-gordian.scan            8.3%    8.3%    1    1  0.50  peripheral
-gordian.aggregate       0.0%    8.3%    0    1  0.00  isolated
-gordian.classify        0.0%    8.3%    0    1  0.00  isolated
-gordian.close           0.0%    8.3%    0    1  0.00  isolated
-gordian.conceptual      0.0%   16.7%    0    2  0.00  core
-gordian.dot             0.0%    8.3%    0    1  0.00  isolated
-gordian.edn             0.0%    8.3%    0    1  0.00  isolated
-gordian.json            0.0%    8.3%    0    1  0.00  isolated
-gordian.metrics         0.0%    8.3%    0    1  0.00  isolated
-gordian.output          0.0%    8.3%    0    1  0.00  isolated
-gordian.scc             0.0%    8.3%    0    1  0.00  isolated
+gordian.main           92.9%    0.0%   13    0  1.00  peripheral
+gordian.aggregate       0.0%    7.1%    0    1  0.00  core
+gordian.cc-change       0.0%    7.1%    0    1  0.00  core
+gordian.classify        0.0%    7.1%    0    1  0.00  core
+gordian.close           0.0%    7.1%    0    1  0.00  core
+gordian.conceptual      0.0%    7.1%    0    1  0.00  core
+gordian.dot             0.0%    7.1%    0    1  0.00  core
+gordian.edn             0.0%    7.1%    0    1  0.00  core
+gordian.git             0.0%    7.1%    0    1  0.00  core
+gordian.json            0.0%    7.1%    0    1  0.00  core
+gordian.metrics         0.0%    7.1%    0    1  0.00  core
+gordian.output          0.0%    7.1%    0    1  0.00  core
+gordian.scan            0.0%    7.1%    0    1  0.00  core
+gordian.scc             0.0%    7.1%    0    1  0.00  core
 ```
 
 Star topology: `gordian.main` is the single peripheral entry point (I=1) that
-wires together independent pure modules.  `gordian.conceptual` is `core`
-(Ca=2) — both `scan` and `main` depend on it.  No cycles, low propagation cost.
+wires together independent pure modules.  No cycles, low propagation cost.
 
 ## Why the name
 
@@ -198,6 +251,7 @@ Alexander didn't untangle the Gordian knot. He cut it.
 - MacCormack, A., Rusnak, J., & Baldwin, C. Y. (2006). *Exploring the Structure of Complex Software Designs.* Management Science, 52(7).
 - MacCormack, A., Baldwin, C. Y., & Rusnak, J. (2012). *Hidden Structure: Using Network Theory to Detect the Evolution of Software Architecture.* Research Policy, 41(8).
 - Poshyvanyk, D., & Marcus, A. (2006). *The Conceptual Coupling Metrics for Object-Oriented Systems.* ICSM 2006.
+- Zimmermann, T., Weißgerber, P., Diehl, S., & Zeller, A. (2005). *Mining Version Histories to Guide Software Changes.* IEEE Transactions on Software Engineering, 31(6).
 
 ## Status
 
