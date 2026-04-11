@@ -74,14 +74,17 @@ Examples:
                :graph   direct
                :cycles  (scc/find-cycles direct)))))
 
-(defn analyze [src-dir]
+(defn analyze
+  "Run analysis with parsed opts map.
+  :src-dir required; :dot optional filename; :json/:edn handled in later steps."
+  [{:keys [src-dir dot]}]
   (let [report    (build-report src-dir)
-        dot-path  "gordian-report.dot"
         json-path "gordian-report.json"]
     (output/print-report report)
-    (spit dot-path  (dot/generate report))
+    (when dot
+      (spit dot (dot/generate report))
+      (println (str "DOT written to " dot)))
     (spit json-path (report-json/generate report))
-    (println (str "DOT  written to " dot-path))
     (println (str "JSON written to " json-path))))
 
 (defn run [args]
@@ -92,4 +95,4 @@ Examples:
                         (println)
                         (print-help)
                         (System/exit 1))
-      :else         (analyze (:src-dir opts)))))
+      :else         (analyze opts))))

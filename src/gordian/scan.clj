@@ -43,7 +43,10 @@
   (try
     (let [content (slurp (str path))
           forms   (e/parse-string-all content {:read-cond :allow
-                                               :features  #{:clj}})
+                                               :features  #{:clj}
+                                               :fn        true
+                                               :deref     true
+                                               :regex     true})
           ns-form (find-ns-form forms)]
       (when ns-form
         {:ns   (second ns-form)

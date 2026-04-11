@@ -48,6 +48,23 @@
     (is (= {:src-dir "src/" :edn true}
            (sut/parse-args ["src/" "--edn"])))))
 
+;;; ── analyze / dot output ─────────────────────────────────────────────────
+
+(deftest dot-output-test
+  (testing "--dot writes DOT file to given path"
+    (let [tmp (str (java.io.File/createTempFile "gordian-dot" ".dot"))]
+      (with-out-str (sut/analyze {:src-dir "test/fixture" :dot tmp}))
+      (let [content (slurp tmp)]
+        (is (clojure.string/includes? content "digraph gordian")))
+      (clojure.java.io/delete-file tmp)))
+
+  (testing "without --dot no extra file written to any sentinel path"
+    ;; analyze runs without throwing; DOT sentinel path untouched
+    (let [sentinel (str (java.io.File/createTempFile "gordian-no-dot" ".dot"))]
+      (clojure.java.io/delete-file sentinel)               ; ensure absent
+      (with-out-str (sut/analyze {:src-dir "test/fixture"})) ; suppress stdout
+      (is (not (.exists (java.io.File. sentinel)))))))
+
 ;;; ── print-help ───────────────────────────────────────────────────────────
 
 (deftest print-help-test
