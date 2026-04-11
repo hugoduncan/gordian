@@ -345,9 +345,26 @@ Explain subcommands:
 
 New module: `explain.clj` (pure — 6 functions, 0 IO)
 
+## Session 11d commits — markdown output
+
+```
+03e3597  feat: output — format-report-md (analyze markdown)
+027db49  feat: output — format-diagnose-md
+4bac2fe  feat: output — format-explain-ns-md, format-explain-pair-md
+2785842  feat: --markdown flag for all commands
+```
+
+133 tests, 988 assertions, 0 failures.
+
+`--markdown` flag on all four commands (analyze, diagnose, explain,
+explain-pair). Mutually exclusive with --json/--edn. Markdown tables,
+severity emoji, backtick namespaces, sections omitted when empty.
+
 ## Roadmap
 
-See PLAN.md. Next: item 5 (markdown output).
+See PLAN.md. All 5 primary items complete. Deferred items remain (v2):
+cluster detection, diff/baseline, change window comparison, test mode,
+presets.
 
 ## Potential next work (backlog)
 

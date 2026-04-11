@@ -135,7 +135,7 @@ Scope:
 
 ## 5. Markdown output
 
-**Status:** not started
+**Status:** ✅ done (2785842)
 
 A middle format between terminal output (ephemeral) and EDN/JSON (machine).
 Markdown is shareable, PR-attachable, and renderable in most editors.

@@ -64,6 +64,10 @@ gordian analyze src/ test/
 gordian --json > report.json
 gordian --edn  > report.edn
 
+# markdown output (shareable, PR-attachable)
+gordian --markdown > report.md
+gordian diagnose --markdown > findings.md
+
 # dependency graph
 gordian --dot deps.dot && dot -Tsvg deps.dot > deps.svg
 
