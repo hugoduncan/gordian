@@ -104,7 +104,7 @@ Scope:
 
 ## 4. `gordian explain <ns>` / `gordian explain-pair <ns-a> <ns-b>`
 
-**Status:** not started
+**Status:** ✅ done (0530a50)
 
 Turns gordian from a detector into an investigation tool. Given a namespace
 or a pair, emit everything gordian knows about it.

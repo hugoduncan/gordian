@@ -324,9 +324,30 @@ Diagnose subcommand:
 
 New module: `diagnose.clj` (pure — 10 functions, 0 IO)
 
+## Session 11c commits — gordian explain
+
+```
+cf416ab  feat: explain — shortest-path, direct-deps, direct-dependents, ns-pairs
+712fbfc  feat: explain — explain-ns, explain-pair-data composite queries
+da36546  feat: output — format-explain-ns, format-explain-pair
+0530a50  feat: gordian explain / explain-pair — drill-down investigation
+```
+
+127 tests, 945 assertions, 0 failures.
+
+Explain subcommands:
+- `gordian explain gordian.scan` — everything about a namespace
+- `gordian explain-pair gordian.aggregate gordian.close` — everything about a pair
+- Auto-enables all lenses, supports --edn/--json
+- BFS shortest-path with parent tracking
+- Project vs external dep split
+- Diagnosis annotation on explain-pair
+
+New module: `explain.clj` (pure — 6 functions, 0 IO)
+
 ## Roadmap
 
-See PLAN.md. Next: item 4 (gordian explain).
+See PLAN.md. Next: item 5 (markdown output).
 
 ## Potential next work (backlog)
 

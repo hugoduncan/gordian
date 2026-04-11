@@ -290,6 +290,61 @@ Finding categories:
 - **god module** (medium) — shared role with extreme reach and fan-in
 - **hub** (low) — very high reach, informational
 
+### Explain mode (`explain` / `explain-pair`)
+
+Drill into a specific namespace or pair to see everything gordian knows.
+
+```bash
+gordian explain gordian.scan
+```
+
+```
+gordian explain — gordian.scan
+
+  role: core    Ca=1  Ce=0  I=0.00
+  reach: 0.0%   fan-in: 5.3%
+
+DIRECT DEPENDENCIES (0 project, 2 external)
+  project: (none)
+  external: babashka.fs, edamame.core
+
+DIRECT DEPENDENTS (1)
+  gordian.main
+
+CONCEPTUAL COUPLING (3 pairs)
+  gordian.conceptual    score=0.30  hidden  shared: term, per, extract
+  gordian.git           score=0.19  hidden  shared: file, clj, src
+  gordian.main          score=0.15  structural  shared: file, scan, directory
+
+CHANGE COUPLING (0 pairs)
+  (none)
+
+CYCLES: none
+```
+
+```bash
+gordian explain-pair gordian.aggregate gordian.close
+```
+
+```
+gordian explain-pair — gordian.aggregate ↔ gordian.close
+
+STRUCTURAL
+  direct edge: no
+  shortest path: (none)
+
+CONCEPTUAL
+  score: 0.39
+  shared terms: reach, node, transitive
+  hidden: yes
+
+CHANGE COUPLING
+  (no data)
+
+DIAGNOSIS
+  ● MEDIUM — hidden conceptual coupling — score=0.39
+```
+
 ## Example — gordian on itself
 
 ```
