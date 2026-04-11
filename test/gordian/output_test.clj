@@ -5,9 +5,10 @@
             [gordian.main   :as main]))
 
 (def fixture-report
-  "Unified report matching the fixture graph (alpha←beta←gamma)."
+  "Unified report matching the fixture graph (alpha←beta←gamma, no cycles)."
   {:src-dir          "test/fixture"
    :propagation-cost (/ 3.0 9.0)
+   :cycles           []
    :nodes [{:ns 'gamma :reach (/ 2.0 3) :fan-in 0.0
              :ca 0 :ce 2 :instability 1.0}
             {:ns 'beta  :reach (/ 1.0 3) :fan-in (/ 1.0 3)
@@ -66,6 +67,21 @@
       (is (some #(str/includes? % "1.00") lines))
       (is (some #(str/includes? % "0.50") lines))
       (is (some #(str/includes? % "0.00") lines)))))
+
+;;; ── cycles section in format-report ─────────────────────────────────────
+
+(deftest format-report-cycles-test
+  (testing "no cycles → 'cycles: none'"
+    (let [lines (sut/format-report fixture-report)]
+      (is (some #(clojure.string/includes? % "cycles: none") lines))))
+
+  (testing "with cycles → lists members"
+    (let [report (assoc fixture-report :cycles [#{'a 'b}])
+          lines  (sut/format-report report)]
+      (is (some #(clojure.string/includes? % "cycles:") lines))
+      (is (some #(and (clojure.string/includes? % "a")
+                      (clojure.string/includes? % "b")) lines))
+      (is (some #(clojure.string/includes? % "2 namespaces") lines)))))
 
 ;;; ── integration: full pipeline via build-report ──────────────────────────
 

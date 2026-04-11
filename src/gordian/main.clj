@@ -3,6 +3,7 @@
             [gordian.close     :as close]
             [gordian.aggregate :as aggregate]
             [gordian.metrics   :as metrics]
+            [gordian.scc       :as scc]
             [gordian.output    :as output]))
 
 (defn parse-args
@@ -20,15 +21,16 @@
             (mapv #(merge % (get metrics-map (:ns %) {})) nodes))))
 
 (defn build-report
-  "Full pipeline: scan → close → aggregate → metrics → unified report map.
-  Returns {:src-dir :propagation-cost :nodes [{:ns :reach :fan-in :ca :ce :instability}]}."
+  "Full pipeline: scan → close → aggregate + metrics + cycles → unified report map.
+  Returns {:src-dir :propagation-cost :cycles :nodes [{:ns :reach :fan-in :ca :ce :instability}]}."
   [src-dir]
   (let [direct  (scan/scan src-dir)
         closed  (close/close direct)]
     (-> closed
         aggregate/aggregate
         (merge-node-metrics (metrics/compute direct))
-        (assoc :src-dir src-dir))))
+        (assoc :src-dir src-dir
+               :cycles  (scc/find-cycles direct)))))
 
 (defn analyze [src-dir]
   (output/print-report (build-report src-dir)))

@@ -1,4 +1,5 @@
-(ns gordian.output)
+(ns gordian.output
+  (:require [clojure.string :as str]))
 
 ;;; ── formatting helpers ───────────────────────────────────────────────────
 
@@ -21,24 +22,36 @@
        "  " (pad-left 3 (str (or ca "-")))
        "  " (if instability (format "%4.2f" instability) "   -")))
 
+(defn- format-cycles
+  "Return lines describing detected cycles, or a 'none' notice."
+  [cycles]
+  (if (empty? cycles)
+    ["cycles: none"]
+    (into ["cycles:"]
+          (map-indexed (fn [i members]
+                         (str "  [" (inc i) "] "
+                              (str/join " → " (sort (map str members)))
+                              "  (" (count members) " namespaces)"))
+                       cycles))))
+
 (defn format-report
   "Return a vector of lines for the full coupling report.
-  `report` — {:src-dir :propagation-cost :nodes [node-maps]}."
-  [{:keys [src-dir propagation-cost nodes]}]
+  `report` — {:src-dir :propagation-cost :cycles :nodes [node-maps]}."
+  [{:keys [src-dir propagation-cost cycles nodes]}]
   (let [{:keys [ns-col]} (column-widths nodes)
         header (str (pad-right ns-col "namespace")
                     "    reach   fan-in   Ce   Ca      I")
         rule   (apply str (repeat (count header) "─"))]
     (into
-     [(str "gordian — namespace coupling report")
-      (str "src: " src-dir)
-      ""
-      (str "propagation cost: " (format "%.4f" propagation-cost)
-           "  (on average " (format "%.1f" (* 100.0 propagation-cost))
-           "% of project reachable per change)")
-      ""
-      header
-      rule]
+     (-> [(str "gordian — namespace coupling report")
+          (str "src: " src-dir)
+          ""
+          (str "propagation cost: " (format "%.4f" propagation-cost)
+               "  (on average " (format "%.1f" (* 100.0 propagation-cost))
+               "% of project reachable per change)")
+          ""]
+         (into (format-cycles cycles))
+         (conj "" header rule))
      (concat
       (map (partial format-row ns-col) nodes)
       [""]))))
