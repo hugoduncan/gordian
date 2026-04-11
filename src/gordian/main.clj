@@ -156,3 +156,6 @@ Examples:
                         (print-help)
                         (System/exit 1))
       :else         (analyze opts))))
+
+(defn -main [& args]
+  (run args))
