@@ -40,17 +40,21 @@
   "Run git log in repo-dir and return [{:sha str :files #{path-str}}].
   Only commits that touched at least one .clj file are included.
   Uses --diff-filter=AM (Added + Modified) — deletions and renames
-  are excluded because they skew co-change counts."
-  [repo-dir]
-  (->> (-> (proc/shell {:out :string :dir repo-dir}
-                       "git" "log" "--name-only" "--diff-filter=AM"
-                       "--format=%H")
-           :out
-           parse-log)
-       (keep (fn [{:keys [sha files]}]
-               (let [clj-files (into #{} (filter #(str/ends-with? % ".clj")) files)]
-                 (when (seq clj-files)
-                   {:sha sha :files clj-files}))))))
+  are excluded because they skew co-change counts.
+
+  `since` — optional git date string passed to --since, e.g. \"90 days ago\"
+  or \"2024-01-01\".  When omitted the full history is used."
+  ([repo-dir] (commits repo-dir nil))
+  ([repo-dir since]
+   (let [base-args ["git" "log" "--name-only" "--diff-filter=AM" "--format=%H"]
+         args      (if since (conj base-args (str "--since=" since)) base-args)]
+     (->> (-> (apply proc/shell {:out :string :dir repo-dir} args)
+              :out
+              parse-log)
+          (keep (fn [{:keys [sha files]}]
+                  (let [clj-files (into #{} (filter #(str/ends-with? % ".clj")) files)]
+                    (when (seq clj-files)
+                      {:sha sha :files clj-files}))))))))
 
 ;;; ── path → namespace resolution ──────────────────────────────────────────
 

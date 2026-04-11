@@ -23,6 +23,7 @@
    :conceptual {:desc "Conceptual coupling analysis; provide similarity threshold e.g. 0.30"
                 :coerce :double}
    :change     {:desc "Change coupling analysis; optional repo dir (default: .)"}
+   :change-since {:desc "Limit change coupling to commits after this date e.g. \"90 days ago\""}
    :help       {:desc "Show this help message"                   :coerce :boolean}})
 
 (def ^:private usage-summary
@@ -34,6 +35,7 @@ Options:
   --edn                 Output EDN to stdout (suppresses human-readable table)
   --conceptual <float>  Conceptual coupling analysis at given similarity threshold
   --change [<repo-dir>] Change coupling analysis; repo dir defaults to .
+  --change-since <date> Limit to commits after <date> e.g. \"90 days ago\"
   --help                Show this help message
 
 Examples:
@@ -44,7 +46,8 @@ Examples:
   gordian src/ test/ --edn > report.edn
   gordian src/ --conceptual 0.30
   gordian src/ --change
-  gordian src/ --change /other/repo")
+  gordian src/ --change /other/repo
+  gordian src/ --change --change-since \"90 days ago\"")
 
 (defn print-help []
   (println usage-summary))
@@ -114,7 +117,8 @@ Examples:
      (if-let [change-dir (:change change-opts)]
        (let [min-co    (get change-opts :min-co 2)
              threshold (get change-opts :threshold 0.30)
-             commits   (-> (git/commits change-dir)
+             since     (get change-opts :since)
+             commits   (-> (git/commits change-dir since)
                            (git/commits-as-ns src-dirs direct))
              pairs     (cc-change/change-coupling-pairs commits direct threshold min-co)]
          (assoc report
@@ -124,15 +128,16 @@ Examples:
 
 (defn analyze
   "Run analysis with parsed opts map.
-  :src-dirs    — required vector of source directories
-  :dot <file>  — write Graphviz DOT to <file> (stderr status line)
-  :json true   — print JSON to stdout, suppress human-readable table
-  :edn  true   — print EDN to stdout, suppress human-readable table
-  :conceptual  — similarity threshold for conceptual coupling section
-  :change      — repo dir for change coupling analysis (git log)"
-  [{:keys [src-dirs dot json edn conceptual change]}]
+  :src-dirs      — required vector of source directories
+  :dot <file>    — write Graphviz DOT to <file> (stderr status line)
+  :json true     — print JSON to stdout, suppress human-readable table
+  :edn  true     — print EDN to stdout, suppress human-readable table
+  :conceptual    — similarity threshold for conceptual coupling section
+  :change        — repo dir for change coupling analysis (git log)
+  :change-since  — git date string limiting change coupling horizon"
+  [{:keys [src-dirs dot json edn conceptual change change-since]}]
   (let [change-dir  (when change (if (string? change) change "."))
-        change-opts (when change-dir {:change change-dir})
+        change-opts (when change-dir {:change change-dir :since change-since})
         report      (build-report src-dirs conceptual change-opts)]
     (when dot
       (spit dot (dot/generate report))

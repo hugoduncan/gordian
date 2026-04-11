@@ -128,3 +128,22 @@
       (let [entry (first (filter #(= known-sha (:sha %)) result))]
         (is (some? entry) "known commit should be present")
         (is (= known-sha-clj-files (:files entry)))))))
+
+(deftest commits-since-test
+  (testing "since far past returns same commits as full history"
+    (let [all    (vec (sut/commits repo-dir))
+          capped (vec (sut/commits repo-dir "10 years ago"))]
+      (is (= all capped))))
+
+  (testing "since 1 second from now returns no commits"
+    (is (empty? (sut/commits repo-dir "1 second ago"))))
+
+  (testing "since recent date returns fewer commits than full history"
+    ;; gordian has commits from multiple sessions; a tight window cuts some
+    (let [all    (count (sut/commits repo-dir))
+          recent (count (sut/commits repo-dir "1 hour ago"))]
+      (is (< recent all))))
+
+  (testing "nil since behaves identically to no-arg arity"
+    (is (= (vec (sut/commits repo-dir))
+           (vec (sut/commits repo-dir nil))))))

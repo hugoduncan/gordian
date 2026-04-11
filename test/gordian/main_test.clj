@@ -169,6 +169,7 @@
       (is (str/includes? out "--edn"))
       (is (str/includes? out "--conceptual"))
       (is (str/includes? out "--change"))
+      (is (str/includes? out "--change-since"))
       (is (str/includes? out "src-dir")))))
 
 ;;; ── parse-args / --change ────────────────────────────────────────────────
@@ -188,7 +189,17 @@
     (is (= "/my/repo" (:change (sut/parse-args ["src/" "--change" "/my/repo"])))))
 
   (testing "without --change, key is absent"
-    (is (nil? (:change (sut/parse-args ["src/"]))))))
+    (is (nil? (:change (sut/parse-args ["src/"])))))
+
+  (testing "--change-since captures date string"
+    (let [opts (sut/parse-args ["src/" "--change" "--change-since" "90 days ago"])]
+      (is (= "90 days ago" (:change-since opts)))))
+
+  (testing "--change-since without --change is accepted by parse-args"
+    (is (= "90 days ago" (:change-since (sut/parse-args ["src/" "--change-since" "90 days ago"])))))
+
+  (testing "without --change-since, key is absent"
+    (is (nil? (:change-since (sut/parse-args ["src/" "--change"]))))))
 
 ;;; ── analyze / change output ──────────────────────────────────────────────
 
@@ -215,4 +226,9 @@
 
   (testing "build-report without change opts has no change keys"
     (let [report (sut/build-report ["resources/fixture"])]
-      (is (not (contains? report :change-pairs))))))
+      (is (not (contains? report :change-pairs)))))
+
+  (testing "--change-since scopes the commit window"
+    ;; since 1 second ago → no commits → empty pairs
+    (let [report (sut/build-report ["src/"] nil {:change "." :since "1 second ago"})]
+      (is (= [] (:change-pairs report))))))
