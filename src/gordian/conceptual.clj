@@ -72,6 +72,43 @@
        (take n)
        (mapv first)))
 
+;;; ── pairs ─────────────────────────────────────────────────────────────────
+
+(defn- structural-edge?
+  "True if there is a directed edge in either direction between a and b."
+  [graph a b]
+  (or (contains? (get graph a #{}) b)
+      (contains? (get graph b #{}) a)))
+
+(defn conceptual-pairs
+  "Compute all namespace pairs whose conceptual similarity meets threshold.
+  Returns a vector of maps sorted by :sim desc:
+    {:ns-a sym :ns-b sym :sim float
+     :structural-edge? bool :shared-terms [term]}
+  tfidf     — {ns → {term → weight}} from build-tfidf
+  graph     — {ns → #{dep-ns}} structural dependency graph
+  threshold — minimum cosine similarity to include (default 0.30)
+  n-terms   — number of shared terms to include per pair (default 3)"
+  ([tfidf graph] (conceptual-pairs tfidf graph 0.30 3))
+  ([tfidf graph threshold] (conceptual-pairs tfidf graph threshold 3))
+  ([tfidf graph threshold n-terms]
+   (let [nss (vec (keys tfidf))]
+     (->> (for [i (range (count nss))
+                j (range (inc i) (count nss))
+                :let [a   (nss i)
+                      b   (nss j)
+                      va  (get tfidf a)
+                      vb  (get tfidf b)
+                      sim (cosine-sim va vb)]
+                :when (>= sim threshold)]
+            {:ns-a             a
+             :ns-b             b
+             :sim              sim
+             :structural-edge? (structural-edge? graph a b)
+             :shared-terms     (coupling-terms va vb n-terms)})
+          (sort-by :sim >)
+          vec))))
+
 ;;; ── term extraction ───────────────────────────────────────────────────────
 
 (defn- docstring-tokens [form]

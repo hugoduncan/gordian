@@ -144,6 +144,66 @@
     (testing "no shared terms → empty vector"
       (is (= [] (sut/coupling-terms {"aa" 1.0} {"bb" 1.0} 3))))))
 
+;;; ── conceptual-pairs ──────────────────────────────────────────────────────
+
+(def ^:private small-tfidf
+  (sut/build-tfidf small-corpus))
+
+(def ^:private small-graph
+  "ns-a → ns-b edge only; ns-b ↔ ns-c has no structural edge."
+  {'ns-a #{'ns-b}
+   'ns-b #{}
+   'ns-c #{}})
+
+(deftest conceptual-pairs-test
+  (let [pairs (sut/conceptual-pairs small-tfidf small-graph 0.01 3)]
+
+    (testing "returns a vector"
+      (is (vector? pairs)))
+
+    (testing "each entry has required keys"
+      (doseq [p pairs]
+        (is (contains? p :ns-a))
+        (is (contains? p :ns-b))
+        (is (contains? p :sim))
+        (is (contains? p :structural-edge?))
+        (is (contains? p :shared-terms))))
+
+    (testing "sorted by sim descending"
+      (let [sims (map :sim pairs)]
+        (is (= sims (sort > sims)))))
+
+    (testing "all returned sims are >= threshold"
+      (doseq [{:keys [sim]} pairs]
+        (is (>= sim 0.01))))
+
+    (testing "ns-a ↔ ns-b has structural edge"
+      (let [p (first (filter #(= #{(:ns-a %) (:ns-b %)} #{'ns-a 'ns-b}) pairs))]
+        (is (true? (:structural-edge? p)))))
+
+    (testing "ns-b ↔ ns-c has no structural edge"
+      (let [p (first (filter #(= #{(:ns-a %) (:ns-b %)} #{'ns-b 'ns-c}) pairs))]
+        (when p   ; may be above threshold
+          (is (false? (:structural-edge? p))))))
+
+    (testing "ns-a ↔ ns-c (zero overlap) excluded even at low threshold"
+      (let [ac (filter #(= #{(:ns-a %) (:ns-b %)} #{'ns-a 'ns-c}) pairs)]
+        (is (empty? ac))))
+
+    (testing "shared-terms vector present for each pair"
+      (doseq [{:keys [shared-terms]} pairs]
+        (is (vector? shared-terms))))
+
+    (testing "ns-a ↔ ns-b shared term is 'cost'"
+      (let [p (first (filter #(= #{(:ns-a %) (:ns-b %)} #{'ns-a 'ns-b}) pairs))]
+        (is (= ["cost"] (:shared-terms p))))))
+
+  (testing "threshold filters out all pairs"
+    (is (empty? (sut/conceptual-pairs small-tfidf small-graph 1.0 3))))
+
+  (testing "empty tfidf → empty result"
+    (is (empty? (sut/conceptual-pairs {} {} 0.01 3)))))
+
 ;;; ── extract-terms ─────────────────────────────────────────────────────────
 
 (deftest extract-terms-test
