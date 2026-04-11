@@ -146,6 +146,31 @@ b12f097  step 4  cosine-sim + coupling-terms
 
 401 assertions, 71 tests, 0 failures.
 
+## Session 6 commits — tokenizer improvements
+
+```
+943d8d9  fix: tokenize splits on [^a-zA-Z0-9]+ — removes all punctuation noise
+a30643e  fix: add stop-words to tokenize — suppresses english function words
+382131f  feat: add stemmer — suffix rules for -ing/-ed/-er/-es/-s/-able/-ness/-ly
+```
+
+445 assertions, 72 tests, 0 failures.
+
+Self-analysis at 0.20 threshold after improvements:
+- `gordian.close ↔ gordian.aggregate` sim=0.31, no structural edge
+  shared: "reach transitive close" — reachability computation siblings ← genuine signal
+- `gordian.scan ↔ gordian.main` sim=0.23, structural edge (expected)
+
+Before: terms were `` "as `graph` but" `` — punctuation noise.
+After:  terms are "reach transitive close" — clean domain vocabulary.
+
+Key stemmer design decisions:
+- `-es` only for sibilant stems (ss/x/z): "processes"→"process" ✓, "namespaces"→"namespace" ✓
+  (without the guard, "namespaces"→"namespac" which doesn't match "namespace")
+- `-s` guard: skip words ending in ss/us/is ("class", "status", "analysis" protected)
+- dedup-final collapses double consonants: "scann"→"scan", "coupl"→"coupl" (only doubles)
+- Stop words applied before stemming; length filter applied after stemming (safety net)
+
 ## Potential next work
 
 - Tokenizer: add backtick/punctuation to split pattern (cleaner docstring tokens)
