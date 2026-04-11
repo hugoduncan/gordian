@@ -12,8 +12,9 @@ Usage: `gordian` (auto-discovers from cwd) or `gordian src/` (explicit dirs)
 
 ## Current status
 
-**v0.2.0 alpha.** Schema envelope, auto-discovery, config file, namespace
-exclusion, diagnose, explain, markdown. 145 tests, 1074 assertions, 0 failures.
+**v0.2.0 alpha.** Schema envelope, façade detection, family-scoped metrics,
+auto-discovery, config file, namespace exclusion, diagnose, explain, markdown.
+152 tests, 1161 assertions, 0 failures.
 
 ## Architecture (src/gordian/)
 
@@ -375,7 +376,25 @@ Real-world feedback from AI assistant using gordian on ~158-file Polylith
 project. 12 items analyzed and sequenced into phases. See
 `doc/design/006-user-feedback-analysis.md` for full analysis.
 
-**Phase A — Schema & Metadata** ✅ done:
+**Phase A — Schema & Metadata** ✅ done.
+
+**Phase B — Signal Quality** (in progress):
+- F5 ✅: Façade-aware interpretation — family.clj + family-scoped Ca/Ce
+  - `family-prefix`, `same-family?`, `family-metrics` (pure, reusable by F3/F7)
+  - `find-god-modules` checks façade pattern → `:facade` at `:low` not `:god-module` at `:medium`
+  - Explain output shows family and family-scoped metrics
+  - Schema version still 1 (additive)
+
+Session 12b commits:
+```
+1226c88  step 1  feat: family.clj
+b953717  step 2  feat: wire family-metrics into pipeline
+683a8e8  step 3  feat: façade detection in diagnose
+3fcf27b  step 4  feat: surface in explain output
+bd1c952  step 5  docs: schema + PLAN
+```
+
+**Phase A — Schema & Metadata** ✅ done.
 - F2: Stable EDN/JSON schema envelope — `:gordian/version`, `:lenses`, thresholds
 - F6: Surface thresholds/lens activation in output — in `:lenses` section
 - F9: Change-coupling diagnostics when empty — `:candidate-pairs`/`:reported-pairs`
