@@ -1,13 +1,21 @@
-💡 edamame options needed to parse real Clojure files
+💡 edamame: use parse-next not parse-string-all for source files
 
-edamame/parse-string-all with defaults fails on common Clojure syntax.
-Required options for parsing production .clj files:
+parse-string-all fails on '#{...} (quoted sets) — edamame splits '#'
+from '{}', causing map-arity errors.  This breaks many test files.
 
-  {:read-cond :allow    ; handle #?(:clj ...) reader conditionals
-   :features  #{:clj}  ; expand :clj branch of reader conditionals
-   :fn        true      ; allow #(...) anonymous function literals
-   :deref     true      ; allow @foo deref syntax
-   :regex     true}     ; allow #"regex" literals
+Fix: use incremental parse-next, stopping at the first (ns ...) form.
+Never parse the file body — only the ns form matters for dep analysis.
 
-Symptom: parse-file returns nil for files using #(), @, or #"".
-Caught during self-analysis showing PC=0% (most files silently failed).
+  (let [rdr (e/reader content)]
+    (loop []
+      (let [form (try (e/parse-next rdr opts) (catch Exception _ ::skip))]
+        (cond
+          (= ::e/eof form) nil
+          (= ::skip  form) (recur)
+          (and (seq? form) (= 'ns (first form))) form
+          :else (recur)))))
+
+Required opts for parse-next (same as parse-string-all):
+  {:read-cond :allow :features #{:clj} :fn true :deref true :regex true}
+
+Symptom: parse-file returns nil; self-analysis PC dramatically wrong.
