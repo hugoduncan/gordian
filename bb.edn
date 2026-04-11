@@ -34,6 +34,7 @@
   test    {:doc         "Run all tests"
            :extra-paths ["test"]
            :task        (do (require 'gordian.config-test
+                                     'gordian.diagnose-test
                                      'gordian.discover-test
                                      'gordian.filter-test
                                      'gordian.main-test
