@@ -14,6 +14,7 @@
             [gordian.explain     :as explain]
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
+            [gordian.family      :as family]
             [gordian.envelope    :as envelope]
             [gordian.dot         :as dot]
             [gordian.json        :as report-json]
@@ -195,6 +196,7 @@ Examples:
          report (-> closed
                     aggregate/aggregate
                     (merge-node-metrics (metrics/compute direct))
+                    (merge-node-metrics (family/family-metrics direct))
                     (update :nodes classify/classify)
                     (assoc :src-dirs src-dirs
                            :graph    direct

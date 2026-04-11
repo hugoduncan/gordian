@@ -79,6 +79,22 @@
       (is (vector? (:findings parsed)))
       (is (map? (:health parsed))))))
 
+(deftest family-metrics-pipeline-test
+  (testing "family metrics present on all nodes"
+    (let [report (main/build-report fixture-dirs)]
+      (doseq [node (:nodes report)]
+        (is (contains? node :family) (str (:ns node) " missing :family"))
+        (is (contains? node :ca-family) (str (:ns node) " missing :ca-family"))
+        (is (contains? node :ca-external) (str (:ns node) " missing :ca-external"))
+        (is (contains? node :ce-family) (str (:ns node) " missing :ce-family"))
+        (is (contains? node :ce-external) (str (:ns node) " missing :ce-external")))))
+
+  (testing "Ca decomposition identity: Ca = Ca-family + Ca-external"
+    (let [report (main/build-report fixture-dirs)]
+      (doseq [{:keys [ns ca ca-family ca-external]} (:nodes report)]
+        (is (= ca (+ ca-family ca-external))
+            (str ns " Ca decomposition"))))))
+
 (deftest multi-dir-pipeline-test
   (testing "two dirs merged — all namespaces present"
     (let [report (main/build-report ["resources/fixture"
