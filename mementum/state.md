@@ -203,6 +203,29 @@ Critical bug fix (session 7c):
 
 New public API: `normalize-tfidf`, `parse-file-all`, `scan-all`, `scan-all-dirs`
 
+## Session 8 commits — real-world hang + transducer perf
+
+```
+c66b391  fix+perf: syntax-quote hang + lazy chain → transducer in hot paths
+```
+
+76 tests, 473 assertions, 0 failures.
+
+Critical bug: `parse-opts` was missing `:syntax-quote true`.
+- edamame throws per sub-token inside defmacro backtick body
+- `::skip` handler catches but reader stays inside the form → infinite loop
+- Symptom: hang on any file containing `defmacro` with `` `(...) `` body
+- Fix: add `:syntax-quote true` to `parse-opts` in `scan.clj`
+- Memory: `mementum/memories/edamame-syntax-quote-hang.md`
+
+Perf: lazy `->>` → transducers (user-suggested pattern):
+- `tokenize`: `(into [] (comp ...) tokens)` — 1 pass, 4 fewer lazy seqs
+- `extract-terms`: `(into ns-tokens (comp filter mapcat) forms)`
+- `deps-from-ns-form`: `(into #{} (comp mapcat keep) req-clauses)`
+- `build-tfidf` df: nested `reduce` instead of `(mapcat distinct) + frequencies`
+
+Result: `bb gordian components/*/src --conceptual 0.20` → **0.61s** (158 files, 17 components, was hanging)
+
 ## Potential next work
 
 - Tokenizer: add backtick/punctuation to split pattern (cleaner docstring tokens)
