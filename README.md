@@ -10,12 +10,14 @@ just hard to read.
 
 ## What it measures
 
-- **Afferent / efferent coupling** (Ca, Ce) per namespace
-- **Instability** — `Ce / (Ca + Ce)`
-- **Propagation cost** — the fraction of the project reachable through the
-  transitive `require` graph (à la MacCormack, Rusnak & Baldwin, 2006)
-- **Cycles** — strongly connected components in the namespace graph
-- **Core / periphery** classification
+| Metric | Description |
+|---|---|
+| **Ca** | Afferent coupling — how many project namespaces require this one |
+| **Ce** | Efferent coupling — how many project namespaces this one requires |
+| **I** | Instability — `Ce / (Ca + Ce)` ∈ [0, 1] |
+| **Propagation cost** | Fraction of project transitively reachable per change (MacCormack 2006) |
+| **Cycles** | Strongly connected components in the require graph (Tarjan) |
+| **Role** | `core` / `peripheral` / `shared` / `isolated` (MacCormack 2012) |
 
 ## Requirements
 
@@ -25,15 +27,45 @@ just hard to read.
 
 ```bash
 bb gordian analyze src/
+# or: bb gordian src/
 ```
 
-Outputs a summary table, a DOT file of the dependency graph, and a JSON report
-for further tooling.
+Writes to stdout and produces two sidecar files:
+- `gordian-report.dot` — Graphviz DOT graph (nodes coloured by role)
+- `gordian-report.json` — machine-readable report
 
-Install as a [bbin](https://github.com/babashka/bbin) tool:
+### Example — gordian on itself
+
+```
+gordian — namespace coupling report
+src: src/
+
+propagation cost: 0.0900  (on average 9.0% of project reachable per change)
+
+cycles: none
+
+namespace               reach   fan-in   Ce   Ca      I  role
+─────────────────────────────────────────────────────────────
+gordian.main           90.0%    0.0%    9    0  1.00  peripheral
+gordian.aggregate       0.0%   10.0%    0    1  0.00  core
+gordian.classify        0.0%   10.0%    0    1  0.00  core
+gordian.close           0.0%   10.0%    0    1  0.00  core
+gordian.dot             0.0%   10.0%    0    1  0.00  core
+gordian.json            0.0%   10.0%    0    1  0.00  core
+gordian.metrics         0.0%   10.0%    0    1  0.00  core
+gordian.output          0.0%   10.0%    0    1  0.00  core
+gordian.scan            0.0%   10.0%    0    1  0.00  core
+gordian.scc             0.0%   10.0%    0    1  0.00  core
+```
+
+Star topology: `gordian.main` wires everything together; all other modules
+are pure, independent, and maximally stable.
+
+## Install via bbin
 
 ```bash
-bbin install io.github.you/gordian
+bbin install io.github.hugoduncan/gordian
+gordian analyze src/
 ```
 
 ## Why the name

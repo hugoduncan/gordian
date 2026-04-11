@@ -10,11 +10,13 @@
             [gordian.json      :as report-json]))
 
 (defn parse-args
-  "Returns {:src-dir s} or {:error msg}."
-  [[src-dir & _rest]]
-  (if src-dir
-    {:src-dir src-dir}
-    {:error "src-dir is required"}))
+  "Strip optional 'analyze' subcommand, then return {:src-dir s} or {:error msg}.
+  Accepts: gordian <src-dir>  OR  gordian analyze <src-dir>"
+  [[first-arg & rest-args :as args]]
+  (let [[src-dir] (if (= "analyze" first-arg) rest-args args)]
+    (if src-dir
+      {:src-dir src-dir}
+      {:error "src-dir is required"})))
 
 (defn- merge-node-metrics
   "Merge per-node metrics map into the :nodes vector of a report."

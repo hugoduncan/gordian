@@ -1,21 +1,28 @@
-{:paths ["src" "test"]
+{:min-bb-version "1.3.0"
+ :paths ["src"]
+
  :tasks
  {:requires ([gordian.main :as main]
              [clojure.test :as t])
 
-  analyze {:doc  "Analyze namespace coupling: bb analyze <src-dir>"
+  gordian {:doc  "Analyze namespace coupling: gordian [analyze] <src-dir>"
            :task (main/run *command-line-args*)}
 
-  test    {:doc  "Run all tests"
-           :task (do (require 'gordian.main-test
-                              'gordian.scan-test
-                              'gordian.close-test
-                              'gordian.aggregate-test
-                              'gordian.output-test
-                              'gordian.metrics-test
-                              'gordian.scc-test
-                              'gordian.classify-test
-                              'gordian.dot-test
-                              'gordian.json-test)
-                     (let [r (t/run-all-tests (re-pattern "gordian\\..*-test"))]
-                       (System/exit (if (pos? (+ (:fail r) (:error r))) 1 0))))}}}
+  ;; convenience alias kept for compat
+  analyze {:doc  "Alias for gordian"
+           :task (main/run *command-line-args*)}
+
+  test    {:doc         "Run all tests"
+           :extra-paths ["test"]
+           :task        (do (require 'gordian.main-test
+                                     'gordian.scan-test
+                                     'gordian.close-test
+                                     'gordian.aggregate-test
+                                     'gordian.output-test
+                                     'gordian.metrics-test
+                                     'gordian.scc-test
+                                     'gordian.classify-test
+                                     'gordian.dot-test
+                                     'gordian.json-test)
+                            (let [r (t/run-all-tests (re-pattern "gordian\\..*-test"))]
+                              (System/exit (if (pos? (+ (:fail r) (:error r))) 1 0))))}}}
