@@ -38,10 +38,10 @@
 
 (defn generate
   "Produce a Graphviz DOT string from a report map.
-  `report` — {:graph {ns→#{deps}} :nodes [{:ns :role :instability …}] :src-dir …}"
-  [{:keys [graph nodes src-dir]}]
+  `report` — {:graph {ns→#{deps}} :nodes [{:ns :role :instability …}] :src-dirs […]}"
+  [{:keys [graph nodes src-dirs]}]
   (let [project-nodes (set (keys graph))
-        header        [(str "// gordian — " src-dir)
+        header        [(str "// gordian — " (str/join " " src-dirs))
                        "digraph gordian {"
                        "  rankdir=LR;"
                        "  node [shape=box fontname=\"monospace\" style=filled];"

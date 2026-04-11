@@ -1,28 +1,41 @@
 (ns gordian.dot-test
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
-            [gordian.dot  :as sut]
-            [gordian.main :as main]))
+            [gordian.dot :as sut]))
 
+;;; Hand-crafted fixture — tests dot/generate in isolation.
+;;; The :graph key is required by generate for edge rendering.
 (def fixture-report
-  (main/build-report ["resources/fixture"]))
+  {:src-dirs         ["resources/fixture"]
+   :propagation-cost (/ 3.0 9.0)
+   :cycles           []
+   :graph            {'alpha #{}
+                      'beta  '#{alpha}
+                      'gamma '#{alpha beta}}
+   :nodes [{:ns 'gamma :reach (/ 2.0 3) :fan-in 0.0
+             :ca 0 :ce 2 :instability 1.0  :role :peripheral}
+            {:ns 'beta  :reach (/ 1.0 3) :fan-in (/ 1.0 3)
+             :ca 1 :ce 1 :instability 0.5  :role :shared}
+            {:ns 'alpha :reach 0.0       :fan-in (/ 2.0 3)
+             :ca 2 :ce 0 :instability 0.0  :role :core}]})
 
 ;;; ── generate structure ───────────────────────────────────────────────────
 
 (deftest generate-structure-test
   (testing "starts with digraph declaration"
-    (let [dot (sut/generate fixture-report)]
-      (is (str/includes? dot "digraph gordian {"))))
+    (is (str/includes? (sut/generate fixture-report) "digraph gordian {")))
 
   (testing "ends with closing brace"
-    (let [dot (sut/generate fixture-report)]
-      (is (str/ends-with? (str/trim dot) "}"))))
+    (is (str/ends-with? (str/trim (sut/generate fixture-report)) "}")))
 
   (testing "includes rankdir"
     (is (str/includes? (sut/generate fixture-report) "rankdir")))
 
+  (testing "src-dirs appear in header comment"
+    (is (str/includes? (sut/generate fixture-report) "resources/fixture")))
+
   (testing "empty graph produces valid skeleton"
-    (let [dot (sut/generate {:graph {} :nodes [] :src-dir "x"})]
+    (let [dot (sut/generate {:src-dirs ["x"] :graph {} :nodes []})]
       (is (str/includes? dot "digraph gordian {"))
       (is (str/ends-with? (str/trim dot) "}")))))
 
@@ -49,20 +62,16 @@
 ;;; ── role colours ─────────────────────────────────────────────────────────
 
 (deftest role-color-test
-  (let [dot (sut/generate fixture-report)]
+  (let [lines (str/split-lines (sut/generate fixture-report))]
     (testing "core node gets green fill"
-      ;; alpha is :core in the fixture
-      (let [alpha-line (first (filter #(and (str/includes? % "\"alpha\"")
-                                            (str/includes? % "fillcolor"))
-                                      (str/split-lines dot)))]
-        (is (str/includes? alpha-line "#a8d8a8"))))
+      (let [line (first (filter #(and (str/includes? % "\"alpha\"")
+                                      (str/includes? % "fillcolor")) lines))]
+        (is (str/includes? line "#a8d8a8"))))
 
     (testing "peripheral node gets red fill"
-      ;; gamma is :peripheral in the fixture
-      (let [gamma-line (first (filter #(and (str/includes? % "\"gamma\"")
-                                            (str/includes? % "fillcolor"))
-                                      (str/split-lines dot)))]
-        (is (str/includes? gamma-line "#ffb3b3"))))))
+      (let [line (first (filter #(and (str/includes? % "\"gamma\"")
+                                      (str/includes? % "fillcolor")) lines))]
+        (is (str/includes? line "#ffb3b3"))))))
 
 ;;; ── edges ────────────────────────────────────────────────────────────────
 
@@ -81,10 +90,11 @@
       (is (not (str/includes? dot "\"alpha\" -> \"alpha\""))))))
 
 (deftest external-dep-not-an-edge-test
-  ;; If a namespace requires an external lib, no DOT edge should appear
-  (let [report {:graph {'A '#{ext-lib}}
-                :nodes [{:ns 'A :role :peripheral :instability 1.0}]
-                :src-dir "src"}
+  (let [report {:src-dirs ["src"]
+                :graph    {'A '#{ext-lib}}
+                :nodes    [{:ns 'A :role :peripheral :instability 1.0}]}
         dot    (sut/generate report)]
     (testing "external dep produces no edge"
       (is (not (str/includes? dot "ext-lib"))))))
+
+
