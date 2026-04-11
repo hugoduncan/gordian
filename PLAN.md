@@ -9,29 +9,20 @@ depend on earlier ones being done first.
 
 **Status:** ✅ done (63fe1e6)
 
-Align the EDN record shape across all three coupling lenses (structural,
-conceptual, change). Today the keys differ:
-- conceptual uses `:sim`
-- change uses `:coupling`
-- structural flags vary
-
-Target schema for all pair records:
+All coupling pair records now share a common shape:
 ```clojure
-{:ns-a           symbol
- :ns-b           symbol
- :score          double        ;; replaces :sim / :coupling
- :kind           keyword       ;; :conceptual | :change
- :structural-edge? boolean}
+{:ns-a sym :ns-b sym :score float :kind keyword :structural-edge? bool}
 ```
+Conceptual pairs: `:sim` → `:score`, `:kind :conceptual`.
+Change pairs: `:coupling` → `:score`, `:kind :change`.
+Lens-specific evidence keys (`:shared-terms`, `:co-changes`, `:confidence-a/b`)
+remain as flat siblings.
 
-This is a prerequisite for diff, summary, and explain — all of which need to
-consume pair records without knowing which lens produced them.
+Design doc: `doc/design/001-schema-normalization.md`
 
-Scope:
-- `cc_change.clj` — emit `:score` instead of `:coupling`
-- `conceptual.clj` — emit `:score` instead of `:sim`
-- `output.clj` — update format fns to use new keys
-- All tests that assert on pair shape
+Implementation note: the design planned 5 separate steps but pipeline coupling
+(producer → output → integration tests) meant the right atomic unit was all
+producers + consumers together in one commit. 87 tests, 689 assertions.
 
 ---
 
