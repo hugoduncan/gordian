@@ -43,5 +43,5 @@
                                      "resources/fixture-cljc"])]
       (is (= 4 (count (:nodes report))))
       (is (every? #(contains? #{'alpha 'beta 'gamma 'portable}
-                               (:ns %))
+                              (:ns %))
                   (:nodes report))))))

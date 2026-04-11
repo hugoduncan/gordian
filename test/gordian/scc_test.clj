@@ -17,8 +17,8 @@
 
   (testing "fixture graph — three trivial SCCs"
     (let [sccs (sut/tarjan {'alpha #{}
-                             'beta  '#{alpha}
-                             'gamma '#{alpha beta}})]
+                            'beta  '#{alpha}
+                            'gamma '#{alpha beta}})]
       (is (= 3 (count sccs)))
       (is (every? #(= 1 (count %)) sccs)))))
 

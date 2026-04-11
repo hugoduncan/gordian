@@ -91,11 +91,11 @@
   [s]
   (when s
     (into []
-      (comp (remove #(< (count %) 2))
-            (remove stop-words)
-            (map stem)
-            (remove #(< (count %) 2)))
-      (str/split (str/lower-case (str s)) #"[^a-zA-Z0-9]+"))))
+          (comp (remove #(< (count %) 2))
+                (remove stop-words)
+                (map stem)
+                (remove #(< (count %) 2)))
+          (str/split (str/lower-case (str s)) #"[^a-zA-Z0-9]+"))))
 
 ;;; ── TF-IDF ────────────────────────────────────────────────────────────────
 
@@ -115,22 +115,22 @@
   [ns->terms]
   (let [n  (count ns->terms)
         df (reduce                           ; document frequency per term — no intermediate seq
-             (fn [acc terms]
-               (reduce (fn [m t] (update m t (fnil inc 0))) acc (distinct terms)))
-             {}
-             (vals ns->terms))]
+            (fn [acc terms]
+              (reduce (fn [m t] (update m t (fnil inc 0))) acc (distinct terms)))
+            {}
+            (vals ns->terms))]
     (into {}
-      (pmap (fn [[ns-sym terms]]
-              (let [tf    (term-freqs terms)
-                    total (count terms)]
-                [ns-sym
-                 (into {}
-                   (keep (fn [[t cnt]]
-                           (let [w (* (/ (double cnt) total)
-                                      (Math/log (/ (double n) (get df t 1))))]
-                             (when (pos? w) [t w])))
-                         tf))]))
-            ns->terms))))
+          (pmap (fn [[ns-sym terms]]
+                  (let [tf    (term-freqs terms)
+                        total (count terms)]
+                    [ns-sym
+                     (into {}
+                           (keep (fn [[t cnt]]
+                                   (let [w (* (/ (double cnt) total)
+                                              (Math/log (/ (double n) (get df t 1))))]
+                                     (when (pos? w) [t w])))
+                                 tf))]))
+                ns->terms))))
 
 ;;; ── similarity ────────────────────────────────────────────────────────────
 
@@ -151,12 +151,12 @@
   Per-ns normalization is independent and runs in parallel (pmap)."
   [tfidf]
   (into {}
-    (pmap (fn [[ns v]]
-            (let [mag (Math/sqrt (reduce-kv (fn [s _ w] (+ s (* w w))) 0.0 v))]
-              [ns (if (zero? mag)
-                    v
-                    (into {} (map (fn [[t w]] [t (/ w mag)]) v)))]))
-          tfidf)))
+        (pmap (fn [[ns v]]
+                (let [mag (Math/sqrt (reduce-kv (fn [s _ w] (+ s (* w w))) 0.0 v))]
+                  [ns (if (zero? mag)
+                        v
+                        (into {} (map (fn [[t w]] [t (/ w mag)]) v)))]))
+              tfidf)))
 
 (defn coupling-terms
   "Return the top-n terms driving the similarity between two TF-IDF vectors.
@@ -186,11 +186,11 @@
   Fuses what were previously two separate iterations (cosine-sim + coupling-terms)."
   [va vb n]
   (let [contribs (reduce-kv
-                   (fn [acc t wa]
-                     (if-let [wb (get vb t)]
-                       (conj acc [t (* wa wb)])
-                       acc))
-                   [] va)
+                  (fn [acc t wa]
+                    (if-let [wb (get vb t)]
+                      (conj acc [t (* wa wb)])
+                      acc))
+                  [] va)
         dot   (transduce (map second) + 0.0 contribs)
         terms (->> contribs (sort-by second >) (take n) (mapv first))]
     [dot terms]))
@@ -213,15 +213,15 @@
   runs on a worker thread, not lazily on the calling thread during concat."
   [unit graph threshold n-terms pairs]
   (into []
-    (keep (fn [[a b]]
-            (let [[sim terms] (dot-and-top-terms (get unit a) (get unit b) n-terms)]
-              (when (>= sim threshold)
-                {:ns-a             a
-                 :ns-b             b
-                 :sim              sim
-                 :structural-edge? (structural-edge? graph a b)
-                 :shared-terms     terms}))))
-    pairs))
+        (keep (fn [[a b]]
+                (let [[sim terms] (dot-and-top-terms (get unit a) (get unit b) n-terms)]
+                  (when (>= sim threshold)
+                    {:ns-a             a
+                     :ns-b             b
+                     :sim              sim
+                     :structural-edge? (structural-edge? graph a b)
+                     :shared-terms     terms}))))
+        pairs))
 
 (defn conceptual-pairs
   "Compute all namespace pairs whose conceptual similarity meets threshold.
@@ -247,17 +247,17 @@
    (let [unit    (normalize-tfidf tfidf)
          ;; inverted index: term → #{ns} (only for ns that have the term)
          t->nss  (reduce-kv
-                   (fn [m ns v]
-                     (reduce-kv (fn [m2 t _] (update m2 t (fnil conj #{}) ns)) m v))
-                   {} unit)
+                  (fn [m ns v]
+                    (reduce-kv (fn [m2 t _] (update m2 t (fnil conj #{}) ns)) m v))
+                  {} unit)
          ;; candidate pairs: ns pairs sharing ≥1 term, deduplicated
          ;; canonical order: str(a) < str(b) so each pair appears once
          candidates (into #{}
-                      (mapcat (fn [nss]
-                                (for [a nss b nss
-                                      :when (neg? (compare (str a) (str b)))]
-                                  [a b]))
-                              (vals t->nss)))
+                          (mapcat (fn [nss]
+                                    (for [a nss b nss
+                                          :when (neg? (compare (str a) (str b)))]
+                                      [a b]))
+                                  (vals t->nss)))
          chunk-size (pair-chunk-size (count candidates))]
      (->> (partition-all chunk-size candidates)
           (pmap #(eval-candidates unit graph threshold n-terms %))
@@ -281,12 +281,12 @@
   Uses a single transducer pass — no intermediate lazy sequences."
   [ns-sym forms]
   (into (vec (tokenize ns-sym))
-    (comp
-      (filter (fn [form]
-                (and (seq? form)
-                     (def-syms (first form))
-                     (symbol? (second form)))))
-      (mapcat (fn [form]
-                (concat (tokenize (second form))
-                        (docstring-tokens form)))))
-    forms))
+        (comp
+         (filter (fn [form]
+                   (and (seq? form)
+                        (def-syms (first form))
+                        (symbol? (second form)))))
+         (mapcat (fn [form]
+                   (concat (tokenize (second form))
+                           (docstring-tokens form)))))
+        forms))

@@ -68,8 +68,8 @@
                    "  " (pad-right ns-col (str ns-b))
                    "  " (format "%4.2f" (double sim))
                    "  " (if structural-edge?
-                           (str "yes      " (str/join " " shared-terms))
-                           (str "no  ←    " (str/join " " shared-terms)))))
+                          (str "yes      " (str/join " " shared-terms))
+                          (str "no  ←    " (str/join " " shared-terms)))))
             pairs)))))
 
 ;;; ── full report ──────────────────────────────────────────────────────────

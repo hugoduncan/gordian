@@ -55,12 +55,12 @@
   (testing "ellipsis and punctuation stripped; terms stemmed"
     (is (= ["ns" "dep"] (sut/tokenize "{ns→#{deps}}")))))
 
-  (testing "stemming applied in tokenize pipeline"
-    (is (= ["return"] (sut/tokenize "returns")))
-    (is (= ["scan"]   (sut/tokenize "scanning")))
-    (is (= ["scan"]   (sut/tokenize "scanned")))
-    (is (= ["reach"]  (sut/tokenize "reachable")))
-    (is (= ["coupl"]  (sut/tokenize "coupling"))))
+(testing "stemming applied in tokenize pipeline"
+  (is (= ["return"] (sut/tokenize "returns")))
+  (is (= ["scan"]   (sut/tokenize "scanning")))
+  (is (= ["scan"]   (sut/tokenize "scanned")))
+  (is (= ["reach"]  (sut/tokenize "reachable")))
+  (is (= ["coupl"]  (sut/tokenize "coupling"))))
 
 ;;; ── stem ──────────────────────────────────────────────────────────────────
 

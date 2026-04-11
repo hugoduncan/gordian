@@ -11,11 +11,11 @@
                       'beta  '#{alpha}
                       'gamma '#{alpha beta}}
    :nodes [{:ns 'gamma :reach (/ 2.0 3) :fan-in 0.0
-             :ca 0 :ce 2 :instability 1.0  :role :peripheral}
-            {:ns 'beta  :reach (/ 1.0 3) :fan-in (/ 1.0 3)
-             :ca 1 :ce 1 :instability 0.5  :role :shared}
-            {:ns 'alpha :reach 0.0       :fan-in (/ 2.0 3)
-             :ca 2 :ce 0 :instability 0.0  :role :core}]})
+            :ca 0 :ce 2 :instability 1.0  :role :peripheral}
+           {:ns 'beta  :reach (/ 1.0 3) :fan-in (/ 1.0 3)
+            :ca 1 :ce 1 :instability 0.5  :role :shared}
+           {:ns 'alpha :reach 0.0       :fan-in (/ 2.0 3)
+            :ca 2 :ce 0 :instability 0.0  :role :core}]})
 
 ;;; ── generate ─────────────────────────────────────────────────────────────
 

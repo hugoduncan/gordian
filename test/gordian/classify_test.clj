@@ -62,7 +62,7 @@
 
   ;; two isolated nodes — both below each other's mean  would be 0 still
   (let [result (sut/classify [{:ns 'A :reach 0.0 :fan-in 0.0}
-                               {:ns 'B :reach 0.0 :fan-in 0.0}])]
+                              {:ns 'B :reach 0.0 :fan-in 0.0}])]
     (testing "two equally-zero nodes → both :shared"
       (is (every? #(= :shared (:role %)) result)))))
 
