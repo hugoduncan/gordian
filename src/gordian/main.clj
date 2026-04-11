@@ -11,6 +11,7 @@
             [gordian.cc-change   :as cc-change]
             [gordian.diagnose    :as diagnose]
             [gordian.discover    :as discover]
+            [gordian.explain     :as explain]
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
             [gordian.dot         :as dot]
@@ -39,8 +40,10 @@ When given a project root (dir with deps.edn, bb.edn, etc.), gordian
 auto-discovers source directories. With no arguments, defaults to '.'.
 
 Commands:
-  analyze   (default) Raw metrics table + optional coupling sections
-  diagnose  Ranked findings with severity levels (auto-enables all lenses)
+  analyze      (default) Raw metrics table + optional coupling sections
+  diagnose     Ranked findings with severity levels (auto-enables all lenses)
+  explain      Everything gordian knows about a namespace
+  explain-pair Everything gordian knows about a pair of namespaces
 
 Options:
   --dot  <file>         Write Graphviz DOT graph to <file>
@@ -65,7 +68,9 @@ Examples:
   gordian src/ --change
   gordian src/ --change --change-since \"90 days ago\"
   gordian diagnose                    ranked findings (auto-enables all lenses)
-  gordian diagnose . --edn            machine-readable diagnose output")
+  gordian diagnose . --edn            machine-readable diagnose output
+  gordian explain gordian.scan        drill into a namespace
+  gordian explain-pair a.core b.svc   drill into a pair")
 
 (defn print-help []
   (println usage-summary))
@@ -73,26 +78,50 @@ Examples:
 ;;; ── arg parsing ──────────────────────────────────────────────────────────
 
 (defn parse-args
-  "Parse command-line args. Recognises 'analyze' and 'diagnose' subcommands.
-  Positional args are treated as dirs (project roots or explicit src-dirs).
-  No positional args → defaults to [\".\"] for auto-discovery.
+  "Parse command-line args. Recognises subcommands:
+    analyze (default), diagnose, explain, explain-pair.
+  For analyze/diagnose: positional args are dirs.
+  For explain: first positional arg is a namespace symbol.
+  For explain-pair: first two positional args are namespace symbols.
   Returns one of:
     {:help true}
     {:error <msg>}
-    {:src-dirs [<s> ...] ...opts}
-    {:command :diagnose :src-dirs [<s> ...] ...opts}"
+    {:src-dirs [...] ...opts}
+    {:command :diagnose|:explain|:explain-pair ...}"
   [raw-args]
-  (let [command  (when (#{"analyze" "diagnose"} (first raw-args)) (first raw-args))
+  (let [command  ({"analyze" :analyze "diagnose" :diagnose
+                   "explain" :explain "explain-pair" :explain-pair}
+                  (first raw-args))
         raw-args (if command (rest raw-args) raw-args)
-        {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})
-        src-dirs (if (seq args) (vec args) ["."])
-        opts     (if (= "diagnose" command)
-                   (assoc opts :command :diagnose)
-                   opts)]
+        {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})]
     (cond
-      (:help opts)                     {:help true}
-      (and (:json opts) (:edn opts))   {:error "--json and --edn are mutually exclusive"}
-      :else                            (assoc opts :src-dirs src-dirs))))
+      (:help opts)
+      {:help true}
+
+      (and (:json opts) (:edn opts))
+      {:error "--json and --edn are mutually exclusive"}
+
+      (= :explain command)
+      (if (first args)
+        (assoc opts :command :explain
+               :explain-ns (symbol (first args))
+               :src-dirs ["."])
+        {:error "explain requires a namespace argument"})
+
+      (= :explain-pair command)
+      (if (and (first args) (second args))
+        (assoc opts :command :explain-pair
+               :explain-ns-a (symbol (first args))
+               :explain-ns-b (symbol (second args))
+               :src-dirs ["."])
+        {:error "explain-pair requires two namespace arguments"})
+
+      :else
+      (let [src-dirs (if (seq args) (vec args) ["."])
+            opts     (if (= :diagnose command)
+                       (assoc opts :command :diagnose)
+                       opts)]
+        (assoc opts :src-dirs src-dirs)))))
 
 ;;; ── discovery + config resolution ────────────────────────────────────────
 
@@ -226,6 +255,36 @@ Examples:
                      (assoc report :findings findings :health health)))
       :else (output/print-diagnose report health findings))))
 
+(defn explain-cmd
+  "Run explain with resolved opts map.
+  Auto-enables conceptual (0.15) and change (.) like diagnose."
+  [{:keys [src-dirs json edn conceptual change change-since exclude explain-ns]}]
+  (let [conceptual  (or conceptual 0.15)
+        change      (if (nil? change) true change)
+        change-dir  (when change (if (string? change) change "."))
+        change-opts (when change-dir {:change change-dir :since change-since})
+        report      (build-report src-dirs conceptual change-opts exclude)
+        data        (explain/explain-ns report explain-ns)]
+    (cond
+      json (println (report-json/generate data))
+      edn  (print   (report-edn/generate data))
+      :else (output/print-explain-ns data))))
+
+(defn explain-pair-cmd
+  "Run explain-pair with resolved opts map."
+  [{:keys [src-dirs json edn conceptual change change-since exclude
+           explain-ns-a explain-ns-b]}]
+  (let [conceptual  (or conceptual 0.15)
+        change      (if (nil? change) true change)
+        change-dir  (when change (if (string? change) change "."))
+        change-opts (when change-dir {:change change-dir :since change-since})
+        report      (build-report src-dirs conceptual change-opts exclude)
+        data        (explain/explain-pair-data report explain-ns-a explain-ns-b)]
+    (cond
+      json (println (report-json/generate data))
+      edn  (print   (report-edn/generate data))
+      :else (output/print-explain-pair data))))
+
 (defn run [args]
   (let [parsed (parse-args args)]
     (cond
@@ -240,8 +299,10 @@ Examples:
                               (println)
                               (print-help)
                               (System/exit 1))
-                          (if (= :diagnose (:command opts))
-                            (diagnose-cmd opts)
+                          (case (:command opts)
+                            :diagnose     (diagnose-cmd opts)
+                            :explain      (explain-cmd opts)
+                            :explain-pair (explain-pair-cmd opts)
                             (analyze opts)))))))
 
 (defn -main [& args]

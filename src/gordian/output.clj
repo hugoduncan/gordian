@@ -244,15 +244,17 @@
 ;;; ── explain output ───────────────────────────────────────────────────────
 
 (defn- format-pair-line
-  "Format one coupling pair as a line for explain-ns output."
-  [ns-col pair]
-  (str "  " (pad-right ns-col (str (or (:ns-b pair) (:ns-a pair))))
-       "  score=" (format "%.2f" (:score pair))
-       "  " (if (:structural-edge? pair) "structural" "hidden")
-       (when (seq (:shared-terms pair))
-         (str "  shared: " (str/join ", " (:shared-terms pair))))
-       (when (:co-changes pair)
-         (str "  " (:co-changes pair) " co-changes"))))
+  "Format one coupling pair as a line for explain-ns output.
+  context-ns — the namespace being explained; we show the other side."
+  [ns-col context-ns pair]
+  (let [other (if (= context-ns (:ns-a pair)) (:ns-b pair) (:ns-a pair))]
+    (str "  " (pad-right ns-col (str other))
+         "  score=" (format "%.2f" (:score pair))
+         "  " (if (:structural-edge? pair) "structural" "hidden")
+         (when (seq (:shared-terms pair))
+           (str "  shared: " (str/join ", " (:shared-terms pair))))
+         (when (:co-changes pair)
+           (str "  " (:co-changes pair) " co-changes")))))
 
 (defn format-explain-ns
   "Format explain-ns data as human-readable lines."
@@ -297,12 +299,12 @@
         [""
          (str "CONCEPTUAL COUPLING (" (count conceptual-pairs) " pairs)")]
         (if (seq conceptual-pairs)
-          (mapv #(format-pair-line ns-col %) conceptual-pairs)
+          (mapv #(format-pair-line ns-col ns %) conceptual-pairs)
           ["  (none)"])
         [""
          (str "CHANGE COUPLING (" (count change-pairs) " pairs)")]
         (if (seq change-pairs)
-          (mapv #(format-pair-line ns-col %) change-pairs)
+          (mapv #(format-pair-line ns-col ns %) change-pairs)
           ["  (none)"])
         [""
          (str "CYCLES: " (if (seq cycles)

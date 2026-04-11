@@ -175,7 +175,7 @@
       (is (str/includes? out "--include-tests"))
       (is (str/includes? out "--exclude")))))
 
-;;; ── parse-args / diagnose subcommand ──────────────────────────────────────
+;;; ── parse-args / subcommands ──────────────────────────────────────────────
 
 (deftest parse-args-diagnose-test
   (testing "diagnose . → command :diagnose"
@@ -199,6 +199,35 @@
   (testing "analyze subcommand → no :command"
     (is (nil? (:command (sut/parse-args ["analyze" "src/"]))))))
 
+(deftest parse-args-explain-test
+  (testing "explain <ns> → :command :explain"
+    (let [opts (sut/parse-args ["explain" "gordian.scan"])]
+      (is (= :explain (:command opts)))
+      (is (= 'gordian.scan (:explain-ns opts)))
+      (is (= ["."] (:src-dirs opts)))))
+
+  (testing "explain with --edn"
+    (let [opts (sut/parse-args ["explain" "gordian.scan" "--edn"])]
+      (is (= :explain (:command opts)))
+      (is (true? (:edn opts)))))
+
+  (testing "explain without ns → error"
+    (is (contains? (sut/parse-args ["explain"]) :error))))
+
+(deftest parse-args-explain-pair-test
+  (testing "explain-pair <a> <b> → :command :explain-pair"
+    (let [opts (sut/parse-args ["explain-pair" "a.core" "b.svc"])]
+      (is (= :explain-pair (:command opts)))
+      (is (= 'a.core (:explain-ns-a opts)))
+      (is (= 'b.svc (:explain-ns-b opts)))
+      (is (= ["."] (:src-dirs opts)))))
+
+  (testing "explain-pair with one arg → error"
+    (is (contains? (sut/parse-args ["explain-pair" "a.core"]) :error)))
+
+  (testing "explain-pair with no args → error"
+    (is (contains? (sut/parse-args ["explain-pair"]) :error))))
+
 ;;; ── diagnose integration ─────────────────────────────────────────────────
 
 (deftest diagnose-integration-test
@@ -216,6 +245,49 @@
       (is (contains? parsed :findings))
       (is (contains? parsed :health))
       (is (vector? (:findings parsed))))))
+
+;;; ── explain integration ─────────────────────────────────────────────────
+
+(deftest explain-integration-test
+  (testing "explain on gordian.main produces output"
+    (let [out (with-out-str
+                (sut/explain-cmd {:src-dirs ["src/"]
+                                  :explain-ns 'gordian.main}))]
+      (is (str/includes? out "gordian explain"))
+      (is (str/includes? out "gordian.main"))
+      (is (str/includes? out "DIRECT DEPENDENCIES"))))
+
+  (testing "explain with --edn returns structured map"
+    (let [out (with-out-str
+                (sut/explain-cmd {:src-dirs ["src/"]
+                                  :explain-ns 'gordian.main
+                                  :edn true}))
+          parsed (read-string out)]
+      (is (= 'gordian.main (:ns parsed)))
+      (is (contains? parsed :metrics))
+      (is (contains? parsed :direct-deps)))))
+
+(deftest explain-pair-integration-test
+  (testing "explain-pair produces output"
+    (let [out (with-out-str
+                (sut/explain-pair-cmd {:src-dirs ["src/"]
+                                       :explain-ns-a 'gordian.aggregate
+                                       :explain-ns-b 'gordian.close}))]
+      (is (str/includes? out "gordian explain-pair"))
+      (is (str/includes? out "gordian.aggregate"))
+      (is (str/includes? out "gordian.close"))
+      (is (str/includes? out "STRUCTURAL"))))
+
+  (testing "explain-pair with --edn returns structured map"
+    (let [out (with-out-str
+                (sut/explain-pair-cmd {:src-dirs ["src/"]
+                                       :explain-ns-a 'gordian.aggregate
+                                       :explain-ns-b 'gordian.close
+                                       :edn true}))
+          parsed (read-string out)]
+      (is (= 'gordian.aggregate (:ns-a parsed)))
+      (is (= 'gordian.close (:ns-b parsed)))
+      (is (contains? parsed :structural)))))
 
 ;;; ── parse-args / --include-tests + --exclude ─────────────────────────────
 
