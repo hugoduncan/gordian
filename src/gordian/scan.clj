@@ -135,3 +135,47 @@
   (->> src-dirs
        (map scan-terms)
        (apply merge {})))
+
+;;; ── combined single-pass scan ────────────────────────────────────────────
+
+(defn parse-file-all
+  "Read a .clj file once and return {:ns sym :deps #{sym} :terms [term]}, or nil.
+  Single-pass: reads the file once, parses all forms, extracts both the
+  structural dependency graph (deps) and conceptual terms in one shot.
+  Use this instead of calling parse-file + parse-file-terms separately."
+  [path]
+  (try
+    (let [content (slurp (str path))
+          forms   (read-all-forms content)
+          ns-form (first (filter #(and (seq? %) (= 'ns (first %))) forms))
+          ns-sym  (when ns-form (second ns-form))]
+      (when ns-sym
+        {:ns    ns-sym
+         :deps  (deps-from-ns-form ns-form)
+         :terms (conceptual/extract-terms ns-sym forms)}))
+    (catch Exception _ nil)))
+
+(defn scan-all
+  "Recursively scan src-dir for .clj files in a single pass per file.
+  Returns {:graph {ns → #{deps}} :ns->terms {ns → [term]}}.
+  Prefer this over calling scan + scan-terms separately when both are needed."
+  [src-dir]
+  (->> (fs/glob src-dir "**.clj")
+       (keep parse-file-all)
+       (reduce (fn [acc {:keys [ns deps terms]}]
+                 (-> acc
+                     (assoc-in [:graph    ns] deps)
+                     (assoc-in [:ns->terms ns] terms)))
+               {:graph {} :ns->terms {}})))
+
+(defn scan-all-dirs
+  "Scan multiple src directories in a single pass per file.
+  Returns {:graph {ns → #{deps}} :ns->terms {ns → [term]}}.
+  Later directories win on namespace collision."
+  [src-dirs]
+  (->> src-dirs
+       (map scan-all)
+       (reduce (fn [a b]
+                 {:graph     (merge (:graph a) (:graph b))
+                  :ns->terms (merge (:ns->terms a) (:ns->terms b))})
+               {:graph {} :ns->terms {}})))

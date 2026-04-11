@@ -27,11 +27,8 @@
       (subs s 0 (dec n))
       s)))
 
-(defn stem
-  "Reduce a lowercase English word to an approximate stem.
-  Rules are applied in order of specificity (longest suffix first) so that
-  'nesses' is tried before 'ness', etc.  Not a full Porter stemmer — targeted
-  at the patterns that appear in Clojure identifier names and docstrings."
+(defn- stem*
+  "Implementation — see `stem`."
   [word]
   (or
    (strip-suffix word "nesses" 3)              ; emptiness → empti
@@ -63,6 +60,14 @@
                    (str/ends-with? word "is")) ; analysis — protected
        s))
    word))
+
+(def stem
+  "Reduce a lowercase English word to an approximate stem.
+  Rules are applied in order of specificity (longest suffix first) so that
+  'nesses' is tried before 'ness', etc.  Not a full Porter stemmer — targeted
+  at the patterns that appear in Clojure identifier names and docstrings.
+  Memoized: the same token is stemmed at most once per process."
+  (memoize stem*))
 
 ;;; ── tokenization ──────────────────────────────────────────────────────────
 
@@ -132,6 +137,20 @@
         mag-b (Math/sqrt (reduce-kv (fn [s _ w] (+ s (* w w))) 0.0 vb))]
     (if (zero? (* mag-a mag-b)) 0.0 (/ dot (* mag-a mag-b)))))
 
+(defn normalize-tfidf
+  "Normalize each TF-IDF vector to unit length.
+  Returns {ns → {term → normalized-weight}}.
+  Cosine similarity of two unit vectors equals their dot product, so
+  magnitude computation is eliminated from the O(N²) pair loop."
+  [tfidf]
+  (into {}
+    (map (fn [[ns v]]
+           (let [mag (Math/sqrt (reduce-kv (fn [s _ w] (+ s (* w w))) 0.0 v))]
+             [ns (if (zero? mag)
+                   v
+                   (into {} (map (fn [[t w]] [t (/ w mag)]) v)))]))
+         tfidf)))
+
 (defn coupling-terms
   "Return the top-n terms driving the similarity between two TF-IDF vectors.
   Ranks shared terms by their joint contribution (weight-a × weight-b) desc.
@@ -153,6 +172,22 @@
   (or (contains? (get graph a #{}) b)
       (contains? (get graph b #{}) a)))
 
+(defn- dot-and-top-terms
+  "Single pass over va: compute dot product and collect top-n shared terms.
+  va and vb must be pre-normalized unit vectors (see normalize-tfidf).
+  Returns [dot-product top-n-terms-vec].
+  Fuses what were previously two separate iterations (cosine-sim + coupling-terms)."
+  [va vb n]
+  (let [contribs (reduce-kv
+                   (fn [acc t wa]
+                     (if-let [wb (get vb t)]
+                       (conj acc [t (* wa wb)])
+                       acc))
+                   [] va)
+        dot   (transduce (map second) + 0.0 contribs)
+        terms (->> contribs (sort-by second >) (take n) (mapv first))]
+    [dot terms]))
+
 (defn conceptual-pairs
   "Compute all namespace pairs whose conceptual similarity meets threshold.
   Returns a vector of maps sorted by :sim desc:
@@ -161,24 +196,39 @@
   tfidf     — {ns → {term → weight}} from build-tfidf
   graph     — {ns → #{dep-ns}} structural dependency graph
   threshold — minimum cosine similarity to include (default 0.30)
-  n-terms   — number of shared terms to include per pair (default 3)"
+  n-terms   — number of shared terms to include per pair (default 3)
+
+  Optimisations applied:
+  - Vectors pre-normalized to unit length → cosine = dot product (no sqrt per pair).
+  - Inverted index (term → #{ns}) prunes pairs with zero dot product before
+    any arithmetic: only namespace pairs that share ≥1 term are evaluated.
+  - dot product and top-n terms computed in a single fused pass per pair."
   ([tfidf graph] (conceptual-pairs tfidf graph 0.30 3))
   ([tfidf graph threshold] (conceptual-pairs tfidf graph threshold 3))
   ([tfidf graph threshold n-terms]
-   (let [nss (vec (keys tfidf))]
-     (->> (for [i (range (count nss))
-                j (range (inc i) (count nss))
-                :let [a   (nss i)
-                      b   (nss j)
-                      va  (get tfidf a)
-                      vb  (get tfidf b)
-                      sim (cosine-sim va vb)]
-                :when (>= sim threshold)]
-            {:ns-a             a
-             :ns-b             b
-             :sim              sim
-             :structural-edge? (structural-edge? graph a b)
-             :shared-terms     (coupling-terms va vb n-terms)})
+   (let [unit    (normalize-tfidf tfidf)
+         ;; inverted index: term → #{ns} (only for ns that have the term)
+         t->nss  (reduce-kv
+                   (fn [m ns v]
+                     (reduce-kv (fn [m2 t _] (update m2 t (fnil conj #{}) ns)) m v))
+                   {} unit)
+         ;; candidate pairs: ns pairs sharing ≥1 term, deduplicated
+         ;; canonical order: str(a) < str(b) so each pair appears once
+         candidates (into #{}
+                      (mapcat (fn [nss]
+                                (for [a nss b nss
+                                      :when (neg? (compare (str a) (str b)))]
+                                  [a b]))
+                              (vals t->nss)))]
+     (->> candidates
+          (keep (fn [[a b]]
+                  (let [[sim terms] (dot-and-top-terms (get unit a) (get unit b) n-terms)]
+                    (when (>= sim threshold)
+                      {:ns-a             a
+                       :ns-b             b
+                       :sim              sim
+                       :structural-edge? (structural-edge? graph a b)
+                       :shared-terms     terms}))))
           (sort-by :sim >)
           vec))))
 

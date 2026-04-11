@@ -194,6 +194,35 @@
       (let [solo (sut/build-tfidf {'only-ns ["alpha" "beta"]})]
         (is (= {} (get solo 'only-ns)))))))
 
+;;; ── normalize-tfidf ───────────────────────────────────────────────────────
+
+(deftest normalize-tfidf-test
+  (let [tfidf (sut/build-tfidf small-corpus)
+        unit  (sut/normalize-tfidf tfidf)]
+
+    (testing "same keyset as input"
+      (is (= (set (keys tfidf)) (set (keys unit)))))
+
+    (testing "each vector has unit magnitude (within floating-point tolerance)"
+      (doseq [[_ v] unit
+              :when (seq v)]
+        (let [mag (Math/sqrt (reduce-kv (fn [s _ w] (+ s (* w w))) 0.0 v))]
+          (is (< (Math/abs (- 1.0 mag)) 1e-9)
+              (str "magnitude should be 1.0, got " mag)))))
+
+    (testing "cosine of two unit vectors equals their dot product"
+      ;; cos(a,b) via original formula == dot product of unit vectors
+      (let [[a b] (vec (keys tfidf))
+            cos-orig (sut/cosine-sim (get tfidf a) (get tfidf b))
+            dot-unit (reduce-kv (fn [s t wa]
+                                  (+ s (* wa (get (get unit b) t 0.0))))
+                                0.0 (get unit a))]
+        (is (< (Math/abs (- cos-orig dot-unit)) 1e-9))))
+
+    (testing "empty vector passes through unchanged"
+      (let [result (sut/normalize-tfidf {'empty-ns {}})]
+        (is (= {} (get result 'empty-ns)))))))
+
 ;;; ── cosine-sim ────────────────────────────────────────────────────────────
 
 (deftest cosine-sim-test

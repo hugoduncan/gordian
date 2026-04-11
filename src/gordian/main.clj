@@ -73,10 +73,18 @@ Examples:
   "Full pipeline: scan-dirs → close → aggregate + metrics + cycles.
   `src-dirs`            — vector of source directory paths.
   `conceptual-threshold` — when provided, runs conceptual coupling analysis
-                           and attaches :conceptual-pairs + :conceptual-threshold."
+                           and attaches :conceptual-pairs + :conceptual-threshold.
+
+  When conceptual-threshold is supplied, uses scan/scan-all-dirs so each file
+  is read and parsed exactly once (rather than a structural scan + a separate
+  full-file terms scan)."
   ([src-dirs] (build-report src-dirs nil))
   ([src-dirs conceptual-threshold]
-   (let [direct (scan/scan-dirs src-dirs)
+   (let [[direct ns->terms]
+         (if conceptual-threshold
+           (let [{:keys [graph ns->terms]} (scan/scan-all-dirs src-dirs)]
+             [graph ns->terms])
+           [(scan/scan-dirs src-dirs) nil])
          closed (close/close direct)
          report (-> closed
                     aggregate/aggregate
@@ -86,8 +94,7 @@ Examples:
                            :graph    direct
                            :cycles   (scc/find-cycles direct)))]
      (if conceptual-threshold
-       (let [tfidf (-> (scan/scan-terms-dirs src-dirs)
-                       conceptual/build-tfidf)
+       (let [tfidf (conceptual/build-tfidf ns->terms)
              pairs (conceptual/conceptual-pairs tfidf direct conceptual-threshold 3)]
          (assoc report
                 :conceptual-pairs     pairs

@@ -161,3 +161,72 @@
 
   (testing "empty dirs list → empty graph"
     (is (= {} (sut/scan-dirs [])))))
+
+;;; ── parse-file-all ───────────────────────────────────────────────────────
+
+(deftest parse-file-all-test
+  (testing "returns map with :ns :deps :terms"
+    (let [result (sut/parse-file-all (str fixture-dir "/alpha.clj"))]
+      (is (map? result))
+      (is (contains? result :ns))
+      (is (contains? result :deps))
+      (is (contains? result :terms))))
+
+  (testing ":ns matches parse-file :ns"
+    (is (= (:ns (sut/parse-file (str fixture-dir "/alpha.clj")))
+           (:ns (sut/parse-file-all (str fixture-dir "/alpha.clj"))))))
+
+  (testing ":deps matches parse-file :deps"
+    (doseq [f ["alpha.clj" "beta.clj" "gamma.clj"]]
+      (is (= (:deps (sut/parse-file (str fixture-dir "/" f)))
+             (:deps (sut/parse-file-all (str fixture-dir "/" f)))))))
+
+  (testing ":terms matches parse-file-terms terms"
+    (doseq [f ["alpha.clj" "beta.clj" "gamma.clj"]]
+      (let [[_ terms] (sut/parse-file-terms (str fixture-dir "/" f))
+            all-terms (:terms (sut/parse-file-all (str fixture-dir "/" f)))]
+        (is (= terms all-terms)))))
+
+  (testing "missing file returns nil"
+    (is (nil? (sut/parse-file-all "resources/fixture/no_such.clj")))))
+
+;;; ── scan-all ─────────────────────────────────────────────────────────────
+
+(deftest scan-all-test
+  (testing "returns map with :graph and :ns->terms keys"
+    (let [result (sut/scan-all fixture-dir)]
+      (is (contains? result :graph))
+      (is (contains? result :ns->terms))))
+
+  (testing ":graph matches scan"
+    (is (= (sut/scan fixture-dir)
+           (:graph (sut/scan-all fixture-dir)))))
+
+  (testing ":ns->terms matches scan-terms"
+    (is (= (sut/scan-terms fixture-dir)
+           (:ns->terms (sut/scan-all fixture-dir)))))
+
+  (testing "empty directory → empty graph and terms"
+    (let [tmp (doto (java.io.File. (str (java.io.File/createTempFile "gordian" "") "-d")) .mkdirs)
+          result (sut/scan-all (str tmp))]
+      (is (= {} (:graph result)))
+      (is (= {} (:ns->terms result)))
+      (clojure.java.io/delete-file tmp))))
+
+;;; ── scan-all-dirs ────────────────────────────────────────────────────────
+
+(deftest scan-all-dirs-test
+  (testing "single dir — same as scan-all"
+    (is (= (sut/scan-all fixture-dir)
+           (sut/scan-all-dirs [fixture-dir]))))
+
+  (testing ":graph matches scan-dirs"
+    (is (= (sut/scan-dirs [fixture-dir "resources/fixture-cljc"])
+           (:graph (sut/scan-all-dirs [fixture-dir "resources/fixture-cljc"])))))
+
+  (testing ":ns->terms matches scan-terms-dirs"
+    (is (= (sut/scan-terms-dirs [fixture-dir "resources/fixture-cljc"])
+           (:ns->terms (sut/scan-all-dirs [fixture-dir "resources/fixture-cljc"])))))
+
+  (testing "empty dirs list → empty result"
+    (is (= {:graph {} :ns->terms {}} (sut/scan-all-dirs [])))))
