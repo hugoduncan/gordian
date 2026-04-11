@@ -174,12 +174,17 @@
 ;;; ── parse-args / --change ────────────────────────────────────────────────
 
 (deftest parse-args-change-test
-  (testing "--change <dir> captured"
+  (testing "--change bare flag → true (normalized to \".\" in analyze)"
+    (let [opts (sut/parse-args ["src/" "--change"])]
+      (is (= ["src/"] (:src-dirs opts)))
+      (is (true? (:change opts)))))
+
+  (testing "--change <dir> captures explicit path"
     (let [opts (sut/parse-args ["src/" "--change" "."])]
       (is (= ["src/"] (:src-dirs opts)))
       (is (= "." (:change opts)))))
 
-  (testing "--change with explicit path"
+  (testing "--change with non-default path"
     (is (= "/my/repo" (:change (sut/parse-args ["src/" "--change" "/my/repo"])))))
 
   (testing "without --change, key is absent"
@@ -188,9 +193,14 @@
 ;;; ── analyze / change output ──────────────────────────────────────────────
 
 (deftest change-output-test
-  (testing "--change appends change coupling section to output"
+  (testing "--change with explicit dir appends change coupling section"
     (let [out (with-out-str
                 (sut/analyze {:src-dirs ["src/"] :change "."}))]
+      (is (str/includes? out "change coupling"))))
+
+  (testing "--change bare flag (true) defaults to . and appends section"
+    (let [out (with-out-str
+                (sut/analyze {:src-dirs ["src/"] :change true}))]
       (is (str/includes? out "change coupling"))))
 
   (testing "without --change no change coupling section"

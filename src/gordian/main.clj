@@ -22,7 +22,7 @@
    :edn        {:desc "Output EDN to stdout (suppresses table)"  :coerce :boolean}
    :conceptual {:desc "Conceptual coupling analysis; provide similarity threshold e.g. 0.30"
                 :coerce :double}
-   :change     {:desc "Change coupling analysis; provide repo dir e.g. ."}
+   :change     {:desc "Change coupling analysis; optional repo dir (default: .)"}
    :help       {:desc "Show this help message"                   :coerce :boolean}})
 
 (def ^:private usage-summary
@@ -33,7 +33,7 @@ Options:
   --json                Output JSON to stdout (suppresses human-readable table)
   --edn                 Output EDN to stdout (suppresses human-readable table)
   --conceptual <float>  Conceptual coupling analysis at given similarity threshold
-  --change <repo-dir>   Change coupling analysis using git log in <repo-dir>
+  --change [<repo-dir>] Change coupling analysis; repo dir defaults to .
   --help                Show this help message
 
 Examples:
@@ -43,7 +43,8 @@ Examples:
   gordian src/ --json > report.json
   gordian src/ test/ --edn > report.edn
   gordian src/ --conceptual 0.30
-  gordian src/ --change .")
+  gordian src/ --change
+  gordian src/ --change /other/repo")
 
 (defn print-help []
   (println usage-summary))
@@ -130,7 +131,8 @@ Examples:
   :conceptual  — similarity threshold for conceptual coupling section
   :change      — repo dir for change coupling analysis (git log)"
   [{:keys [src-dirs dot json edn conceptual change]}]
-  (let [change-opts (when change {:change change})
+  (let [change-dir  (when change (if (string? change) change "."))
+        change-opts (when change-dir {:change change-dir})
         report      (build-report src-dirs conceptual change-opts)]
     (when dot
       (spit dot (dot/generate report))
