@@ -2,6 +2,7 @@
   (:require [clojure.java.io :as io]
             [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
+            [babashka.fs :as fs]
             [cheshire.core :as json]
             [gordian.main :as sut]))
 
@@ -24,14 +25,14 @@
       (is (= "out.dot" dot)))))
 
 (deftest parse-args-errors-test
-  (testing "no args → error"
-    (is (contains? (sut/parse-args []) :error)))
+  (testing "no args → defaults to [\".\"] (auto-discovery)"
+    (is (= ["."] (:src-dirs (sut/parse-args [])))))
 
-  (testing "nil args → error"
-    (is (contains? (sut/parse-args nil) :error)))
+  (testing "nil args → defaults to [\".\"]"
+    (is (= ["."] (:src-dirs (sut/parse-args nil)))))
 
-  (testing "'analyze' alone → error"
-    (is (contains? (sut/parse-args ["analyze"]) :error)))
+  (testing "'analyze' alone → defaults to [\".\"]"
+    (is (= ["."] (:src-dirs (sut/parse-args ["analyze"])))))
 
   (testing "--json and --edn together → error"
     (is (contains? (sut/parse-args ["src/" "--json" "--edn"]) :error))))
@@ -170,7 +171,76 @@
       (is (str/includes? out "--conceptual"))
       (is (str/includes? out "--change"))
       (is (str/includes? out "--change-since"))
-      (is (str/includes? out "src-dir")))))
+      (is (str/includes? out "dir-or-src"))
+      (is (str/includes? out "--include-tests"))
+      (is (str/includes? out "--exclude")))))
+
+;;; ── parse-args / --include-tests + --exclude ─────────────────────────────
+
+(deftest parse-args-include-tests-test
+  (testing "--include-tests flag captured"
+    (is (true? (:include-tests (sut/parse-args ["." "--include-tests"])))))
+
+  (testing "without --include-tests, key is absent"
+    (is (nil? (:include-tests (sut/parse-args ["."]))))))
+
+(deftest parse-args-exclude-test
+  (testing "single --exclude captured as vector"
+    (is (= ["user"] (:exclude (sut/parse-args ["." "--exclude" "user"])))))
+
+  (testing "multiple --exclude captured as vector"
+    (is (= ["user" "scratch"]
+           (:exclude (sut/parse-args ["." "--exclude" "user" "--exclude" "scratch"])))))
+
+  (testing "without --exclude, key is absent"
+    (is (nil? (:exclude (sut/parse-args ["."]))))))
+
+;;; ── resolve-opts ─────────────────────────────────────────────────────────
+
+(deftest resolve-opts-project-root-test
+  (testing "project root discovers src dirs"
+    (let [opts (sut/resolve-opts {:src-dirs ["resources/fixture-project"]})]
+      (is (not (contains? opts :error)))
+      (is (seq (:src-dirs opts)))
+      (is (some #(str/includes? % "src") (:src-dirs opts)))))
+
+  (testing "polylith root discovers component and base dirs"
+    (let [opts (sut/resolve-opts {:src-dirs ["resources/fixture-polylith"]})]
+      (is (not (contains? opts :error)))
+      (is (some #(str/includes? % "components/auth/src") (:src-dirs opts)))
+      (is (some #(str/includes? % "bases/api/src") (:src-dirs opts))))))
+
+(deftest resolve-opts-explicit-dirs-test
+  (testing "explicit src dir (not project root) → used as-is"
+    (let [opts (sut/resolve-opts {:src-dirs ["resources/fixture"]})]
+      (is (= ["resources/fixture"] (:src-dirs opts))))))
+
+(deftest resolve-opts-include-tests-test
+  (testing "include-tests adds test dirs"
+    (let [opts (sut/resolve-opts {:src-dirs ["resources/fixture-project"]
+                                  :include-tests true})]
+      (is (some #(str/includes? % "test") (:src-dirs opts))))))
+
+(deftest resolve-opts-empty-project-test
+  (testing "project root with no src dirs → error"
+    (let [tmp (str (fs/create-temp-dir {:prefix "gordian-empty-proj"}))
+          _   (spit (str tmp "/deps.edn") "{}")]
+      (is (contains? (sut/resolve-opts {:src-dirs [tmp]}) :error)))))
+
+;;; ── build-report with --exclude ──────────────────────────────────────────
+
+(deftest build-report-exclude-test
+  (testing "exclude removes matching ns from nodes"
+    (let [report (sut/build-report ["resources/fixture-project/src"
+                                    "resources/fixture-project/test"]
+                                   nil nil ["core-test"])]
+      (is (every? #(not (str/includes? (str (:ns %)) "core-test"))
+                  (:nodes report)))))
+
+  (testing "no exclude → all nodes present"
+    (let [report (sut/build-report ["resources/fixture-project/src"
+                                    "resources/fixture-project/test"])]
+      (is (= 2 (count (:nodes report)))))))
 
 ;;; ── parse-args / --change ────────────────────────────────────────────────
 

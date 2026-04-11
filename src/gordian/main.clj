@@ -9,6 +9,9 @@
             [gordian.conceptual  :as conceptual]
             [gordian.git         :as git]
             [gordian.cc-change   :as cc-change]
+            [gordian.discover    :as discover]
+            [gordian.config      :as config]
+            [gordian.filter      :as gfilter]
             [gordian.dot         :as dot]
             [gordian.json        :as report-json]
             [gordian.edn         :as report-edn]
@@ -17,17 +20,22 @@
 ;;; ── CLI spec ─────────────────────────────────────────────────────────────
 
 (def ^:private cli-spec
-  {:dot        {:desc "Write Graphviz DOT graph to <file>"}
-   :json       {:desc "Output JSON to stdout (suppresses table)" :coerce :boolean}
-   :edn        {:desc "Output EDN to stdout (suppresses table)"  :coerce :boolean}
-   :conceptual {:desc "Conceptual coupling analysis; provide similarity threshold e.g. 0.30"
-                :coerce :double}
-   :change     {:desc "Change coupling analysis; optional repo dir (default: .)"}
-   :change-since {:desc "Limit change coupling to commits after this date e.g. \"90 days ago\""}
-   :help       {:desc "Show this help message"                   :coerce :boolean}})
+  {:dot           {:desc "Write Graphviz DOT graph to <file>"}
+   :json          {:desc "Output JSON to stdout (suppresses table)" :coerce :boolean}
+   :edn           {:desc "Output EDN to stdout (suppresses table)"  :coerce :boolean}
+   :conceptual    {:desc "Conceptual coupling analysis; provide similarity threshold e.g. 0.30"
+                   :coerce :double}
+   :change        {:desc "Change coupling analysis; optional repo dir (default: .)"}
+   :change-since  {:desc "Limit change coupling to commits after this date e.g. \"90 days ago\""}
+   :include-tests {:desc "Include test directories in auto-discovery" :coerce :boolean}
+   :exclude       {:desc "Exclude namespaces matching regex (repeatable)" :coerce [:string]}
+   :help          {:desc "Show this help message"                   :coerce :boolean}})
 
 (def ^:private usage-summary
-  "Usage: gordian [analyze] <src-dir>... [options]
+  "Usage: gordian [analyze] [<dir-or-src>...] [options]
+
+When given a project root (dir with deps.edn, bb.edn, etc.), gordian
+auto-discovers source directories. With no arguments, defaults to '.'.
 
 Options:
   --dot  <file>         Write Graphviz DOT graph to <file>
@@ -36,17 +44,20 @@ Options:
   --conceptual <float>  Conceptual coupling analysis at given similarity threshold
   --change [<repo-dir>] Change coupling analysis; repo dir defaults to .
   --change-since <date> Limit to commits after <date> e.g. \"90 days ago\"
+  --include-tests       Include test directories in auto-discovery
+  --exclude <regex>     Exclude namespaces matching regex (repeatable)
   --help                Show this help message
 
 Examples:
-  gordian src/
-  gordian analyze src/ test/
-  gordian src/ --dot deps.dot
-  gordian src/ --json > report.json
-  gordian src/ test/ --edn > report.edn
+  gordian                             auto-discover from cwd
+  gordian .                           auto-discover from cwd
+  gordian /path/to/project            auto-discover from project root
+  gordian . --include-tests           include test directories
+  gordian . --exclude 'user|scratch'  exclude matching namespaces
+  gordian src/                        explicit src dir (no discovery)
+  gordian src/ test/                  explicit multiple dirs
   gordian src/ --conceptual 0.30
   gordian src/ --change
-  gordian src/ --change /other/repo
   gordian src/ --change --change-since \"90 days ago\"")
 
 (defn print-help []
@@ -56,20 +67,48 @@ Examples:
 
 (defn parse-args
   "Parse command-line args. Strips optional 'analyze' subcommand.
-  All positional args are treated as src-dirs.
+  Positional args are treated as dirs (project roots or explicit src-dirs).
+  No positional args → defaults to [\".\"] for auto-discovery.
   Returns one of:
     {:help true}
     {:error <msg>}
-    {:src-dirs [<s> ...] [:dot <file>] [:json true] [:edn true]}"
+    {:src-dirs [<s> ...] ...opts}"
   [raw-args]
   (let [raw-args (if (= "analyze" (first raw-args)) (rest raw-args) raw-args)
         {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})
-        src-dirs (seq args)]
+        src-dirs (if (seq args) (vec args) ["."])]
     (cond
       (:help opts)                     {:help true}
-      (nil? src-dirs)                  {:error "at least one src-dir is required"}
       (and (:json opts) (:edn opts))   {:error "--json and --edn are mutually exclusive"}
-      :else                            (assoc opts :src-dirs (vec src-dirs)))))
+      :else                            (assoc opts :src-dirs src-dirs))))
+
+;;; ── discovery + config resolution ────────────────────────────────────────
+
+(defn resolve-opts
+  "Resolve src-dirs from CLI args via auto-discovery or pass-through.
+  When the sole positional arg is a project root (has deps.edn etc.),
+  auto-discovers source directories and loads .gordian.edn config.
+  Otherwise treats positional args as explicit src-dirs (backward compatible).
+  Returns opts map with :src-dirs guaranteed to be a non-empty vector,
+  or an {:error ...} map."
+  [{:keys [src-dirs] :as opts}]
+  (let [;; single dir that is a project root → discover + config
+        project-dir (when (and (= 1 (count src-dirs))
+                               (discover/project-root? (first src-dirs)))
+                      (first src-dirs))
+        cfg         (when project-dir (config/load-config project-dir))
+        merged      (if cfg (config/merge-opts cfg opts) opts)]
+    (if project-dir
+      ;; auto-discovery: config :src-dirs overrides discovery, else probe
+      (if-let [cfg-dirs (seq (:src-dirs cfg))]
+        (assoc merged :src-dirs (vec cfg-dirs))
+        (let [discovered (discover/discover-dirs project-dir)
+              dirs       (discover/resolve-dirs discovered merged)]
+          (if (seq dirs)
+            (assoc merged :src-dirs dirs)
+            {:error (str "no source directories found in " project-dir)})))
+      ;; explicit dirs — use as-is
+      merged)))
 
 ;;; ── pipeline ─────────────────────────────────────────────────────────────
 
@@ -87,18 +126,27 @@ Examples:
                           :change  — repo dir for git log (string)
                           :min-co  — minimum co-change count (default 2)
                           Attaches :change-pairs + :change-threshold.
+  `exclude`             — seq of regex strings. Matching namespaces are
+                          removed from the graph after scanning.
 
   When conceptual-threshold is supplied, uses scan/scan-all-dirs so each file
   is read and parsed exactly once (rather than a structural scan + a separate
   full-file terms scan)."
-  ([src-dirs] (build-report src-dirs nil nil))
-  ([src-dirs conceptual-threshold] (build-report src-dirs conceptual-threshold nil))
-  ([src-dirs conceptual-threshold change-opts]
-   (let [[direct ns->terms]
+  ([src-dirs] (build-report src-dirs nil nil nil))
+  ([src-dirs conceptual-threshold] (build-report src-dirs conceptual-threshold nil nil))
+  ([src-dirs conceptual-threshold change-opts] (build-report src-dirs conceptual-threshold change-opts nil))
+  ([src-dirs conceptual-threshold change-opts exclude]
+   (let [[raw-graph ns->terms]
          (if conceptual-threshold
            (let [{:keys [graph ns->terms]} (scan/scan-all-dirs conceptual/extract-terms src-dirs)]
              [graph ns->terms])
            [(scan/scan-dirs src-dirs) nil])
+         direct   (gfilter/filter-graph raw-graph exclude)
+         ns->terms (when ns->terms
+                     (if (seq exclude)
+                       (let [keep? (set (keys direct))]
+                         (into {} (filter (fn [[k _]] (keep? k))) ns->terms))
+                       ns->terms))
          closed (close/close direct)
          report (-> closed
                     aggregate/aggregate
@@ -127,18 +175,19 @@ Examples:
        report))))
 
 (defn analyze
-  "Run analysis with parsed opts map.
+  "Run analysis with resolved opts map.
   :src-dirs      — required vector of source directories
   :dot <file>    — write Graphviz DOT to <file> (stderr status line)
   :json true     — print JSON to stdout, suppress human-readable table
   :edn  true     — print EDN to stdout, suppress human-readable table
   :conceptual    — similarity threshold for conceptual coupling section
   :change        — repo dir for change coupling analysis (git log)
-  :change-since  — git date string limiting change coupling horizon"
-  [{:keys [src-dirs dot json edn conceptual change change-since]}]
+  :change-since  — git date string limiting change coupling horizon
+  :exclude       — vector of regex strings to exclude namespaces"
+  [{:keys [src-dirs dot json edn conceptual change change-since exclude]}]
   (let [change-dir  (when change (if (string? change) change "."))
         change-opts (when change-dir {:change change-dir :since change-since})
-        report      (build-report src-dirs conceptual change-opts)]
+        report      (build-report src-dirs conceptual change-opts exclude)]
     (when dot
       (spit dot (dot/generate report))
       (binding [*out* *err*] (println (str "DOT written to " dot))))
@@ -148,14 +197,20 @@ Examples:
       :else (output/print-report report))))
 
 (defn run [args]
-  (let [opts (parse-args args)]
+  (let [parsed (parse-args args)]
     (cond
-      (:help opts)  (do (print-help) (System/exit 0))
-      (:error opts) (do (println (str "Error: " (:error opts)))
-                        (println)
-                        (print-help)
-                        (System/exit 1))
-      :else         (analyze opts))))
+      (:help parsed)  (do (print-help) (System/exit 0))
+      (:error parsed) (do (println (str "Error: " (:error parsed)))
+                          (println)
+                          (print-help)
+                          (System/exit 1))
+      :else           (let [opts (resolve-opts parsed)]
+                        (if (:error opts)
+                          (do (println (str "Error: " (:error opts)))
+                              (println)
+                              (print-help)
+                              (System/exit 1))
+                          (analyze opts))))))
 
 (defn -main [& args]
   (run args))
