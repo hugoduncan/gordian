@@ -36,6 +36,7 @@
            :task        (do (require 'gordian.config-test
                                      'gordian.diagnose-test
                                      'gordian.discover-test
+                                     'gordian.envelope-test
                                      'gordian.explain-test
                                      'gordian.filter-test
                                      'gordian.main-test
