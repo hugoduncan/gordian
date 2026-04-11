@@ -161,12 +161,14 @@
                                     [c-pair] #{}))
                             x-pair
                             (first (diagnose/find-hidden-change
-                                    [x-pair] #{}))))]
+                                    [x-pair] #{}))))
+            structural-data {:direct-edge?  direct-edge
+                             :direction     direction
+                             :shortest-path path}]
         {:ns-a       ns-a
          :ns-b       ns-b
-         :structural {:direct-edge? direct-edge
-                      :direction    direction
-                      :shortest-path path}
+         :structural structural-data
          :conceptual c-pair
          :change     x-pair
-         :finding    finding}))))
+         :finding    finding
+         :verdict    (verdict structural-data c-pair x-pair)}))))

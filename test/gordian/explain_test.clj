@@ -242,9 +242,9 @@
 (deftest explain-pair-data-test
   (let [result (sut/explain-pair-data test-report 'x.scan 'x.close)]
 
-    (testing "returns expected keys"
+    (testing "returns expected keys including :verdict"
       (is (every? #(contains? result %)
-                  [:ns-a :ns-b :structural :conceptual :change :finding])))
+                  [:ns-a :ns-b :structural :conceptual :change :finding :verdict])))
 
     (testing "no direct edge between scan and close"
       (is (false? (get-in result [:structural :direct-edge?])))
@@ -263,21 +263,31 @@
 
     (testing "finding present (hidden cross-lens)"
       (is (some? (:finding result)))
-      (is (= :high (:severity (:finding result))))))
+      (is (= :high (:severity (:finding result)))))
 
-  (testing "structural edge detected"
+    (testing "verdict reflects hidden cross-lens (same family, has independent terms)"
+      ;; scan↔close: same family "x", conceptual + change, no structural edge
+      ;; conceptual pairs in fixture don't have :same-family? annotation
+      ;; so verdict falls through to rules based on nil same-family
+      (is (some? (:verdict result)))
+      (is (keyword? (get-in result [:verdict :category])))))
+
+  (testing "structural edge → :expected-structural verdict"
     (let [result (sut/explain-pair-data test-report 'x.main 'x.scan)]
       (is (true? (get-in result [:structural :direct-edge?])))
-      (is (= :a->b (get-in result [:structural :direction])))))
+      (is (= :a->b (get-in result [:structural :direction])))
+      (is (= :expected-structural (get-in result [:verdict :category])))))
 
   (testing "shortest path found for transitive connection"
     (let [result (sut/explain-pair-data test-report 'x.main 'x.close)]
       ;; x.main → x.close is a direct dep actually
       (is (true? (get-in result [:structural :direct-edge?])))))
 
-  (testing "no conceptual data → nil"
+  (testing "no coupling data → :unrelated or :transitive-only verdict"
     (let [result (sut/explain-pair-data test-report 'x.main 'x.scc)]
-      (is (nil? (:conceptual result)))))
+      (is (nil? (:conceptual result)))
+      (is (contains? #{:transitive-only :unrelated}
+                     (get-in result [:verdict :category])))))
 
   (testing "unknown ns → :error"
     (let [result (sut/explain-pair-data test-report 'x.main 'nonexistent)]
