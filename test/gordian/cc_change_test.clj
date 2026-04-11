@@ -2,6 +2,14 @@
   (:require [clojure.test :refer [deftest is testing]]
             [gordian.cc-change :as sut]))
 
+;;; ── shared graph fixture ─────────────────────────────────────────────────
+
+(def ^:private graph
+  "scan → main structural edge; output has no structural edges."
+  {'gordian.scan   #{'gordian.main}
+   'gordian.main   #{}
+   'gordian.output #{}})
+
 ;;; ── shared fixture ───────────────────────────────────────────────────────
 
 (def ^:private commits
@@ -79,3 +87,88 @@
                {:sha "3" :nss #{'a 'b}}])]
       (is (= 1 (count co)))
       (is (= 3 (get co (sort-by str ['a 'b])))))))
+;;; ── change-coupling-pairs ────────────────────────────────────────────────
+;;;
+;;; Fixture derivation:
+;;;   n-changes: scan=3 main=3 output=2
+;;;   co-counts: [main scan]=2  [output scan]=2  [main output]=1
+;;;
+;;;   Jaccard [main scan]:   2/(3+3-2) = 0.50
+;;;   Jaccard [output scan]: 2/(2+3-2) = 0.67
+;;;   Jaccard [main output]: 1/(3+2-1) = 0.25  → excluded at threshold=0.30
+;;;                                              → also excluded at min-co=2
+;;;
+;;;   structural edges: scan→main (yes), output (none)
+
+(deftest change-coupling-pairs-test
+  (testing "returns a vector"
+    (is (vector? (sut/change-coupling-pairs commits graph))))
+
+  (testing "each entry has required keys"
+    (doseq [p (sut/change-coupling-pairs commits graph 0.01 1)]
+      (is (contains? p :ns-a))
+      (is (contains? p :ns-b))
+      (is (contains? p :coupling))
+      (is (contains? p :confidence-a))
+      (is (contains? p :confidence-b))
+      (is (contains? p :co-changes))
+      (is (contains? p :structural-edge?))))
+
+  (testing "Jaccard coupling values correct"
+    (let [pairs (sut/change-coupling-pairs commits graph 0.01 1)
+          by-ns (into {} (map (fn [p] [#{(:ns-a p) (:ns-b p)} p]) pairs))]
+      (is (< (Math/abs (- 0.50 (:coupling (get by-ns #{'gordian.main 'gordian.scan})))) 1e-9))
+      (is (< (Math/abs (- (/ 2.0 3) (:coupling (get by-ns #{'gordian.output 'gordian.scan})))) 1e-9))
+      (is (< (Math/abs (- 0.25 (:coupling (get by-ns #{'gordian.main 'gordian.output})))) 1e-9))))
+
+  (testing "confidence values correct"
+    ;; [output scan]: output changed 2 times, co=2 → conf-a=1.0; scan changed 3 times → conf-b=2/3
+    (let [pairs (sut/change-coupling-pairs commits graph 0.01 1)
+          by-ns (into {} (map (fn [p] [#{(:ns-a p) (:ns-b p)} p]) pairs))
+          p     (get by-ns #{'gordian.output 'gordian.scan})]
+      (is (= 1.0  (max (:confidence-a p) (:confidence-b p))))
+      (is (< (Math/abs (- (/ 2.0 3) (min (:confidence-a p) (:confidence-b p)))) 1e-9))))
+
+  (testing "sorted by coupling descending"
+    (let [pairs  (sut/change-coupling-pairs commits graph 0.01 1)
+          values (map :coupling pairs)]
+      (is (= values (sort > values)))))
+
+  (testing "threshold filters pairs below minimum coupling"
+    ;; [main output] Jaccard=0.25 excluded at default threshold=0.30
+    (let [pairs (sut/change-coupling-pairs commits graph 0.30 1)
+          ns-sets (set (map (fn [p] #{(:ns-a p) (:ns-b p)}) pairs))]
+      (is (not (contains? ns-sets #{'gordian.main 'gordian.output})))))
+
+  (testing "min-co filters pairs with insufficient raw count"
+    ;; [main output] co=1 excluded at min-co=2
+    (let [pairs (sut/change-coupling-pairs commits graph 0.01 2)
+          ns-sets (set (map (fn [p] #{(:ns-a p) (:ns-b p)}) pairs))]
+      (is (not (contains? ns-sets #{'gordian.main 'gordian.output})))))
+
+  (testing "structural-edge? true when require edge exists"
+    ;; graph has scan → main; canonical pair is [main scan]
+    (let [pairs  (sut/change-coupling-pairs commits graph 0.01 1)
+          by-ns  (into {} (map (fn [p] [#{(:ns-a p) (:ns-b p)} p]) pairs))
+          p      (get by-ns #{'gordian.main 'gordian.scan})]
+      (is (true? (:structural-edge? p)))))
+
+  (testing "structural-edge? false when no require edge"
+    (let [pairs  (sut/change-coupling-pairs commits graph 0.01 1)
+          by-ns  (into {} (map (fn [p] [#{(:ns-a p) (:ns-b p)} p]) pairs))
+          p      (get by-ns #{'gordian.output 'gordian.scan})]
+      (is (false? (:structural-edge? p)))))
+
+  (testing "namespaces not in graph are excluded from pairs"
+    (let [commits-with-ext [{:sha "x" :nss #{'gordian.scan 'external.lib}}
+                            {:sha "y" :nss #{'gordian.scan 'external.lib}}]
+          pairs (sut/change-coupling-pairs commits-with-ext graph 0.01 1)]
+      (is (every? #(and (contains? graph (:ns-a %))
+                        (contains? graph (:ns-b %)))
+                  pairs))))
+
+  (testing "empty commits → empty vector"
+    (is (= [] (sut/change-coupling-pairs [] graph))))
+
+  (testing "threshold 1.0 excludes all non-identical pairs"
+    (is (empty? (sut/change-coupling-pairs commits graph 1.0 1)))))
