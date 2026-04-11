@@ -3,6 +3,85 @@
             [clojure.test :refer [deftest is testing]]
             [gordian.git :as sut]))
 
+;;; ── path->ns ─────────────────────────────────────────────────────────────
+
+(deftest path->ns-test
+  (testing "strips src-dir prefix and converts to ns symbol"
+    (is (= 'gordian.scan
+           (sut/path->ns "src/gordian/scan.clj" ["src"]))))
+
+  (testing "underscore converted to hyphen"
+    (is (= 'gordian.cc-change
+           (sut/path->ns "src/gordian/cc_change.clj" ["src"]))))
+
+  (testing "nested path"
+    (is (= 'a.b.c
+           (sut/path->ns "src/a/b/c.clj" ["src"]))))
+
+  (testing "test/ prefix stripped"
+    (is (= 'gordian.scan-test
+           (sut/path->ns "test/gordian/scan_test.clj" ["test"]))))
+
+  (testing "first matching src-dir wins"
+    (is (= 'gordian.scan
+           (sut/path->ns "src/gordian/scan.clj" ["test" "src"]))))
+
+  (testing "no matching src-dir — path converted as-is without prefix strip"
+    (is (= 'gordian.scan
+           (sut/path->ns "gordian/scan.clj" []))))
+
+  (testing ".clj suffix dropped"
+    (is (= 'foo.bar
+           (sut/path->ns "src/foo/bar.clj" ["src"])))))
+
+;;; ── commits-as-ns ────────────────────────────────────────────────────────
+
+(def ^:private proj-graph
+  {'gordian.scan    #{}
+   'gordian.main    #{}
+   'gordian.output  #{}})
+
+(def ^:private file-commits
+  [{:sha "a" :files #{"src/gordian/scan.clj" "src/gordian/main.clj"}}
+   {:sha "b" :files #{"src/gordian/scan.clj" "src/gordian/output.clj"
+                      "test/gordian/scan_test.clj"}}
+   {:sha "c" :files #{"src/gordian/main.clj"}}         ; only 1 project ns → dropped
+   {:sha "d" :files #{"external/lib.clj" "other/lib.clj"}}]) ; none in graph → dropped
+
+(deftest commits-as-ns-test
+  (testing "returns a seq"
+    (is (seq? (sut/commits-as-ns file-commits ["src" "test"] proj-graph))))
+
+  (testing "file paths resolved to ns symbols"
+    (let [result (vec (sut/commits-as-ns file-commits ["src"] proj-graph))]
+      (is (= 'gordian.scan (first (filter #(= % 'gordian.scan)
+                                          (:nss (first result))))))))
+
+  (testing "only project namespaces (graph keys) kept"
+    ;; test/gordian/scan_test.clj → gordian.scan-test, not in graph → excluded
+    (let [result (vec (sut/commits-as-ns file-commits ["src" "test"] proj-graph))]
+      (is (every? #(every? proj-graph (:nss %)) result))))
+
+  (testing "commits with fewer than 2 project ns dropped"
+    ;; sha c: only gordian.main (1 ns) → dropped
+    ;; sha d: no project ns → dropped
+    (let [result (vec (sut/commits-as-ns file-commits ["src"] proj-graph))
+          shas   (set (map :sha result))]
+      (is (not (contains? shas "c")))
+      (is (not (contains? shas "d")))))
+
+  (testing "commits with ≥2 project ns retained"
+    (let [result (vec (sut/commits-as-ns file-commits ["src"] proj-graph))
+          shas   (set (map :sha result))]
+      (is (contains? shas "a"))
+      (is (contains? shas "b"))))
+
+  (testing "empty commits → empty result"
+    (is (empty? (sut/commits-as-ns [] ["src"] proj-graph))))
+
+  (testing "empty graph → all commits dropped (no project ns)"
+    (is (empty? (sut/commits-as-ns file-commits ["src"] {})))))
+
 ;;; ── commits ──────────────────────────────────────────────────────────────
 ;;;
 ;;; Tests run against the real gordian repository.  The git history is

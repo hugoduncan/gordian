@@ -51,3 +51,46 @@
                (let [clj-files (into #{} (filter #(str/ends-with? % ".clj")) files)]
                  (when (seq clj-files)
                    {:sha sha :files clj-files}))))))
+
+;;; ── path → namespace resolution ──────────────────────────────────────────
+
+(defn path->ns
+  "Map a repo-relative file path to a namespace symbol.
+  Strips the first matching src-dir prefix, then converts path separators
+  to dots, underscores to hyphens, and drops the .clj suffix.
+
+  Example:
+    (path->ns \"src/gordian/cc_change.clj\" [\"src\"])
+    → 'gordian.cc-change
+
+  If no src-dir prefix matches the path is converted as-is (best effort)."
+  [path src-dirs]
+  (let [stripped (or (some (fn [d]
+                             (let [prefix (str d "/")]
+                               (when (str/starts-with? path prefix)
+                                 (subs path (count prefix)))))
+                           src-dirs)
+                     path)]
+    (-> stripped
+        (str/replace "/" ".")
+        (str/replace "_" "-")
+        (str/replace #"\.clj$" "")
+        symbol)))
+
+(defn commits-as-ns
+  "Translate file paths in each commit to namespace symbols.
+  Only namespaces that are keys in graph (project namespaces) are kept.
+  Commits that resolve to fewer than 2 project namespaces are dropped
+  — they can produce no co-change pairs and would only inflate change counts.
+
+  Returns [{:sha str :nss #{ns-sym}}]."
+  [file-commits src-dirs graph]
+  (let [project (set (keys graph))]
+    (keep (fn [{:keys [sha files]}]
+            (let [nss (into #{}
+                            (comp (map #(path->ns % src-dirs))
+                                  (filter project))
+                            files)]
+              (when (>= (count nss) 2)
+                {:sha sha :nss nss})))
+          file-commits)))
