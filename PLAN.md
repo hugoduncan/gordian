@@ -155,31 +155,137 @@ Scope:
 
 ---
 
-## Deferred (v2)
+## Phase A — Schema & Metadata
 
-These are real features but require more design or have higher implementation
-cost. Revisit once the above are stable.
+Unblocks scripting, CI, and compare mode. ~1 session.
 
-### Cluster detection (`gordian clusters .`)
-Group namespaces into subsystems by coupling density (structural + conceptual
-+ change). Output: cluster members, dominant terms, internal coupling density,
-hidden-vs-structural ratio. Requires graph community detection algorithm
-(e.g. label propagation or modularity optimisation).
+Driven by real-world feedback: doc/design/006-user-feedback-analysis.md
 
-### Diff / baseline mode (`gordian diff before.edn after.edn`)
-Compare two `--edn` snapshots. Highlight: propagation cost delta, new cycles,
-new hidden coupling pairs, namespaces whose reach/fan-in changed materially.
-Depends on schema normalization (item 1) being complete.
+### 6. Stable EDN/JSON schema envelope
+
+**Status:** todo
+
+Add metadata envelope to all command outputs:
+```clojure
+{:gordian/version "0.2.0"
+ :gordian/schema  1
+ :command         :analyze
+ :lenses          {:structural true
+                   :conceptual {:enabled true :threshold 0.20}
+                   :change     {:enabled true :since "90 days ago"
+                                :candidate-pairs 42 :reported-pairs 3}}
+ :include-tests   false
+ :excludes        ["user"]
+ :src-dirs        ["src/"]
+ ...existing keys...}
+```
+
+- Thread opts/config through to output
+- Document schema in `doc/schema.md` or README section
+- Change-coupling diagnostics when empty: report candidate count + reason
+- Version in bb.edn, referenced from code
+
+### 7. Façade-aware interpretation
+
+**Status:** todo
+
+Detect façade pattern: high Ca, low direct Ce, delegates to family submodules.
+- New `:facade` role or `:likely-facade` annotation
+- Heuristic: Ca ≥ 3, Ce ≤ 2, deps are in same ns family
+- Adjust god-module severity when façade pattern detected
+
+Small. Pure heuristic on existing data.
+
+### 8. Family-noise suppression for conceptual coupling
+
+**Status:** todo
+
+After namespace splitting, sibling pairs flood findings with shared
+namespace-prefix tokens ("mutation", "agent", "session"). True but not
+actionable.
+
+- Extract namespace-prefix tokens for each pair
+- Discount shared terms from common ns prefix
+- Tag findings with `:family-noise? true` or suppress via flag
+- `--suppress-family-noise` flag (or default-on with opt-out)
+
+### 9. Explain-pair verdict
+
+**Status:** todo
+
+Add `:interpretation` key to explain-pair output. Rule-based:
+- family overlap + conceptual-only → "likely naming noise"
+- structural + conceptual → "expected coupling"
+- change-only → "possible vestigial dependency"
+- hidden in both lenses → "likely missing abstraction"
+
+Depends on: F7 façade detection, F8 family detection.
+
+---
+
+## Phase C — Comparison & Clustering
+
+Highest strategic value. ~2 sessions.
+
+### 10. Compare/diff mode
+
+**Status:** todo
+
+`gordian compare before.edn after.edn` — delta report:
+- Propagation cost delta
+- Newly introduced/removed cycles
+- Findings added/removed
+- Node metric changes (reach, fan-in, Ce, Ca, role)
+- Coupling pairs improved/worsened
+
+Also: `gordian compare --ref HEAD~4 --ref HEAD` (git-checkout comparison).
+
+Depends on: item 6 (stable schema).
+
+### 11. Grouped/clustered findings in diagnose
+
+**Status:** todo
+
+Post-process findings: group pairs sharing members into clusters.
+- Connected-component grouping on finding pairs (union-find)
+- Cluster name from dominant shared terms
+- Members, evidence summary, recommendation
+- Section in `diagnose` output
+
+---
+
+## Phase D — Workflows & CI
+
+Builds on everything above. Ongoing.
+
+### Family/subgraph views
+`gordian explain <prefix>` — when arg matches multiple ns, show family view.
+Subgraph extraction + internal coupling density + boundary surface.
+
+### Actionability sort
+`--rank actionability` vs `--rank severity`. Composite score using
+family-noise, façade detection, lens overlap.
+
+### CI/refactor-ratchet mode
+`gordian gate --baseline gordian.edn --max-pc-delta 0.01`
+Fail on PC rise, new cycles, new high-severity findings.
+Depends on: compare mode + stable schema.
+
+### Full cluster detection
+Community detection (label propagation or modularity) for structural
+cluster discovery beyond finding-grouping.
+
+---
+
+## Deferred (v2+)
 
 ### Change window comparison (`--compare-windows`)
 Classify change coupling findings as active coupling, historical scar,
-improving, or worsening by comparing two time windows. Mostly git query
-plumbing on top of the existing change coupling logic.
+improving, or worsening by comparing two time windows.
 
 ### Test mode (`gordian tests .`)
-Dedicated analysis of test architecture: test ns depended on by src ns, high-
-reach tests, tests that pull too much of the system, core ns with suspiciously
-low test fan-in.
+Dedicated analysis of test architecture: test ns depended on by src ns,
+high-reach tests, tests that pull too much of the system.
 
 ### Presets (`--preset quick|audit|full|tests`)
 Named flag bundles. Nice-to-have once the individual flags are stable.

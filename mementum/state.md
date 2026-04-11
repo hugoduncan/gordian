@@ -366,13 +366,35 @@ See PLAN.md. All 5 primary items complete. Deferred items remain (v2):
 cluster detection, diff/baseline, change window comparison, test mode,
 presets.
 
+## Session 12 — user feedback analysis
+
+Real-world feedback from AI assistant using gordian on ~158-file Polylith
+project. 12 items analyzed and sequenced into phases. See
+`doc/design/006-user-feedback-analysis.md` for full analysis.
+
+**Phase A — Schema & Metadata** (next, ~1 session):
+- F2: Stable EDN/JSON schema envelope (`:gordian/version`, `:lenses`, `:thresholds`)
+- F6: Surface thresholds/lens activation in output
+- F9: Change-coupling diagnostics when empty
+
+**Phase B — Signal Quality** (~1-2 sessions):
+- F5: Façade-aware interpretation (`:facade` role)
+- F3: Family-noise suppression (ns-prefix token discount)
+- F7: Explain-pair verdict (`:interpretation` key)
+
+**Phase C — Comparison & Clustering** (~2 sessions):
+- F1: Compare/diff mode (`gordian compare before.edn after.edn`)
+- F4: Grouped/clustered findings in diagnose
+
+**Phase D — Workflows & CI** (ongoing):
+- Family/subgraph views, actionability sort, CI ratchet, full clusters
+
 ## Potential next work (backlog)
 
 - Remove zombie API `scan-terms` / `scan-terms-dirs`
 - Shared `gordian.test-fixtures` ns
 - Keyword literal extraction
 - `--conceptual-terms N`
-- Self-analysis CI check
 - Package-level rollup
 - Historical trending
 - clj-kondo integration
