@@ -153,6 +153,94 @@
       conceptual-lines
       change-lines))))
 
+;;; ── diagnose output ──────────────────────────────────────────────────────
+
+(defn- format-finding-subject [{:keys [category subject]}]
+  (case category
+    :cycle          (str (str/join " → " (sort (map str (:members subject)))))
+    (:cross-lens-hidden :hidden-conceptual :hidden-change)
+    (str (:ns-a subject) " ↔ " (:ns-b subject))
+    (str (:ns subject))))
+
+(defn- severity-marker [severity]
+  (case severity
+    :high   "● HIGH"
+    :medium "● MEDIUM"
+    :low    "● LOW"))
+
+(defn- format-evidence-lines [{:keys [category evidence]}]
+  (case category
+    :cross-lens-hidden
+    [(str "  conceptual score=" (format "%.2f" (:conceptual-score evidence))
+          " — shared terms: " (str/join ", " (:shared-terms evidence)))
+     (str "  change     score=" (format "%.2f" (:change-score evidence))
+          " — " (:co-changes evidence) " co-changes")
+     "  → no structural edge"]
+
+    :hidden-conceptual
+    [(str "  shared terms: " (str/join ", " (:shared-terms evidence)))
+     "  → no structural edge"]
+
+    :hidden-change
+    [(str "  " (:co-changes evidence) " co-changes"
+          ", conf=" (format "%.0f%%/%.0f%%"
+                            (* 100.0 (:confidence-a evidence))
+                            (* 100.0 (:confidence-b evidence))))
+     "  → no structural edge"]
+
+    :cycle
+    [(str "  members: " (str/join ", " (sort (map str (:members evidence)))))]
+
+    :sdp-violation
+    [(str "  Ca=" (:ca evidence) " Ce=" (:ce evidence)
+          " I=" (format "%.2f" (:instability evidence)))]
+
+    :god-module
+    [(str "  reach=" (format "%.1f%%" (* 100.0 (:reach evidence)))
+          " fan-in=" (format "%.1f%%" (* 100.0 (:fan-in evidence))))]
+
+    :hub
+    [(str "  Ce=" (:ce evidence)
+          " I=" (format "%.2f" (or (:instability evidence) 0.0))
+          " role=" (name (or (:role evidence) :unknown)))]
+
+    []))
+
+(defn format-diagnose
+  "Format findings as human-readable lines.
+  health — map from diagnose/health.
+  findings — sorted vec of finding maps."
+  [{:keys [src-dirs]} health findings]
+  (let [count-sev (fn [s] (count (filter #(= s (:severity %)) findings)))
+        n-high    (count-sev :high)
+        n-medium  (count-sev :medium)
+        n-low     (count-sev :low)
+        n-total   (count findings)]
+    (into
+     [(str "gordian diagnose — " n-total " finding" (when (not= 1 n-total) "s"))
+      (str "src: " (str/join " " src-dirs))
+      ""
+      "HEALTH"
+      (str "  propagation cost: "
+           (format "%.1f%%" (* 100.0 (:propagation-cost health)))
+           " (" (name (:health health)) ")")
+      (str "  cycles: " (if (zero? (:cycle-count health))
+                          "none"
+                          (:cycle-count health)))
+      (str "  namespaces: " (:ns-count health))
+      ""]
+     (concat
+      (mapcat (fn [f]
+                (concat
+                 [(str (severity-marker (:severity f))
+                       "  " (format-finding-subject f))
+                  (str "  " (:reason f))]
+                 (format-evidence-lines f)
+                 [""]))
+              findings)
+      [(str n-total " finding" (when (not= 1 n-total) "s")
+            " (" n-high " high, " n-medium " medium, " n-low " low)")]))))
+
 ;;; ── IO ───────────────────────────────────────────────────────────────────
 
 (defn print-report
@@ -160,3 +248,8 @@
   `report` — unified map from gordian.main/build-report."
   [report]
   (run! println (format-report report)))
+
+(defn print-diagnose
+  "Print a human-readable diagnose report to stdout."
+  [report health findings]
+  (run! println (format-diagnose report health findings)))

@@ -240,3 +240,61 @@
           lines  (sut/format-report report)]
       (is (some #(str/includes? % "change coupling") lines))
       (is (some #(str/includes? % "gordian.main") lines)))))
+
+;;; ── format-diagnose ──────────────────────────────────────────────────────
+
+(def ^:private diagnose-health
+  {:propagation-cost 0.055 :health :healthy :cycle-count 0 :ns-count 14})
+
+(def ^:private diagnose-findings
+  [{:severity :high
+    :category :cross-lens-hidden
+    :subject {:ns-a 'a.core :ns-b 'b.util}
+    :reason "hidden in 2 lenses — conceptual=0.35 change=0.40"
+    :evidence {:conceptual-score 0.35 :shared-terms ["reach" "close"]
+               :change-score 0.40 :co-changes 4
+               :confidence-a 0.8 :confidence-b 0.6}}
+   {:severity :medium
+    :category :hidden-conceptual
+    :subject {:ns-a 'c.scan :ns-b 'd.git}
+    :reason "hidden conceptual coupling — score=0.25"
+    :evidence {:score 0.25 :shared-terms ["file" "path"]}}
+   {:severity :low
+    :category :hub
+    :subject {:ns 'e.main}
+    :reason "high-reach hub — 92.9% of project reachable"
+    :evidence {:reach 0.929 :ce 13 :instability 1.0 :role :peripheral}}])
+
+(deftest format-diagnose-test
+  (let [report {:src-dirs ["src/"]}
+        lines  (sut/format-diagnose report diagnose-health diagnose-findings)]
+
+    (testing "empty findings → health section + 0 findings"
+      (let [lines (sut/format-diagnose report diagnose-health [])]
+        (is (some #(str/includes? % "0 findings") lines))
+        (is (some #(str/includes? % "HEALTH") lines))))
+
+    (testing "health section shows PC"
+      (is (some #(str/includes? % "5.5%") lines)))
+
+    (testing "health section shows cycles"
+      (is (some #(str/includes? % "cycles: none") lines)))
+
+    (testing "health section shows ns count"
+      (is (some #(str/includes? % "namespaces: 14") lines)))
+
+    (testing "HIGH marker present"
+      (is (some #(str/includes? % "● HIGH") lines)))
+
+    (testing "cross-lens shows both scores"
+      (is (some #(str/includes? % "conceptual score=0.35") lines))
+      (is (some #(str/includes? % "change     score=0.40") lines)))
+
+    (testing "hidden-conceptual shows shared terms"
+      (is (some #(str/includes? % "file, path") lines)))
+
+    (testing "hub shows reach"
+      (is (some #(str/includes? % "e.main") lines)))
+
+    (testing "summary line shows counts"
+      (is (some #(str/includes? % "1 high, 1 medium, 1 low") lines)))))
