@@ -145,30 +145,56 @@
                 :reason   (str "hidden in 2 lenses — conceptual="
                                (format "%.2f" (:score cp))
                                " change=" (format "%.2f" (:score xp)))
-                :evidence {:conceptual-score (:score cp)
-                           :shared-terms     (:shared-terms cp)
-                           :change-score     (:score xp)
-                           :co-changes       (:co-changes xp)
-                           :confidence-a     (:confidence-a xp)
-                           :confidence-b     (:confidence-b xp)}}))
+                :evidence (cond-> {:conceptual-score (:score cp)
+                                   :shared-terms     (:shared-terms cp)
+                                   :change-score     (:score xp)
+                                   :co-changes       (:co-changes xp)
+                                   :confidence-a     (:confidence-a xp)
+                                   :confidence-b     (:confidence-b xp)}
+                            (some? (:same-family? cp))
+                            (assoc :same-family?      (:same-family? cp)
+                                   :family-terms      (:family-terms cp)
+                                   :independent-terms (:independent-terms cp)))}))
            cross-keys)
      :cross-keys cross-keys}))
 
+(defn- conceptual-severity
+  "Determine severity for a hidden conceptual pair.
+  Same-family pairs with no independent terms (pure naming noise) → :low.
+  All other pairs: score ≥ 0.20 → :medium, score < 0.20 → :low."
+  [pair]
+  (if (and (:same-family? pair)
+           (empty? (:independent-terms pair)))
+    :low
+    (if (>= (:score pair) 0.20) :medium :low)))
+
 (defn find-hidden-conceptual
   "Pairs hidden in conceptual lens only (not already cross-lens).
-  Score ≥ 0.20 → :medium, score < 0.20 → :low."
+  Same-family pairs with only prefix-derived terms are downgraded to :low
+  with a 'likely naming similarity' annotation."
   [conceptual-pairs cross-keys]
   (into []
         (keep (fn [p]
                 (when (and (not (:structural-edge? p))
                            (not (contains? cross-keys (pair-key p))))
-                  {:severity (if (>= (:score p) 0.20) :medium :low)
-                   :category :hidden-conceptual
-                   :subject  {:ns-a (:ns-a p) :ns-b (:ns-b p)}
-                   :reason   (str "hidden conceptual coupling — score="
-                                  (format "%.2f" (:score p)))
-                   :evidence {:score (:score p)
-                              :shared-terms (:shared-terms p)}})))
+                  (let [sev          (conceptual-severity p)
+                        family-noise (and (:same-family? p)
+                                          (empty? (:independent-terms p)))]
+                    {:severity sev
+                     :category :hidden-conceptual
+                     :subject  {:ns-a (:ns-a p) :ns-b (:ns-b p)}
+                     :reason   (if family-noise
+                                 (str "hidden conceptual coupling — score="
+                                      (format "%.2f" (:score p))
+                                      " — likely naming similarity")
+                                 (str "hidden conceptual coupling — score="
+                                      (format "%.2f" (:score p))))
+                     :evidence (cond-> {:score        (:score p)
+                                        :shared-terms (:shared-terms p)}
+                                 (some? (:same-family? p))
+                                 (assoc :same-family?      (:same-family? p)
+                                        :family-terms      (:family-terms p)
+                                        :independent-terms (:independent-terms p)))}))))
         conceptual-pairs))
 
 (defn find-hidden-change

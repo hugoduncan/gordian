@@ -1,5 +1,6 @@
 (ns gordian.diagnose-test
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.string :as str]
             [gordian.diagnose :as sut]))
 
 ;;; ── pair-key ─────────────────────────────────────────────────────────────
@@ -313,6 +314,57 @@
     (testing "pair in cross-keys → not flagged"
       (let [findings (sut/find-hidden-conceptual conceptual-pairs #{#{'a 'b} #{'b 'c}})]
         (is (empty? findings))))))
+
+;;; ── family-noise severity adjustment ─────────────────────────────────────
+
+(deftest family-noise-severity-test
+  (testing "same-family with no independent terms → :low (naming noise)"
+    (let [pairs [{:ns-a 'psi.session.core :ns-b 'psi.session.ui
+                  :score 0.35 :kind :conceptual :structural-edge? false
+                  :shared-terms ["psi" "session"]
+                  :same-family? true :family-terms ["psi" "session"]
+                  :independent-terms []}]
+          findings (sut/find-hidden-conceptual pairs #{})]
+      (is (= 1 (count findings)))
+      (is (= :low (:severity (first findings))))
+      (is (str/includes? (:reason (first findings)) "naming similarity"))))
+
+  (testing "same-family with independent terms → keeps normal severity"
+    (let [pairs [{:ns-a 'psi.session.core :ns-b 'psi.session.mutations
+                  :score 0.30 :kind :conceptual :structural-edge? false
+                  :shared-terms ["session" "mutation" "state"]
+                  :same-family? true :family-terms ["session"]
+                  :independent-terms ["mutation" "state"]}]
+          findings (sut/find-hidden-conceptual pairs #{})]
+      (is (= 1 (count findings)))
+      (is (= :medium (:severity (first findings))))
+      (is (not (str/includes? (:reason (first findings)) "naming similarity")))))
+
+  (testing "different-family pair → normal severity regardless"
+    (let [pairs [{:ns-a 'gordian.scan :ns-b 'psi.session.core
+                  :score 0.25 :kind :conceptual :structural-edge? false
+                  :shared-terms ["file" "parse"]
+                  :same-family? false :family-terms []
+                  :independent-terms ["file" "parse"]}]
+          findings (sut/find-hidden-conceptual pairs #{})]
+      (is (= :medium (:severity (first findings))))))
+
+  (testing "family annotation present in evidence"
+    (let [pairs [{:ns-a 'a.x :ns-b 'a.y :score 0.20
+                  :kind :conceptual :structural-edge? false
+                  :shared-terms ["foo"]
+                  :same-family? true :family-terms [] :independent-terms ["foo"]}]
+          f (first (sut/find-hidden-conceptual pairs #{}))]
+      (is (true? (get-in f [:evidence :same-family?])))
+      (is (= [] (get-in f [:evidence :family-terms])))
+      (is (= ["foo"] (get-in f [:evidence :independent-terms])))))
+
+  (testing "pairs without family annotation → backward compat, normal severity"
+    (let [pairs [{:ns-a 'x :ns-b 'y :score 0.25 :kind :conceptual
+                  :structural-edge? false :shared-terms ["data"]}]
+          findings (sut/find-hidden-conceptual pairs #{})]
+      (is (= :medium (:severity (first findings))))
+      (is (not (contains? (:evidence (first findings)) :same-family?))))))
 
 (deftest find-hidden-change-test
   (let [cross-keys #{#{'a 'b}}]
