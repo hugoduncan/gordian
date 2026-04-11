@@ -25,7 +25,7 @@
 
 (defn- format-cycles
   "Return lines describing detected cycles.
-  Returns [] when there are no cycles — the section is omitted entirely."
+  Returns nil when there are no cycles — the section is omitted entirely."
   [cycles]
   (when (seq cycles)
     (into ["cycles:"]
@@ -34,32 +34,6 @@
                               (str/join " → " (sort (map str members)))
                               "  (" (count members) " namespaces)"))
                        cycles))))
-
-(defn format-report
-  "Return a vector of lines for the full coupling report.
-  `report` — {:src-dirs :propagation-cost :cycles :nodes [node-maps]}.
-  Cycles section is omitted entirely when there are none."
-  [{:keys [src-dirs propagation-cost cycles nodes]}]
-  (let [{:keys [ns-col]} (column-widths nodes)
-        header (str (pad-right ns-col "namespace")
-                    "    reach   fan-in   Ce   Ca      I  role")
-        rule   (apply str (repeat (count header) "─"))
-        cycle-lines (format-cycles cycles)
-        middle (if cycle-lines
-                 (concat [""] cycle-lines ["" header rule])
-                 ["" header rule])]
-    (into
-     (into
-      [(str "gordian — namespace coupling report")
-       (str "src: " (str/join " " src-dirs))
-       ""
-       (str "propagation cost: " (format "%.4f" propagation-cost)
-            "  (on average " (format "%.1f" (* 100.0 propagation-cost))
-            "% of project reachable per change)")]
-      middle)
-     (concat
-      (map (partial format-row ns-col) nodes)
-      [""]))))
 
 ;;; ── conceptual coupling section ──────────────────────────────────────────
 
@@ -74,8 +48,8 @@
 (defn format-conceptual
   "Return a vector of lines for the conceptual coupling section.
   Returns [] when pairs is empty — the section is omitted entirely.
-  Shared terms are shown only for pairs without a structural edge (the
-  discovery rows); structural pairs show score only to reduce noise."
+  Shared terms shown only for pairs without a structural edge (the discovery
+  rows); structural pairs show score only to reduce noise."
   [pairs threshold]
   (if (empty? pairs)
     []
@@ -97,6 +71,40 @@
                            "yes"
                            (str "no  ←   " (str/join " " shared-terms)))))
             pairs)))))
+
+;;; ── full report ──────────────────────────────────────────────────────────
+
+(defn format-report
+  "Return a vector of lines for the full coupling report.
+  `report` — {:src-dirs :propagation-cost :cycles :nodes [node-maps]}.
+  Cycles section omitted when none present.
+  Conceptual section appended when :conceptual-pairs is present."
+  [{:keys [src-dirs propagation-cost cycles nodes
+           conceptual-pairs conceptual-threshold]}]
+  (let [{:keys [ns-col]} (column-widths nodes)
+        header (str (pad-right ns-col "namespace")
+                    "    reach   fan-in   Ce   Ca      I  role")
+        rule   (apply str (repeat (count header) "─"))
+        cycle-lines (format-cycles cycles)
+        middle (if cycle-lines
+                 (concat [""] cycle-lines ["" header rule])
+                 ["" header rule])
+        conceptual-lines (when (seq conceptual-pairs)
+                           (into [""] (format-conceptual conceptual-pairs
+                                                         conceptual-threshold)))]
+    (into
+     (into
+      [(str "gordian — namespace coupling report")
+       (str "src: " (str/join " " src-dirs))
+       ""
+       (str "propagation cost: " (format "%.4f" propagation-cost)
+            "  (on average " (format "%.1f" (* 100.0 propagation-cost))
+            "% of project reachable per change)")]
+      middle)
+     (concat
+      (map (partial format-row ns-col) nodes)
+      [""]
+      conceptual-lines))))
 
 ;;; ── IO ───────────────────────────────────────────────────────────────────
 

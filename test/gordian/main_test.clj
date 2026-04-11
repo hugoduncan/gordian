@@ -120,6 +120,43 @@
     (let [report (sut/build-report ["resources/fixture" "resources/fixture-cljc"])]
       (is (= 4 (count (:nodes report)))))))
 
+;;; ── parse-args / --conceptual ────────────────────────────────────────────
+
+(deftest parse-args-conceptual-test
+  (testing "--conceptual <float> captured as double"
+    (let [opts (sut/parse-args ["src/" "--conceptual" "0.30"])]
+      (is (= ["src/"] (:src-dirs opts)))
+      (is (= 0.30 (:conceptual opts)))))
+
+  (testing "--conceptual value coerced to double"
+    (is (= 0.4 (:conceptual (sut/parse-args ["src/" "--conceptual" "0.4"])))))
+
+  (testing "without --conceptual, key is absent"
+    (is (nil? (:conceptual (sut/parse-args ["src/"]))))))
+
+;;; ── analyze / conceptual output ──────────────────────────────────────────
+
+(deftest conceptual-output-test
+  (testing "--conceptual appends conceptual section to output"
+    (let [out (with-out-str
+                (sut/analyze {:src-dirs   ["resources/fixture"]
+                              :conceptual 0.01}))]
+      (is (str/includes? out "conceptual coupling"))))
+
+  (testing "without --conceptual no conceptual section"
+    (let [out (with-out-str (sut/analyze {:src-dirs ["resources/fixture"]}))]
+      (is (not (str/includes? out "conceptual coupling")))))
+
+  (testing "build-report with conceptual threshold attaches pairs"
+    (let [report (sut/build-report ["resources/fixture"] 0.01)]
+      (is (contains? report :conceptual-pairs))
+      (is (contains? report :conceptual-threshold))
+      (is (number? (:conceptual-threshold report)))))
+
+  (testing "build-report without threshold has no conceptual keys"
+    (let [report (sut/build-report ["resources/fixture"])]
+      (is (not (contains? report :conceptual-pairs))))))
+
 ;;; ── print-help ───────────────────────────────────────────────────────────
 
 (deftest print-help-test
@@ -129,4 +166,5 @@
       (is (str/includes? out "--dot"))
       (is (str/includes? out "--json"))
       (is (str/includes? out "--edn"))
+      (is (str/includes? out "--conceptual"))
       (is (str/includes? out "src-dir")))))
