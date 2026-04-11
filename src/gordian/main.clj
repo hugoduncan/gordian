@@ -76,16 +76,18 @@ Examples:
 
 (defn analyze
   "Run analysis with parsed opts map.
-  :src-dir required; :dot optional filename; :json/:edn handled in later steps."
-  [{:keys [src-dir dot]}]
-  (let [report    (build-report src-dir)
-        json-path "gordian-report.json"]
-    (output/print-report report)
+  :src-dir   — required source directory
+  :dot <file>— write Graphviz DOT to <file>
+  :json true — print JSON to stdout (suppresses human-readable table)
+  :edn  true — handled in next step"
+  [{:keys [src-dir dot json]}]
+  (let [report (build-report src-dir)]
     (when dot
       (spit dot (dot/generate report))
-      (println (str "DOT written to " dot)))
-    (spit json-path (report-json/generate report))
-    (println (str "JSON written to " json-path))))
+      (binding [*out* *err*] (println (str "DOT written to " dot))))
+    (if json
+      (println (report-json/generate report))
+      (output/print-report report))))
 
 (defn run [args]
   (let [opts (parse-args args)]

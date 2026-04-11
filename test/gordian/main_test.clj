@@ -1,6 +1,7 @@
 (ns gordian.main-test
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
+            [cheshire.core :as json]
             [gordian.main :as sut]))
 
 ;;; ── parse-args ───────────────────────────────────────────────────────────
@@ -64,6 +65,25 @@
       (clojure.java.io/delete-file sentinel)               ; ensure absent
       (with-out-str (sut/analyze {:src-dir "test/fixture"})) ; suppress stdout
       (is (not (.exists (java.io.File. sentinel)))))))
+
+;;; ── analyze / json output ────────────────────────────────────────────────
+
+(deftest json-output-test
+  (testing "--json outputs JSON to stdout"
+    (let [out (with-out-str (sut/analyze {:src-dir "test/fixture" :json true}))]
+      (is (clojure.string/includes? out "propagation-cost"))
+      (is (clojure.string/includes? out "\"alpha\""))
+      ;; valid JSON — parseable
+      (is (map? (json/parse-string out true)))))
+
+  (testing "--json suppresses human-readable table"
+    (let [out (with-out-str (sut/analyze {:src-dir "test/fixture" :json true}))]
+      (is (not (clojure.string/includes? out "gordian — namespace")))))
+
+  (testing "without --json outputs human-readable table"
+    (let [out (with-out-str (sut/analyze {:src-dir "test/fixture"}))]
+      (is (clojure.string/includes? out "gordian — namespace"))
+      (is (not (clojure.string/includes? out "\"propagation-cost\""))))))
 
 ;;; ── print-help ───────────────────────────────────────────────────────────
 
