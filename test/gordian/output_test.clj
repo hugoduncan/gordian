@@ -460,3 +460,53 @@
   (testing "empty findings → 0 findings"
     (let [lines (sut/format-diagnose-md {:src-dirs ["src/"]} diagnose-health [])]
       (is (some #(str/includes? % "0 Finding") lines)))))
+
+;;; ── format-explain-ns-md ─────────────────────────────────────────────────
+
+(deftest format-explain-ns-md-test
+  (let [lines (sut/format-explain-ns-md explain-ns-data)]
+
+    (testing "header contains ns name"
+      (is (some #(str/includes? % "gordian.scan") lines)))
+
+    (testing "metrics table has Role, Ca, Ce"
+      (is (some #(str/includes? % "| Role |") lines))
+      (is (some #(str/includes? % "| Ca |") lines)))
+
+    (testing "external deps with backticks"
+      (is (some #(str/includes? % "`babashka.fs`") lines)))
+
+    (testing "conceptual pairs as table"
+      (is (some #(str/includes? % "| Namespace |") lines))
+      (is (some #(str/includes? % "0.30") lines)))
+
+    (testing "empty change pairs → (none)"
+      (let [change-section (drop-while #(not (str/includes? % "## Change Coupling")) lines)]
+        (is (some #(str/includes? % "(none)") change-section)))))
+
+  (testing "error → error message"
+    (let [lines (sut/format-explain-ns-md {:error "not found" :available ['a 'b]})]
+      (is (some #(str/includes? % "Error") lines)))))
+
+;;; ── format-explain-pair-md ───────────────────────────────────────────────
+
+(deftest format-explain-pair-md-test
+  (let [lines (sut/format-explain-pair-md explain-pair-data)]
+
+    (testing "header contains both ns names"
+      (is (some #(and (str/includes? % "gordian.aggregate")
+                      (str/includes? % "gordian.close")) lines)))
+
+    (testing "structural table shows edge status"
+      (is (some #(str/includes? % "| Direct edge |") lines)))
+
+    (testing "conceptual shows score"
+      (is (some #(str/includes? % "0.37") lines)))
+
+    (testing "diagnosis shows severity emoji"
+      (is (some #(str/includes? % "🟡") lines))))
+
+  (testing "no change data → (no data)"
+    (let [lines (sut/format-explain-pair-md explain-pair-data)
+          change-section (drop-while #(not (str/includes? % "## Change Coupling")) lines)]
+      (is (some #(str/includes? % "(no data)") change-section)))))
