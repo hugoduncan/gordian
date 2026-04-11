@@ -382,3 +382,49 @@
   (testing "error data → error message"
     (let [lines (sut/format-explain-pair {:error "not found" :available ['a]})]
       (is (some #(str/includes? % "Error:") lines)))))
+
+;;; ── format-report-md ─────────────────────────────────────────────────────
+
+(deftest format-report-md-test
+  (let [lines (sut/format-report-md fixture-report)]
+
+    (testing "header starts with # Gordian"
+      (is (str/starts-with? (first lines) "# Gordian")))
+
+    (testing "summary table contains propagation cost"
+      (is (some #(str/includes? % "33.3%") lines)))
+
+    (testing "namespace table has header"
+      (is (some #(str/includes? % "| Namespace |") lines)))
+
+    (testing "all fixture ns names appear"
+      (doseq [ns-name ["alpha" "beta" "gamma"]]
+        (is (some #(str/includes? % ns-name) lines))))
+
+    (testing "no cycles → no cycles section"
+      (is (not (some #(str/includes? % "## Cycles") lines)))))
+
+  (testing "conceptual section present when pairs provided"
+    (let [report (assoc fixture-report
+                        :conceptual-pairs sample-pairs
+                        :conceptual-threshold 0.30)
+          lines  (sut/format-report-md report)]
+      (is (some #(str/includes? % "## Conceptual Coupling") lines))
+      (is (some #(str/includes? % "gordian.output") lines))))
+
+  (testing "conceptual section absent when no pairs"
+    (let [lines (sut/format-report-md fixture-report)]
+      (is (not (some #(str/includes? % "## Conceptual") lines)))))
+
+  (testing "change section present when pairs provided"
+    (let [report (assoc fixture-report
+                        :change-pairs change-pairs
+                        :change-threshold 0.30)
+          lines  (sut/format-report-md report)]
+      (is (some #(str/includes? % "## Change Coupling") lines))))
+
+  (testing "cycles listed when present"
+    (let [report (assoc fixture-report :cycles [#{'a 'b}])
+          lines  (sut/format-report-md report)]
+      (is (some #(str/includes? % "## Cycles") lines))
+      (is (some #(and (str/includes? % "a") (str/includes? % "b")) lines)))))

@@ -357,6 +357,85 @@
                      :low    "● LOW")
               " — " (:reason finding))])))))
 
+;;; ── markdown output ──────────────────────────────────────────────────────
+
+(defn- md-pct [x] (format "%.1f%%" (* 100.0 x)))
+
+(defn format-report-md
+  "Markdown rendering of the analyze report."
+  [{:keys [src-dirs propagation-cost cycles nodes
+           conceptual-pairs conceptual-threshold
+           change-pairs change-threshold]}]
+  (into
+   [(str "# Gordian — Namespace Coupling Report")
+    ""
+    (str "**Source:** `" (str/join " " src-dirs) "`")
+    ""
+    "## Summary"
+    ""
+    "| Metric | Value |"
+    "|--------|-------|"
+    (str "| Propagation cost | " (md-pct propagation-cost) " |")
+    (str "| Namespaces | " (count nodes) " |")
+    (str "| Cycles | " (count cycles) " |")]
+   (concat
+    ;; cycles
+    (when (seq cycles)
+      (into ["" "## Cycles" ""]
+            (map-indexed
+             (fn [i members]
+               (str (inc i) ". "
+                    (str/join " → " (sort (map str members)))
+                    " (" (count members) " namespaces)"))
+             cycles)))
+    ;; namespace table
+    ["" "## Namespace Metrics" ""
+     "| Namespace | Reach | Fan-in | Ce | Ca | I | Role |"
+     "|-----------|-------|--------|----|----|---|------|"]
+    (map (fn [{:keys [ns reach fan-in ca ce instability role]}]
+           (str "| " ns
+                " | " (md-pct reach)
+                " | " (md-pct fan-in)
+                " | " (or ce "-")
+                " | " (or ca "-")
+                " | " (if instability (format "%.2f" instability) "-")
+                " | " (if role (name role) "")
+                " |"))
+         nodes)
+    ;; conceptual
+    (when (seq conceptual-pairs)
+      (into ["" (str "## Conceptual Coupling (score ≥ "
+                     (format "%.2f" (double conceptual-threshold)) ")")
+             ""
+             "| Namespace A | Namespace B | Score | Structural | Shared Concepts |"
+             "|-------------|-------------|-------|------------|-----------------|"]
+            (map (fn [{:keys [ns-a ns-b score structural-edge? shared-terms]}]
+                   (str "| " ns-a
+                        " | " ns-b
+                        " | " (format "%.2f" (double score))
+                        " | " (if structural-edge? "yes" "no ←")
+                        " | " (str/join ", " shared-terms)
+                        " |"))
+                 conceptual-pairs)))
+    ;; change
+    (when (seq change-pairs)
+      (into ["" (str "## Change Coupling (Jaccard ≥ "
+                     (format "%.2f" (double change-threshold)) ")")
+             ""
+             "| Namespace A | Namespace B | Jaccard | Co | Conf A | Conf B | Structural |"
+             "|-------------|-------------|---------|-----|--------|--------|------------|"]
+            (map (fn [{:keys [ns-a ns-b score co-changes
+                              confidence-a confidence-b structural-edge?]}]
+                   (str "| " ns-a
+                        " | " ns-b
+                        " | " (format "%.4f" (double score))
+                        " | " co-changes
+                        " | " (md-pct confidence-a)
+                        " | " (md-pct confidence-b)
+                        " | " (if structural-edge? "yes" "no ←")
+                        " |"))
+                 change-pairs))))))
+
 ;;; ── IO ───────────────────────────────────────────────────────────────────
 
 (defn print-report
