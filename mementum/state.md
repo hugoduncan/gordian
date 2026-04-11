@@ -226,9 +226,30 @@ Perf: lazy `->>` → transducers (user-suggested pattern):
 
 Result: `bb gordian components/*/src --conceptual 0.20` → **0.61s** (158 files, 17 components, was hanging)
 
+## Session 9 commits — structural refactor: scan→conceptual edge removed
+
+```
+d3c0727  refactor: inject terms-fn into scan — removes scan→conceptual structural edge
+```
+
+76 tests, 473 assertions, 0 failures.
+
+Self-analysis (src/) after:
+- PC 8.3% → 7.6%
+- `gordian.scan`: peripheral (I=0.50, Ce=1) → **core (I=0.00, Ce=0)**
+- `gordian.conceptual`: Ca=2 → Ca=1 (main only)
+- `conceptual↔scan`: was structural edge → now no structural edge (informational, sim=0.23)
+- Only `gordian.main` is peripheral — perfect star topology
+
+Change: six terms-related functions in scan.clj (`parse-file-terms`, `scan-terms`,
+`scan-terms-dirs`, `parse-file-all`, `scan-all`, `scan-all-dirs`) now take
+`terms-fn` as first arg. main.clj passes `conceptual/extract-terms` at the
+single call site in `build-report`.
+
 ## Potential next work
 
-- Tokenizer: add backtick/punctuation to split pattern (cleaner docstring tokens)
+- Signal 2: remove zombie API `scan-terms` / `scan-terms-dirs` (only test-oracle uses; superseded by `scan-all`)
+- Signal 4: shared `gordian.test-fixtures` ns — fixture paths defined once
 - Keyword literal extraction (`:propagation-cost` → domain vocab, currently skipped)
 - `--conceptual-terms N` to control how many shared terms are shown
 - Self-analysis as a CI check (fail if PC > threshold)
