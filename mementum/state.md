@@ -300,9 +300,33 @@ edn.clj         EDN string (clojure.pprint)                  pure
 main.clj        pipeline + CLI + discovery wiring            IO
 ```
 
+## Session 11b commits — gordian diagnose
+
+```
+d41280e  feat: diagnose — pair-key, health, find-cycles
+1c2e1ca  feat: diagnose — find-sdp-violations, find-god-modules, find-hubs
+6f498d9  feat: diagnose — cross-lens, hidden-conceptual, hidden-change pair findings
+9932a71  feat: diagnose — diagnose function + severity sorting
+1108f95  feat: output — format-diagnose + print-diagnose
+6785576  feat: gordian diagnose — ranked findings subcommand
+07db9ab  docs: README and PLAN for diagnose mode
+```
+
+115 tests, 849 assertions, 0 failures.
+
+Diagnose subcommand:
+- `gordian diagnose` auto-enables conceptual (0.15) + change coupling
+- Cross-lens pair matching: hidden in both lenses → :high severity
+- Seven finding categories: cycle, cross-lens-hidden, hidden-conceptual,
+  hidden-change, sdp-violation, god-module, hub
+- Sorted by severity then score
+- Supports --edn and --json with :findings and :health keys
+
+New module: `diagnose.clj` (pure — 10 functions, 0 IO)
+
 ## Roadmap
 
-See PLAN.md. Next: item 3 (gordian diagnose — ranked findings).
+See PLAN.md. Next: item 4 (gordian explain).
 
 ## Potential next work (backlog)
 
