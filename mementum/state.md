@@ -1,6 +1,6 @@
 # Gordian — Working State
 
-**Last updated:** 2026-04-10
+**Last updated:** 2026-04-11
 
 ## What this project is
 
@@ -8,12 +8,12 @@
 projects. It reports structural coupling metrics that surface architectural
 complexity.
 
-Usage: `bb gordian analyze src/`  or  `gordian analyze src/` (after bbin install)
+Usage: `gordian` (auto-discovers from cwd) or `gordian src/` (explicit dirs)
 
 ## Current status
 
-**Feature-complete v0 alpha.** All core metrics implemented, tested, and
-self-verified. 193 assertions, 41 tests, 0 failures.
+**v0 alpha + usability improvements.** Schema normalized, auto-discovery,
+config file, namespace exclusion. 102 tests, 760 assertions, 0 failures.
 
 ## Architecture (src/gordian/)
 
@@ -246,15 +246,72 @@ Change: six terms-related functions in scan.clj (`parse-file-terms`, `scan-terms
 `terms-fn` as first arg. main.clj passes `conceptual/extract-terms` at the
 single call site in `build-report`.
 
-## Potential next work
+## Session 11 commits — schema normalization + auto-discovery
 
-- Signal 2: remove zombie API `scan-terms` / `scan-terms-dirs` (only test-oracle uses; superseded by `scan-all`)
-- Signal 4: shared `gordian.test-fixtures` ns — fixture paths defined once
-- Keyword literal extraction (`:propagation-cost` → domain vocab, currently skipped)
-- `--conceptual-terms N` to control how many shared terms are shown
-- Self-analysis as a CI check (fail if PC > threshold)
-- Package-level rollup (group namespaces by prefix)
-- Historical trending (compare across commits)
-- clj-kondo integration (richer dep data: macro requires, etc.)
-- `--threshold` flag to gate CI on propagation cost
+```
+63fe1e6  refactor: normalize pair schema — :sim/:coupling → :score, add :kind tag
+4d3d705  test: add fixture-project and fixture-polylith layouts
+58b7499  feat: discover.clj — project layout detection
+8644ea5  feat: config.clj — .gordian.edn loading and merge
+9931ee5  feat: filter.clj — namespace exclusion by regex
+35c5ccf  feat: gordian . — auto-discovery, config, --exclude, --include-tests
+8624e3a  docs: README and PLAN for auto-discovery + config
+```
+
+102 tests, 760 assertions, 0 failures.
+
+Schema normalization:
+- All pair records now share {:ns-a :ns-b :score :kind :structural-edge?}
+- Conceptual: :sim → :score, :kind :conceptual
+- Change: :coupling → :score, :kind :change
+- Enables generic downstream consumers (diagnose, explain, diff)
+
+Auto-discovery:
+- `gordian` / `gordian .` auto-discovers src dirs from project root
+- Detects deps.edn, bb.edn, project.clj, workspace.edn (Polylith)
+- Probes src/, test/, components/*/src, bases/*/src, etc.
+- `--include-tests` adds test directories
+- `--exclude <regex>` filters namespaces (repeatable)
+- `.gordian.edn` config file: project-local defaults, CLI overrides
+
+New modules:
+- `discover.clj` — project-root?, discover-dirs, resolve-dirs (pure)
+- `config.clj` — load-config, merge-opts (thin IO)
+- `filter.clj` — filter-graph (pure)
+
+Architecture (src/gordian/) — current:
+```
+scan.clj        edamame parse .clj → {ns→#{deps}}; terms     IO
+git.clj         git log → commit/co-change data              IO
+config.clj      .gordian.edn loading + merge                 IO (thin)
+discover.clj    project layout detection                     pure
+filter.clj      namespace exclusion by regex                 pure
+close.clj       transitive closure (BFS, cycle-safe)         pure
+aggregate.clj   propagation cost, reach, fan-in              pure
+metrics.clj     Ca, Ce, instability (Robert Martin)          pure
+scc.clj         Tarjan SCC → cycle detection                 pure
+classify.clj    core/peripheral/shared/isolated roles        pure
+conceptual.clj  TF-IDF + cosine coupling                    pure
+cc_change.clj   change-coupling-pairs (Jaccard)              pure
+output.clj      human-readable table                         pure
+dot.clj         Graphviz DOT string                          pure
+json.clj        JSON string (cheshire)                       pure
+edn.clj         EDN string (clojure.pprint)                  pure
+main.clj        pipeline + CLI + discovery wiring            IO
+```
+
+## Roadmap
+
+See PLAN.md. Next: item 3 (gordian diagnose — ranked findings).
+
+## Potential next work (backlog)
+
+- Remove zombie API `scan-terms` / `scan-terms-dirs`
+- Shared `gordian.test-fixtures` ns
+- Keyword literal extraction
+- `--conceptual-terms N`
+- Self-analysis CI check
+- Package-level rollup
+- Historical trending
+- clj-kondo integration
 - Watch mode
