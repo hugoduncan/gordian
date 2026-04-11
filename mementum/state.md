@@ -6,41 +6,57 @@
 
 `gordian` is a Babashka script that analyzes the `require` graph of Clojure
 projects. It reports structural coupling metrics that surface architectural
-complexity: afferent/efferent coupling (Ca/Ce), instability, propagation cost,
-cycles (SCCs), and core/periphery classification.
+complexity.
 
-Usage: `bb gordian analyze src/`
+Usage: `bb gordian analyze src/`  or  `gordian analyze src/` (after bbin install)
 
 ## Current status
 
-Alpha. Fresh scaffold — `README.md` and `doc/references.md` exist; no source
-code yet. Single root commit (`e6aaf83`).
+**Feature-complete v0 alpha.** All core metrics implemented, tested, and
+self-verified. 193 assertions, 41 tests, 0 failures.
 
-## Key concepts (per references.md)
+## Architecture (src/gordian/)
 
-- **Propagation cost** (MacCormack 2006) — fraction of system reachable through
-  transitive require graph. Core metric.
-- **Ca/Ce/Instability** — Robert Martin (1994) coupling vocabulary.
-- **SCCs** — strongly connected components as cycle signal.
-- **Core/periphery** — MacCormack 2012 network classification.
-- Data source: clj-kondo analysis output is a natural fit.
+```
+scan.clj       .clj files → {ns→#{direct-deps}}           IO
+close.clj      transitive closure (BFS, cycle-safe)        pure
+aggregate.clj  propagation cost, reach, fan-in             pure
+metrics.clj    Ca, Ce, instability (Robert Martin)         pure
+scc.clj        Tarjan SCC → cycle detection                pure
+classify.clj   core/peripheral/shared/isolated roles       pure
+output.clj     format-report → vector of lines             pure
+dot.clj        Graphviz DOT string                         pure
+json.clj       JSON string (cheshire)                      pure
+main.clj       pipeline wiring + CLI entry point           IO
+```
 
-## Implemented (commits 740cfb3 → 4204b8e)
+## Self-analysis result
 
-- `bb.edn` entrypoint + CLI (`bb analyze <src-dir>`)
-- `gordian.scan/scan`: .clj → `{ns→#{direct-deps}}`
-- `gordian.close/close`: transitive closure (BFS per node, handles cycles)
-- `gordian.aggregate/aggregate`: PC = Σ|reach(n)|/N², per-node reach + fan-in
-- `gordian.output/format-report` + `print-report`: ruled table output
-- 66 assertions across 14 tests, all green
-- `bb analyze test/fixture` produces correct table
+`bb gordian src/` → PC=9%, star topology, no cycles.
+`gordian.main` is the only peripheral (wires everything). All other modules
+are core — pure, independent, maximally stable.
 
-## Next tasks
+## Commits this session
 
-- Ca / Ce / instability per namespace (Robert Martin metrics)
-- Detect SCCs (Tarjan) — cycle reporting
-- Core/periphery classification (MacCormack 2012)
-- DOT file output (graphviz)
-- JSON report output
-- bbin install story
-- Self-analysis: run gordian on itself
+```
+740cfb3  task 1  bb.edn + CLI skeleton
+da49b4a  task 2  scan .clj → require graph
+4697ffd  task 3  transitive closure
+99f0c40  task 4  propagation cost + reach/fan-in
+4204b8e  task 5  output + full pipeline
+1afb98c  step 6  Ca/Ce/instability
+4ad7a93  step 7  SCC cycle detection (Tarjan)
+db372c0  step 8  core/periphery classification
+2671aab  step 9  DOT file output
+265b475  step 10 JSON report output
+ab291d3  step 11 bbin install + self-analysis
+```
+
+## Potential next work
+
+- Self-analysis as a CI check (fail if PC > threshold)
+- Package-level rollup (group namespaces by prefix)
+- Historical trending (compare across commits)
+- clj-kondo integration (richer dep data: macro requires, etc.)
+- `--threshold` flag to gate CI on propagation cost
+- Watch mode
