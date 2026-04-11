@@ -32,22 +32,39 @@
 
 ;;; ── file parsing ─────────────────────────────────────────────────────────
 
-(defn- find-ns-form [forms]
-  (first (filter #(and (seq? %) (= 'ns (first %))) forms)))
+(def ^:private parse-opts
+  "edamame options for parsing .clj source files."
+  {:read-cond :allow
+   :features  #{:clj}
+   :fn        true
+   :deref     true
+   :regex     true})
+
+(defn- read-ns-form
+  "Incrementally read forms from `content`, returning the first (ns ...)
+  form found, or nil.  Stops reading as soon as the ns form is located —
+  never parses the file body — so syntax in function definitions (e.g.
+  quoted sets like '#{...}) cannot cause failures."
+  [content]
+  (let [rdr (e/reader content)]
+    (loop []
+      (let [form (try (e/parse-next rdr parse-opts)
+                      (catch Exception _ ::skip))]
+        (cond
+          (= ::e/eof  form) nil
+          (= ::skip   form) (recur)
+          (and (seq? form)
+               (= 'ns (first form))) form
+          :else               (recur))))))
 
 (defn parse-file
   "Read a .clj file and return {:ns sym :deps #{sym}}, or nil on failure.
-  Uses edamame for robust parsing — handles reader conditionals (#?),
-  tagged literals, and other Clojure-specific syntax."
+  Uses edamame's incremental reader so only the ns form is parsed;
+  the file body (which may contain reader syntax edamame mishandles,
+  such as quoted sets) is never evaluated."
   [path]
   (try
-    (let [content (slurp (str path))
-          forms   (e/parse-string-all content {:read-cond :allow
-                                               :features  #{:clj}
-                                               :fn        true
-                                               :deref     true
-                                               :regex     true})
-          ns-form (find-ns-form forms)]
+    (let [ns-form (read-ns-form (slurp (str path)))]
       (when ns-form
         {:ns   (second ns-form)
          :deps (deps-from-ns-form ns-form)}))
