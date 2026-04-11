@@ -35,7 +35,13 @@
     (is (= ["."] (:src-dirs (sut/parse-args ["analyze"])))))
 
   (testing "--json and --edn together → error"
-    (is (contains? (sut/parse-args ["src/" "--json" "--edn"]) :error))))
+    (is (contains? (sut/parse-args ["src/" "--json" "--edn"]) :error)))
+
+  (testing "--markdown and --json together → error"
+    (is (contains? (sut/parse-args ["src/" "--markdown" "--json"]) :error)))
+
+  (testing "--markdown and --edn together → error"
+    (is (contains? (sut/parse-args ["src/" "--markdown" "--edn"]) :error))))
 
 (deftest parse-args-help-test
   (testing "--help flag → {:help true}"
@@ -288,6 +294,45 @@
       (is (= 'gordian.aggregate (:ns-a parsed)))
       (is (= 'gordian.close (:ns-b parsed)))
       (is (contains? parsed :structural)))))
+
+;;; ── parse-args / --markdown ────────────────────────────────────────────────
+
+(deftest parse-args-markdown-test
+  (testing "--markdown flag parsed"
+    (is (true? (:markdown (sut/parse-args ["src/" "--markdown"])))))
+
+  (testing "without --markdown, key is absent"
+    (is (nil? (:markdown (sut/parse-args ["src/"]))))))
+
+;;; ── markdown integration ─────────────────────────────────────────────────
+
+(deftest markdown-integration-test
+  (testing "analyze --markdown produces markdown"
+    (let [out (with-out-str
+                (sut/analyze {:src-dirs ["resources/fixture"]
+                              :markdown true}))]
+      (is (str/includes? out "# Gordian"))))
+
+  (testing "diagnose --markdown produces markdown"
+    (let [out (with-out-str
+                (sut/diagnose-cmd {:src-dirs ["resources/fixture-project/src"]
+                                   :markdown true}))]
+      (is (str/includes? out "# Gordian Diagnose"))))
+
+  (testing "explain --markdown produces markdown"
+    (let [out (with-out-str
+                (sut/explain-cmd {:src-dirs ["src/"]
+                                  :explain-ns 'gordian.main
+                                  :markdown true}))]
+      (is (str/includes? out "# Gordian Explain"))))
+
+  (testing "explain-pair --markdown produces markdown"
+    (let [out (with-out-str
+                (sut/explain-pair-cmd {:src-dirs ["src/"]
+                                       :explain-ns-a 'gordian.aggregate
+                                       :explain-ns-b 'gordian.close
+                                       :markdown true}))]
+      (is (str/includes? out "# Gordian Explain-Pair")))))
 
 ;;; ── parse-args / --include-tests + --exclude ─────────────────────────────
 
