@@ -211,7 +211,7 @@ actionable.
 
 ### 9. Explain-pair verdict
 
-**Status:** todo
+**Status:** ✅ done (0d5f025)
 
 Add `:interpretation` key to explain-pair output. Rule-based:
 - family overlap + conceptual-only → "likely naming noise"

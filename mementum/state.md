@@ -13,8 +13,9 @@ Usage: `gordian` (auto-discovers from cwd) or `gordian src/` (explicit dirs)
 ## Current status
 
 **v0.2.0 alpha.** Schema envelope, façade detection, family-noise suppression,
-family-scoped metrics, auto-discovery, config, diagnose, explain, markdown.
-161 tests, 1219 assertions, 0 failures.
+explain-pair verdicts, family-scoped metrics, auto-discovery, config,
+diagnose, explain, markdown.
+163 tests, 1254 assertions, 0 failures.
 
 ## Architecture (src/gordian/)
 
@@ -381,10 +382,12 @@ project. 12 items analyzed and sequenced into phases. See
 **Phase B — Signal Quality** (in progress):
 - F5 ✅: Façade-aware interpretation — family.clj + family-scoped Ca/Ce
 - F3 ✅: Family-noise suppression — annotate pairs, downgrade naming noise
-  - `text.clj` extracted (tokenize + stem, shared utility)
-  - `annotate-conceptual-pair(s)` classifies shared-terms as family vs independent
-  - Same-family + no independent terms → `:low` + "likely naming similarity"
-  - Output shows family-terms vs independent-terms breakdown
+- F7 ✅: Explain-pair verdict — 8 interpretation categories
+  - Pure rule evaluation over structural/conceptual/change signals
+  - Text + markdown VERDICT section with emoji severity hints
+  - Categories: expected-structural, family-naming-noise, family-siblings,
+    likely-missing-abstraction, hidden-conceptual, hidden-change,
+    transitive-only, unrelated
 
 Session 12b commits (F5):
 ```

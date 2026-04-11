@@ -181,6 +181,9 @@ Error case (namespace not found):
  :available [symbol]}
 ```
 
+When the explain lens auto-enables conceptual and change coupling, the
+envelope's `:lenses` section reflects what actually ran (same as diagnose).
+
 ---
 
 ## explain-pair
@@ -194,9 +197,30 @@ Payload keys (alongside envelope):
 | `ns-a` | symbol | First namespace |
 | `ns-b` | symbol | Second namespace |
 | `structural` | map | `{:direct-edge? bool :direction kw :shortest-path [sym]}` |
-| `conceptual` | map or nil | Conceptual pair data (if any) |
+| `conceptual` | map or nil | Conceptual pair data (if any, with family annotation) |
 | `change` | map or nil | Change pair data (if any) |
 | `finding` | map or nil | Diagnosis finding for this pair (if hidden) |
+| `verdict` | map | Opinionated interpretation (see below) |
+
+### Verdict shape
+
+```edn
+{:category    keyword    ; see categories below
+ :explanation string}    ; human-readable interpretation
+```
+
+Verdict categories (first-match rule evaluation):
+
+| Category | Condition | Meaning |
+|----------|-----------|---------|
+| `expected-structural` | Direct edge exists | Intentional, visible in code |
+| `family-naming-noise` | Hidden + same-family + no independent terms | Pure namespace prefix overlap |
+| `family-siblings` | Hidden + same-family + independent terms | Shared domain vocabulary within family |
+| `likely-missing-abstraction` | Hidden + conceptual + change + cross-family | Strongest hidden coupling signal |
+| `hidden-conceptual` | Hidden + conceptual only + cross-family | Shared vocabulary, no behavioral link |
+| `hidden-change` | Hidden + change only | Vestigial or implicit contract |
+| `transitive-only` | Path exists, no coupling signals | Low concern |
+| `unrelated` | Nothing | No coupling detected |
 
 ---
 
