@@ -108,7 +108,9 @@
     (doseq [p (sut/change-coupling-pairs commits graph 0.01 1)]
       (is (contains? p :ns-a))
       (is (contains? p :ns-b))
-      (is (contains? p :coupling))
+      (is (contains? p :score))
+      (is (contains? p :kind))
+      (is (= :change (:kind p)))
       (is (contains? p :confidence-a))
       (is (contains? p :confidence-b))
       (is (contains? p :co-changes))
@@ -117,9 +119,9 @@
   (testing "Jaccard coupling values correct"
     (let [pairs (sut/change-coupling-pairs commits graph 0.01 1)
           by-ns (into {} (map (fn [p] [#{(:ns-a p) (:ns-b p)} p]) pairs))]
-      (is (< (Math/abs (- 0.50 (:coupling (get by-ns #{'gordian.main 'gordian.scan})))) 1e-9))
-      (is (< (Math/abs (- (/ 2.0 3) (:coupling (get by-ns #{'gordian.output 'gordian.scan})))) 1e-9))
-      (is (< (Math/abs (- 0.25 (:coupling (get by-ns #{'gordian.main 'gordian.output})))) 1e-9))))
+      (is (< (Math/abs (- 0.50 (:score (get by-ns #{'gordian.main 'gordian.scan})))) 1e-9))
+      (is (< (Math/abs (- (/ 2.0 3) (:score (get by-ns #{'gordian.output 'gordian.scan})))) 1e-9))
+      (is (< (Math/abs (- 0.25 (:score (get by-ns #{'gordian.main 'gordian.output})))) 1e-9))))
 
   (testing "confidence values correct"
     ;; [output scan]: output changed 2 times, co=2 → conf-a=1.0; scan changed 3 times → conf-b=2/3
@@ -131,7 +133,7 @@
 
   (testing "sorted by coupling descending"
     (let [pairs  (sut/change-coupling-pairs commits graph 0.01 1)
-          values (map :coupling pairs)]
+          values (map :score pairs)]
       (is (= values (sort > values)))))
 
   (testing "threshold filters pairs below minimum coupling"

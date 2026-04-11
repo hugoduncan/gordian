@@ -294,17 +294,19 @@
       (doseq [p pairs]
         (is (contains? p :ns-a))
         (is (contains? p :ns-b))
-        (is (contains? p :sim))
+        (is (contains? p :score))
+        (is (contains? p :kind))
+        (is (= :conceptual (:kind p)))
         (is (contains? p :structural-edge?))
         (is (contains? p :shared-terms))))
 
-    (testing "sorted by sim descending"
-      (let [sims (map :sim pairs)]
-        (is (= sims (sort > sims)))))
+    (testing "sorted by score descending"
+      (let [scores (map :score pairs)]
+        (is (= scores (sort > scores)))))
 
-    (testing "all returned sims are >= threshold"
-      (doseq [{:keys [sim]} pairs]
-        (is (>= sim 0.01))))
+    (testing "all returned scores are >= threshold"
+      (doseq [{:keys [score]} pairs]
+        (is (>= score 0.01))))
 
     (testing "ns-a ↔ ns-b has structural edge"
       (let [p (first (filter #(= #{(:ns-a %) (:ns-b %)} #{'ns-a 'ns-b}) pairs))]

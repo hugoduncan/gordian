@@ -56,17 +56,17 @@
     (let [ns-col (conceptual-ns-col pairs)
           header (str (pad-right ns-col "namespace-a")
                       "  " (pad-right ns-col "namespace-b")
-                      "  sim   structural  shared concepts")
+                      "  score  structural  shared concepts")
           rule   (apply str (repeat (count header) "─"))]
       (into
-       [(str "conceptual coupling (sim ≥ " (format "%.2f" (double threshold)) "):")
+       [(str "conceptual coupling (score ≥ " (format "%.2f" (double threshold)) "):")
         ""
         header
         rule]
-       (map (fn [{:keys [ns-a ns-b sim structural-edge? shared-terms]}]
+       (map (fn [{:keys [ns-a ns-b score structural-edge? shared-terms]}]
               (str (pad-right ns-col (str ns-a))
                    "  " (pad-right ns-col (str ns-b))
-                   "  " (format "%4.2f" (double sim))
+                   "  " (format "%4.2f" (double score))
                    "  " (if structural-edge?
                           (str "yes      " (str/join " " shared-terms))
                           (str "no  ←    " (str/join " " shared-terms)))))
@@ -100,11 +100,11 @@
         ""
         header
         rule]
-       (map (fn [{:keys [ns-a ns-b coupling co-changes
+       (map (fn [{:keys [ns-a ns-b score co-changes
                          confidence-a confidence-b structural-edge?]}]
               (str (pad-right ns-col (str ns-a))
                    "  " (pad-right ns-col (str ns-b))
-                   "  " (format "%6.4f" (double coupling))
+                   "  " (format "%6.4f" (double score))
                    "  " (pad-left 2 (str co-changes))
                    "  " (format "%5.1f%%" (* 100.0 confidence-a))
                    "  " (format "%5.1f%%" (* 100.0 confidence-b))

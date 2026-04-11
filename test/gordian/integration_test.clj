@@ -59,7 +59,8 @@
       (doseq [p pairs]
         (is (symbol? (:ns-a p)))
         (is (symbol? (:ns-b p)))
-        (is (number? (:coupling p)))
+        (is (number? (:score p)))
+        (is (= :change (:kind p)))
         (is (number? (:co-changes p)))
         (is (boolean? (:structural-edge? p))))))
 

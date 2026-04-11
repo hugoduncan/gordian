@@ -205,6 +205,7 @@
 (defn- eval-candidates
   "Evaluate a seq of [a b] candidate pairs against unit-tfidf vectors.
   Returns a *vector* (not a lazy seq) of result maps for pairs meeting threshold.
+  Each map has {:ns-a :ns-b :score :kind :conceptual :structural-edge? :shared-terms}.
   Using into [] forces full evaluation inside the pmap future so the work
   runs on a worker thread, not lazily on the calling thread during concat."
   [unit graph threshold n-terms pairs]
@@ -214,15 +215,16 @@
                   (when (>= sim threshold)
                     {:ns-a             a
                      :ns-b             b
-                     :sim              sim
+                     :score            sim
+                     :kind             :conceptual
                      :structural-edge? (structural-edge? graph a b)
                      :shared-terms     terms}))))
         pairs))
 
 (defn conceptual-pairs
   "Compute all namespace pairs whose conceptual similarity meets threshold.
-  Returns a vector of maps sorted by :sim desc:
-    {:ns-a sym :ns-b sym :sim float
+  Returns a vector of maps sorted by :score desc:
+    {:ns-a sym :ns-b sym :score float :kind :conceptual
      :structural-edge? bool :shared-terms [term]}
   tfidf     — {ns → {term → weight}} from build-tfidf
   graph     — {ns → #{dep-ns}} structural dependency graph
@@ -258,7 +260,7 @@
      (->> (partition-all chunk-size candidates)
           (pmap #(eval-candidates unit graph threshold n-terms %))
           (into [] cat)          ; eager flatten — avoids lazy apply-concat on main thread
-          (sort-by :sim >)
+          (sort-by :score >)
           vec))))
 
 ;;; ── term extraction ───────────────────────────────────────────────────────

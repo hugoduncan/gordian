@@ -94,9 +94,9 @@
 ;;; ── format-conceptual ────────────────────────────────────────────────────
 
 (def ^:private sample-pairs
-  [{:ns-a 'gordian.output  :ns-b 'gordian.json   :sim 0.54
+  [{:ns-a 'gordian.output  :ns-b 'gordian.json   :score 0.54 :kind :conceptual
     :structural-edge? false :shared-terms ["report" "format" "lines"]}
-   {:ns-a 'gordian.classify :ns-b 'gordian.scc   :sim 0.48
+   {:ns-a 'gordian.classify :ns-b 'gordian.scc   :score 0.48 :kind :conceptual
     :structural-edge? true  :shared-terms ["cycle" "node"]}])
 
 (deftest format-conceptual-test
@@ -174,11 +174,11 @@
 
 (def ^:private change-pairs
   [{:ns-a 'gordian.output :ns-b 'gordian.main
-    :coupling 0.6667 :co-changes 2
+    :score 0.6667 :kind :change :co-changes 2
     :confidence-a 0.6667 :confidence-b 1.0
     :structural-edge? true}
    {:ns-a 'gordian.scan :ns-b 'gordian.output
-    :coupling 0.5 :co-changes 2
+    :score 0.5 :kind :change :co-changes 2
     :confidence-a 0.6667 :confidence-b 0.6667
     :structural-edge? false}])
 

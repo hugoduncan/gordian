@@ -35,8 +35,8 @@
 
 (defn change-coupling-pairs
   "Compute namespace pairs whose change coupling meets threshold.
-  Returns a vector of maps sorted by :coupling descending:
-    {:ns-a :ns-b :coupling :confidence-a :confidence-b
+  Returns a vector of maps sorted by :score descending:
+    {:ns-a :ns-b :score :kind :change :confidence-a :confidence-b
      :co-changes :structural-edge?}
 
   coupling     = co / (changes-a + changes-b - co)   Jaccard, symmetric
@@ -63,10 +63,11 @@
                       (when (>= coupling threshold)
                         {:ns-a             a
                          :ns-b             b
+                         :score            coupling
+                         :kind             :change
                          :co-changes       co
-                         :coupling         coupling
                          :confidence-a     (/ (double co) ca)
                          :confidence-b     (/ (double co) cb)
                          :structural-edge? (structural-edge? graph a b)})))))
-          (sort-by :coupling >)
+          (sort-by :score >)
           vec))))
