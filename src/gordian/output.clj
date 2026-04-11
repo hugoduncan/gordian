@@ -2,29 +2,32 @@
 
 ;;; ── formatting helpers ───────────────────────────────────────────────────
 
-(defn- pct
-  "Format a 0–1 fraction as a right-aligned percentage string, e.g. \" 33.3%\"."
-  [x]
-  (format "%5.1f%%" (* 100.0 x)))
-
+(defn- pct [x]      (format "%5.1f%%" (* 100.0 x)))
 (defn- pad-right [n s] (format (str "%-" n "s") s))
+(defn- pad-left  [n s] (format (str "%" n "s")  s))
 
 (defn column-widths
-  "Return {:ns-col int} given a seq of node maps.
-  ns-col is wide enough for the longest namespace name."
+  "Return {:ns-col int} sized to fit the longest namespace name."
   [nodes]
   {:ns-col (max 20 (apply max 0 (map #(count (str (:ns %))) nodes)))})
 
 (defn format-row
   "Format one node row as a string."
-  [ns-col {:keys [ns reach fan-in]}]
-  (str (pad-right ns-col (str ns)) "  " (pct reach) "  " (pct fan-in)))
+  [ns-col {:keys [ns reach fan-in ca ce instability]}]
+  (str (pad-right ns-col (str ns))
+       "  " (pct reach)
+       "  " (pct fan-in)
+       "  " (pad-left 3 (str (or ce "-")))
+       "  " (pad-left 3 (str (or ca "-")))
+       "  " (if instability (format "%4.2f" instability) "   -")))
 
 (defn format-report
-  "Return a vector of lines for the full coupling report."
-  [{:keys [propagation-cost nodes]} src-dir]
+  "Return a vector of lines for the full coupling report.
+  `report` — {:src-dir :propagation-cost :nodes [node-maps]}."
+  [{:keys [src-dir propagation-cost nodes]}]
   (let [{:keys [ns-col]} (column-widths nodes)
-        header (str (pad-right ns-col "namespace") "    reach   fan-in")
+        header (str (pad-right ns-col "namespace")
+                    "    reach   fan-in   Ce   Ca      I")
         rule   (apply str (repeat (count header) "─"))]
     (into
      [(str "gordian — namespace coupling report")
@@ -43,6 +46,7 @@
 ;;; ── IO ───────────────────────────────────────────────────────────────────
 
 (defn print-report
-  "Print a human-readable coupling report to stdout."
-  [metrics src-dir]
-  (run! println (format-report metrics src-dir)))
+  "Print a human-readable coupling report to stdout.
+  `report` — unified map from gordian.main/build-report."
+  [report]
+  (run! println (format-report report)))

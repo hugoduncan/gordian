@@ -2,6 +2,7 @@
   (:require [gordian.scan      :as scan]
             [gordian.close     :as close]
             [gordian.aggregate :as aggregate]
+            [gordian.metrics   :as metrics]
             [gordian.output    :as output]))
 
 (defn parse-args
@@ -11,14 +12,26 @@
     {:src-dir src-dir}
     {:error "src-dir is required"}))
 
-(defn analyze
-  "Full pipeline: scan → close → aggregate → print."
+(defn- merge-node-metrics
+  "Merge per-node metrics map into the :nodes vector of a report."
+  [report metrics-map]
+  (update report :nodes
+          (fn [nodes]
+            (mapv #(merge % (get metrics-map (:ns %) {})) nodes))))
+
+(defn build-report
+  "Full pipeline: scan → close → aggregate → metrics → unified report map.
+  Returns {:src-dir :propagation-cost :nodes [{:ns :reach :fan-in :ca :ce :instability}]}."
   [src-dir]
-  (-> src-dir
-      scan/scan
-      close/close
-      (aggregate/aggregate)
-      (output/print-report src-dir)))
+  (let [direct  (scan/scan src-dir)
+        closed  (close/close direct)]
+    (-> closed
+        aggregate/aggregate
+        (merge-node-metrics (metrics/compute direct))
+        (assoc :src-dir src-dir))))
+
+(defn analyze [src-dir]
+  (output/print-report (build-report src-dir)))
 
 (defn run [args]
   (let [{:keys [src-dir error]} (parse-args args)]
