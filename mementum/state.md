@@ -25,13 +25,22 @@ code yet. Single root commit (`e6aaf83`).
 - **Core/periphery** — MacCormack 2012 network classification.
 - Data source: clj-kondo analysis output is a natural fit.
 
-## Open questions / next tasks
+## Implemented (commits 740cfb3 → 4204b8e)
 
-- Implement Babashka entrypoint (`gordian` / `analyze` command)
-- Parse namespace require graph (via clj-kondo or direct AST)
-- Compute Ca, Ce, instability per namespace
-- Compute propagation cost (transitive closure)
-- Detect SCCs (Tarjan / Kosaraju)
-- Core/periphery classification
-- Output: summary table + DOT file + JSON report
+- `bb.edn` entrypoint + CLI (`bb analyze <src-dir>`)
+- `gordian.scan/scan`: .clj → `{ns→#{direct-deps}}`
+- `gordian.close/close`: transitive closure (BFS per node, handles cycles)
+- `gordian.aggregate/aggregate`: PC = Σ|reach(n)|/N², per-node reach + fan-in
+- `gordian.output/format-report` + `print-report`: ruled table output
+- 66 assertions across 14 tests, all green
+- `bb analyze test/fixture` produces correct table
+
+## Next tasks
+
+- Ca / Ce / instability per namespace (Robert Martin metrics)
+- Detect SCCs (Tarjan) — cycle reporting
+- Core/periphery classification (MacCormack 2012)
+- DOT file output (graphviz)
+- JSON report output
 - bbin install story
+- Self-analysis: run gordian on itself
