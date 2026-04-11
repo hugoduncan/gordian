@@ -82,7 +82,7 @@ Examples:
   ([src-dirs conceptual-threshold]
    (let [[direct ns->terms]
          (if conceptual-threshold
-           (let [{:keys [graph ns->terms]} (scan/scan-all-dirs src-dirs)]
+           (let [{:keys [graph ns->terms]} (scan/scan-all-dirs conceptual/extract-terms src-dirs)]
              [graph ns->terms])
            [(scan/scan-dirs src-dirs) nil])
          closed (close/close direct)

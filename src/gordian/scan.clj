@@ -1,7 +1,6 @@
 (ns gordian.scan
   (:require [babashka.fs :as fs]
-            [edamame.core :as e]
-            [gordian.conceptual :as conceptual]))
+            [edamame.core :as e]))
 
 ;;; ── require-entry extraction ─────────────────────────────────────────────
 
@@ -112,33 +111,36 @@
 
 (defn parse-file-terms
   "Read a .clj file and return [ns-sym [term]], or nil on failure.
-  Reads the full file body so that def names and docstrings are captured."
-  [path]
+  Reads the full file body so that def names and docstrings are captured.
+  `terms-fn` — called as (terms-fn ns-sym all-forms) → [term]"
+  [terms-fn path]
   (try
     (let [content (slurp (str path))
           forms   (read-all-forms content)
           ns-form (first (filter #(and (seq? %) (= 'ns (first %))) forms))
           ns-sym  (when ns-form (second ns-form))]
       (when ns-sym
-        [ns-sym (conceptual/extract-terms ns-sym forms)]))
+        [ns-sym (terms-fn ns-sym forms)]))
     (catch Exception _ nil)))
 
 (defn scan-terms
   "Recursively scan src-dir for .clj files.
   Returns {ns-sym → [term]} for all parseable files.
-  Files are parsed in parallel (pmap)."
-  [src-dir]
+  Files are parsed in parallel (pmap).
+  `terms-fn` — called as (terms-fn ns-sym all-forms) → [term]"
+  [terms-fn src-dir]
   (->> (fs/glob src-dir "**.clj")
-       (pmap parse-file-terms)
+       (pmap (partial parse-file-terms terms-fn))
        (keep identity)
        (into {})))
 
 (defn scan-terms-dirs
   "Scan multiple src directories and merge their term maps.
-  Later directories win on namespace collision."
-  [src-dirs]
+  Later directories win on namespace collision.
+  `terms-fn` — called as (terms-fn ns-sym all-forms) → [term]"
+  [terms-fn src-dirs]
   (->> src-dirs
-       (map scan-terms)
+       (map (partial scan-terms terms-fn))
        (apply merge {})))
 
 ;;; ── combined single-pass scan ────────────────────────────────────────────
@@ -147,8 +149,9 @@
   "Read a .clj file once and return {:ns sym :deps #{sym} :terms [term]}, or nil.
   Single-pass: reads the file once, parses all forms, extracts both the
   structural dependency graph (deps) and conceptual terms in one shot.
-  Use this instead of calling parse-file + parse-file-terms separately."
-  [path]
+  Use this instead of calling parse-file + parse-file-terms separately.
+  `terms-fn` — called as (terms-fn ns-sym all-forms) → [term]"
+  [terms-fn path]
   (try
     (let [content (slurp (str path))
           forms   (read-all-forms content)
@@ -157,16 +160,17 @@
       (when ns-sym
         {:ns    ns-sym
          :deps  (deps-from-ns-form ns-form)
-         :terms (conceptual/extract-terms ns-sym forms)}))
+         :terms (terms-fn ns-sym forms)}))
     (catch Exception _ nil)))
 
 (defn scan-all
   "Recursively scan src-dir for .clj files in a single pass per file.
   Returns {:graph {ns → #{deps}} :ns->terms {ns → [term]}}.
-  Files are parsed in parallel (pmap); results reduced sequentially."
-  [src-dir]
+  Files are parsed in parallel (pmap); results reduced sequentially.
+  `terms-fn` — called as (terms-fn ns-sym all-forms) → [term]"
+  [terms-fn src-dir]
   (->> (fs/glob src-dir "**.clj")
-       (pmap parse-file-all)
+       (pmap (partial parse-file-all terms-fn))
        (keep identity)
        (reduce (fn [acc {:keys [ns deps terms]}]
                  (-> acc
@@ -177,10 +181,11 @@
 (defn scan-all-dirs
   "Scan multiple src directories in a single pass per file.
   Returns {:graph {ns → #{deps}} :ns->terms {ns → [term]}}.
-  Later directories win on namespace collision."
-  [src-dirs]
+  Later directories win on namespace collision.
+  `terms-fn` — called as (terms-fn ns-sym all-forms) → [term]"
+  [terms-fn src-dirs]
   (->> src-dirs
-       (map scan-all)
+       (map (partial scan-all terms-fn))
        (reduce (fn [a b]
                  {:graph     (merge (:graph a) (:graph b))
                   :ns->terms (merge (:ns->terms a) (:ns->terms b))})

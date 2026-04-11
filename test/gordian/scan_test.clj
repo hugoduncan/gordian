@@ -1,5 +1,6 @@
 (ns gordian.scan-test
   (:require [clojure.test :refer [deftest is testing]]
+            [gordian.conceptual :as conceptual]
             [gordian.scan :as sut]))
 
 (def fixture-dir "resources/fixture")
@@ -86,64 +87,64 @@
 
 (deftest parse-file-terms-test
   (testing "returns [ns-sym terms] pair"
-    (let [result (sut/parse-file-terms (str fixture-dir "/alpha.clj"))]
+    (let [result (sut/parse-file-terms conceptual/extract-terms (str fixture-dir "/alpha.clj"))]
       (is (vector? result))
       (is (= 2 (count result)))))
 
   (testing "ns sym is correct"
-    (let [[ns-sym _] (sut/parse-file-terms (str fixture-dir "/alpha.clj"))]
+    (let [[ns-sym _] (sut/parse-file-terms conceptual/extract-terms (str fixture-dir "/alpha.clj"))]
       (is (= 'alpha ns-sym))))
 
   (testing "ns name tokens present"
-    (let [[_ terms] (sut/parse-file-terms (str fixture-dir "/alpha.clj"))]
+    (let [[_ terms] (sut/parse-file-terms conceptual/extract-terms (str fixture-dir "/alpha.clj"))]
       (is (some #{"alpha"} terms))))
 
   (testing "def symbol tokens present"
-    (let [[_ terms] (sut/parse-file-terms (str fixture-dir "/beta.clj"))]
+    (let [[_ terms] (sut/parse-file-terms conceptual/extract-terms (str fixture-dir "/beta.clj"))]
       (is (some #{"hello"} terms))))
 
   (testing "gamma includes run"
-    (let [[_ terms] (sut/parse-file-terms (str fixture-dir "/gamma.clj"))]
+    (let [[_ terms] (sut/parse-file-terms conceptual/extract-terms (str fixture-dir "/gamma.clj"))]
       (is (some #{"run"} terms))))
 
   (testing "missing file returns nil"
-    (is (nil? (sut/parse-file-terms "resources/fixture/no_such.clj")))))
+    (is (nil? (sut/parse-file-terms conceptual/extract-terms "resources/fixture/no_such.clj")))))
 
 ;;; ── scan-terms ───────────────────────────────────────────────────────────
 
 (deftest scan-terms-test
   (testing "returns map keyed by ns syms"
-    (let [result (sut/scan-terms fixture-dir)]
+    (let [result (sut/scan-terms conceptual/extract-terms fixture-dir)]
       (is (= '#{alpha beta gamma} (set (keys result))))))
 
   (testing "each value is a non-empty term vector"
-    (doseq [[_ terms] (sut/scan-terms fixture-dir)]
+    (doseq [[_ terms] (sut/scan-terms conceptual/extract-terms fixture-dir)]
       (is (vector? terms))
       (is (seq terms))))
 
   (testing "alpha terms include 'alpha' and 'hello'"
-    (let [terms (get (sut/scan-terms fixture-dir) 'alpha)]
+    (let [terms (get (sut/scan-terms conceptual/extract-terms fixture-dir) 'alpha)]
       (is (some #{"alpha"} terms))
       (is (some #{"hello"} terms))))
 
   (testing "empty directory returns empty map"
     (let [tmp (doto (java.io.File. (str (java.io.File/createTempFile "gordian" "") "-d")) .mkdirs)]
-      (is (= {} (sut/scan-terms (str tmp))))
+      (is (= {} (sut/scan-terms conceptual/extract-terms (str tmp))))
       (clojure.java.io/delete-file tmp))))
 
 ;;; ── scan-terms-dirs ──────────────────────────────────────────────────────
 
 (deftest scan-terms-dirs-test
   (testing "single dir — same as scan-terms"
-    (is (= (sut/scan-terms fixture-dir)
-           (sut/scan-terms-dirs [fixture-dir]))))
+    (is (= (sut/scan-terms conceptual/extract-terms fixture-dir)
+           (sut/scan-terms-dirs conceptual/extract-terms [fixture-dir]))))
 
   (testing "merges two dirs — keys are union of both"
-    (let [result (sut/scan-terms-dirs [fixture-dir "resources/fixture-cljc"])]
+    (let [result (sut/scan-terms-dirs conceptual/extract-terms [fixture-dir "resources/fixture-cljc"])]
       (is (= '#{alpha beta gamma portable} (set (keys result))))))
 
   (testing "empty dirs list → empty map"
-    (is (= {} (sut/scan-terms-dirs [])))))
+    (is (= {} (sut/scan-terms-dirs conceptual/extract-terms [])))))
 
 ;;; ── scan-dirs ────────────────────────────────────────────────────────────
 
@@ -166,7 +167,7 @@
 
 (deftest parse-file-all-test
   (testing "returns map with :ns :deps :terms"
-    (let [result (sut/parse-file-all (str fixture-dir "/alpha.clj"))]
+    (let [result (sut/parse-file-all conceptual/extract-terms (str fixture-dir "/alpha.clj"))]
       (is (map? result))
       (is (contains? result :ns))
       (is (contains? result :deps))
@@ -174,41 +175,41 @@
 
   (testing ":ns matches parse-file :ns"
     (is (= (:ns (sut/parse-file (str fixture-dir "/alpha.clj")))
-           (:ns (sut/parse-file-all (str fixture-dir "/alpha.clj"))))))
+           (:ns (sut/parse-file-all conceptual/extract-terms (str fixture-dir "/alpha.clj"))))))
 
   (testing ":deps matches parse-file :deps"
     (doseq [f ["alpha.clj" "beta.clj" "gamma.clj"]]
       (is (= (:deps (sut/parse-file (str fixture-dir "/" f)))
-             (:deps (sut/parse-file-all (str fixture-dir "/" f)))))))
+             (:deps (sut/parse-file-all conceptual/extract-terms (str fixture-dir "/" f)))))))
 
   (testing ":terms matches parse-file-terms terms"
     (doseq [f ["alpha.clj" "beta.clj" "gamma.clj"]]
-      (let [[_ terms] (sut/parse-file-terms (str fixture-dir "/" f))
-            all-terms (:terms (sut/parse-file-all (str fixture-dir "/" f)))]
+      (let [[_ terms] (sut/parse-file-terms conceptual/extract-terms (str fixture-dir "/" f))
+            all-terms (:terms (sut/parse-file-all conceptual/extract-terms (str fixture-dir "/" f)))]
         (is (= terms all-terms)))))
 
   (testing "missing file returns nil"
-    (is (nil? (sut/parse-file-all "resources/fixture/no_such.clj")))))
+    (is (nil? (sut/parse-file-all conceptual/extract-terms "resources/fixture/no_such.clj")))))
 
 ;;; ── scan-all ─────────────────────────────────────────────────────────────
 
 (deftest scan-all-test
   (testing "returns map with :graph and :ns->terms keys"
-    (let [result (sut/scan-all fixture-dir)]
+    (let [result (sut/scan-all conceptual/extract-terms fixture-dir)]
       (is (contains? result :graph))
       (is (contains? result :ns->terms))))
 
   (testing ":graph matches scan"
     (is (= (sut/scan fixture-dir)
-           (:graph (sut/scan-all fixture-dir)))))
+           (:graph (sut/scan-all conceptual/extract-terms fixture-dir)))))
 
   (testing ":ns->terms matches scan-terms"
-    (is (= (sut/scan-terms fixture-dir)
-           (:ns->terms (sut/scan-all fixture-dir)))))
+    (is (= (sut/scan-terms conceptual/extract-terms fixture-dir)
+           (:ns->terms (sut/scan-all conceptual/extract-terms fixture-dir)))))
 
   (testing "empty directory → empty graph and terms"
     (let [tmp (doto (java.io.File. (str (java.io.File/createTempFile "gordian" "") "-d")) .mkdirs)
-          result (sut/scan-all (str tmp))]
+          result (sut/scan-all conceptual/extract-terms (str tmp))]
       (is (= {} (:graph result)))
       (is (= {} (:ns->terms result)))
       (clojure.java.io/delete-file tmp))))
@@ -217,16 +218,16 @@
 
 (deftest scan-all-dirs-test
   (testing "single dir — same as scan-all"
-    (is (= (sut/scan-all fixture-dir)
-           (sut/scan-all-dirs [fixture-dir]))))
+    (is (= (sut/scan-all conceptual/extract-terms fixture-dir)
+           (sut/scan-all-dirs conceptual/extract-terms [fixture-dir]))))
 
   (testing ":graph matches scan-dirs"
     (is (= (sut/scan-dirs [fixture-dir "resources/fixture-cljc"])
-           (:graph (sut/scan-all-dirs [fixture-dir "resources/fixture-cljc"])))))
+           (:graph (sut/scan-all-dirs conceptual/extract-terms [fixture-dir "resources/fixture-cljc"])))))
 
   (testing ":ns->terms matches scan-terms-dirs"
-    (is (= (sut/scan-terms-dirs [fixture-dir "resources/fixture-cljc"])
-           (:ns->terms (sut/scan-all-dirs [fixture-dir "resources/fixture-cljc"])))))
+    (is (= (sut/scan-terms-dirs conceptual/extract-terms [fixture-dir "resources/fixture-cljc"])
+           (:ns->terms (sut/scan-all-dirs conceptual/extract-terms [fixture-dir "resources/fixture-cljc"])))))
 
   (testing "empty dirs list → empty result"
-    (is (= {:graph {} :ns->terms {}} (sut/scan-all-dirs [])))))
+    (is (= {:graph {} :ns->terms {}} (sut/scan-all-dirs conceptual/extract-terms [])))))
