@@ -258,3 +258,61 @@
     (testing "pair in cross-keys → not flagged"
       (let [findings (sut/find-hidden-change change-pairs #{#{'a 'b} #{'c 'd}})]
         (is (empty? findings))))))
+
+;;; ── diagnose (full integration) ─────────────────────────────────────────
+
+(def ^:private full-report
+  {:propagation-cost 0.15
+   :cycles [#{'cyc.a 'cyc.b}]
+   :nodes [{:ns 'main  :reach 0.8 :fan-in 0.0 :ca 0 :ce 5 :instability 1.0 :role :peripheral}
+           {:ns 'core  :reach 0.0 :fan-in 0.3 :ca 2 :ce 0 :instability 0.0 :role :core}
+           {:ns 'util  :reach 0.1 :fan-in 0.1 :ca 1 :ce 1 :instability 0.5 :role :shared}
+           {:ns 'cyc.a :reach 0.2 :fan-in 0.2 :ca 1 :ce 1 :instability 0.5 :role :shared}
+           {:ns 'cyc.b :reach 0.2 :fan-in 0.2 :ca 1 :ce 1 :instability 0.5 :role :shared}]
+   :conceptual-pairs
+   [{:ns-a 'core :ns-b 'util :score 0.30 :kind :conceptual
+     :structural-edge? false :shared-terms ["data" "transform"]}
+    {:ns-a 'main :ns-b 'core :score 0.20 :kind :conceptual
+     :structural-edge? true :shared-terms ["app"]}]
+   :change-pairs
+   [{:ns-a 'core :ns-b 'util :score 0.45 :kind :change
+     :structural-edge? false :co-changes 5 :confidence-a 0.8 :confidence-b 0.6}]})
+
+(deftest diagnose-test
+  (let [findings (sut/diagnose full-report)]
+
+    (testing "returns a vector"
+      (is (vector? findings)))
+
+    (testing "sorted: all :high before :medium before :low"
+      (let [severities (map :severity findings)]
+        (is (= severities (sort-by (fn [s] (case s :high 0 :medium 1 :low 2)) severities)))))
+
+    (testing "cycle finding present"
+      (is (some #(= :cycle (:category %)) findings)))
+
+    (testing "cross-lens hidden present (core↔util hidden in both)"
+      (is (some #(= :cross-lens-hidden (:category %)) findings)))
+
+    (testing "structural pairs not flagged as hidden"
+      (let [hidden-subjects (set (map :subject (filter #(#{:hidden-conceptual :hidden-change
+                                                           :cross-lens-hidden} (:category %))
+                                                       findings)))]
+        (is (not (some #(and (= 'main (:ns-a %)) (= 'core (:ns-b %))) hidden-subjects))))))
+
+  (testing "report with no pairs → only structural findings"
+    (let [report (dissoc full-report :conceptual-pairs :change-pairs)
+          findings (sut/diagnose report)
+          categories (set (map :category findings))]
+      (is (not (contains? categories :cross-lens-hidden)))
+      (is (not (contains? categories :hidden-conceptual)))
+      (is (not (contains? categories :hidden-change)))))
+
+  (testing "report with no cycles → no cycle findings"
+    (let [report (assoc full-report :cycles [])
+          findings (sut/diagnose report)]
+      (is (not (some #(= :cycle (:category %)) findings)))))
+
+  (testing "minimal report works"
+    (let [report {:propagation-cost 0.05 :cycles [] :nodes []}]
+      (is (vector? (sut/diagnose report))))))

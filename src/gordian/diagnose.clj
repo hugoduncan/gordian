@@ -178,3 +178,37 @@
                                 :instability (:instability node)
                                 :role (:role node)}})))
           nodes)))
+
+;;; ── main diagnose function ──────────────────────────────────────────────
+
+(defn- severity-rank [s]
+  (case s :high 0 :medium 1 :low 2 3))
+
+(defn- finding-sort-key
+  "Sort key: severity first (high→low), then highest score within severity."
+  [f]
+  [(severity-rank (:severity f))
+   (- (or (get-in f [:evidence :score])
+          (get-in f [:evidence :conceptual-score])
+          (get-in f [:evidence :reach])
+          (get-in f [:evidence :size])
+          (get-in f [:evidence :instability])
+          0))])
+
+(defn diagnose
+  "Generate all findings from a complete report map.
+  Returns findings sorted by severity then score descending."
+  [{:keys [cycles nodes conceptual-pairs change-pairs] :as _report}]
+  (let [{:keys [findings cross-keys]}
+        (find-cross-lens-hidden (or conceptual-pairs [])
+                                (or change-pairs []))]
+    (->> (concat
+          (find-cycles (or cycles []))
+          findings
+          (find-hidden-conceptual (or conceptual-pairs []) cross-keys)
+          (find-hidden-change (or change-pairs []) cross-keys)
+          (find-sdp-violations (or nodes []))
+          (find-god-modules (or nodes []))
+          (find-hubs (or nodes [])))
+         (sort-by finding-sort-key)
+         vec)))
