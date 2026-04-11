@@ -436,6 +436,95 @@
                         " |"))
                  change-pairs))))))
 
+(defn- md-severity-heading [severity]
+  (case severity
+    :high   "## 🔴 HIGH"
+    :medium "## 🟡 MEDIUM"
+    :low    "## 🟢 LOW"))
+
+(defn- md-evidence-lines [{:keys [category evidence]}]
+  (case category
+    :cross-lens-hidden
+    [(str "- **Conceptual** score=" (format "%.2f" (:conceptual-score evidence))
+          " — shared terms: " (str/join ", " (:shared-terms evidence)))
+     (str "- **Change** score=" (format "%.2f" (:change-score evidence))
+          " — " (:co-changes evidence) " co-changes")
+     "- → No structural edge"]
+
+    :hidden-conceptual
+    [(str "- Shared terms: " (str/join ", " (:shared-terms evidence)))
+     "- → No structural edge"]
+
+    :hidden-change
+    [(str "- " (:co-changes evidence) " co-changes"
+          ", conf=" (format "%.0f%%/%.0f%%"
+                            (* 100.0 (:confidence-a evidence))
+                            (* 100.0 (:confidence-b evidence))))
+     "- → No structural edge"]
+
+    :cycle
+    [(str "- Members: " (str/join ", " (sort (map str (:members evidence)))))]
+
+    :sdp-violation
+    [(str "- Ca=" (:ca evidence) " Ce=" (:ce evidence)
+          " I=" (format "%.2f" (:instability evidence)))]
+
+    :god-module
+    [(str "- Reach=" (md-pct (:reach evidence))
+          " Fan-in=" (md-pct (:fan-in evidence)))]
+
+    :hub
+    [(str "- Ce=" (:ce evidence)
+          " I=" (format "%.2f" (or (:instability evidence) 0.0))
+          " role=" (name (or (:role evidence) :unknown)))]
+
+    []))
+
+(defn format-diagnose-md
+  "Markdown rendering of findings."
+  [{:keys [src-dirs]} health findings]
+  (let [count-sev (fn [s] (count (filter #(= s (:severity %)) findings)))
+        n-high    (count-sev :high)
+        n-medium  (count-sev :medium)
+        n-low     (count-sev :low)
+        n-total   (count findings)
+        grouped   (group-by :severity findings)
+        sections  (keep (fn [sev]
+                          (when-let [fs (seq (get grouped sev))]
+                            (into [(md-severity-heading sev) ""]
+                                  (mapcat (fn [f]
+                                            (concat
+                                             [(str "### " (format-finding-subject f))
+                                              ""
+                                              (:reason f)
+                                              ""]
+                                             (md-evidence-lines f)
+                                             [""]))
+                                          fs))))
+                        [:high :medium :low])]
+    (into
+     [(str "# Gordian Diagnose — " n-total " Finding"
+           (when (not= 1 n-total) "s"))
+      ""
+      (str "**Source:** `" (str/join " " src-dirs) "`")
+      ""
+      "## Health"
+      ""
+      "| Metric | Value |"
+      "|--------|-------|"
+      (str "| Propagation cost | " (md-pct (:propagation-cost health))
+           " (" (name (:health health)) ") |")
+      (str "| Cycles | " (if (zero? (:cycle-count health))
+                           "none"
+                           (:cycle-count health)) " |")
+      (str "| Namespaces | " (:ns-count health) " |")]
+     (concat
+      (mapcat identity sections)
+      ["---"
+       ""
+       (str "**" n-total " finding" (when (not= 1 n-total) "s")
+            "** (" n-high " high, " n-medium " medium, " n-low " low)")]))))
+
 ;;; ── IO ───────────────────────────────────────────────────────────────────
 
 (defn print-report

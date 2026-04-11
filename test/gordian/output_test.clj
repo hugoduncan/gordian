@@ -428,3 +428,35 @@
           lines  (sut/format-report-md report)]
       (is (some #(str/includes? % "## Cycles") lines))
       (is (some #(and (str/includes? % "a") (str/includes? % "b")) lines)))))
+
+;;; ── format-diagnose-md ───────────────────────────────────────────────────
+
+(deftest format-diagnose-md-test
+  (let [report {:src-dirs ["src/"]}
+        lines  (sut/format-diagnose-md report diagnose-health diagnose-findings)]
+
+    (testing "header contains finding count"
+      (is (some #(str/includes? % "3 Finding") lines)))
+
+    (testing "health table has propagation cost"
+      (is (some #(str/includes? % "5.5%") lines)))
+
+    (testing "🔴 marker for HIGH"
+      (is (some #(str/includes? % "🔴") lines)))
+
+    (testing "🟡 marker for MEDIUM"
+      (is (some #(str/includes? % "🟡") lines)))
+
+    (testing "🟢 marker for LOW"
+      (is (some #(str/includes? % "🟢") lines)))
+
+    (testing "cross-lens shows both scores"
+      (is (some #(str/includes? % "Conceptual") lines))
+      (is (some #(str/includes? % "Change") lines)))
+
+    (testing "summary line at bottom"
+      (is (some #(str/includes? % "1 high, 1 medium, 1 low") lines))))
+
+  (testing "empty findings → 0 findings"
+    (let [lines (sut/format-diagnose-md {:src-dirs ["src/"]} diagnose-health [])]
+      (is (some #(str/includes? % "0 Finding") lines)))))
