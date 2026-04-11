@@ -86,14 +86,16 @@
   "Split a string or symbol into lowercase terms.
   Splits on any non-alphanumeric character — handles kebab-case, dots,
   slashes, backticks, braces, markdown punctuation, and all other noise.
-  Removes English function words (stop words) and tokens shorter than 2 chars."
+  Removes English function words (stop words) and tokens shorter than 2 chars.
+  Uses a single transducer pass — no intermediate lazy sequences."
   [s]
   (when s
-    (->> (str/split (str/lower-case (str s)) #"[^a-zA-Z0-9]+")
-         (remove #(< (count %) 2))
-         (remove stop-words)
-         (map stem)
-         (remove #(< (count %) 2)))))
+    (into []
+      (comp (remove #(< (count %) 2))
+            (remove stop-words)
+            (map stem)
+            (remove #(< (count %) 2)))
+      (str/split (str/lower-case (str s)) #"[^a-zA-Z0-9]+"))))
 
 ;;; ── TF-IDF ────────────────────────────────────────────────────────────────
 
@@ -112,9 +114,11 @@
   vectors are then computed in parallel (pmap)."
   [ns->terms]
   (let [n  (count ns->terms)
-        df (->> (vals ns->terms)            ; document frequency per term — sequential
-                (mapcat distinct)
-                frequencies)]
+        df (reduce                           ; document frequency per term — no intermediate seq
+             (fn [acc terms]
+               (reduce (fn [m t] (update m t (fnil inc 0))) acc (distinct terms)))
+             {}
+             (vals ns->terms))]
     (into {}
       (pmap (fn [[ns-sym terms]]
               (let [tf    (term-freqs terms)
@@ -273,14 +277,16 @@
     - namespace name tokens
     - top-level def'd symbol name tokens (defn, def, defmulti, defrecord, …)
     - docstring tokens (first string after the def'd name)
-  Returns a flat [term] sequence; repetition is intentional — TF uses frequency."
+  Returns a flat [term] sequence; repetition is intentional — TF uses frequency.
+  Uses a single transducer pass — no intermediate lazy sequences."
   [ns-sym forms]
-  (->> forms
-       (mapcat (fn [form]
-                 (when (and (seq? form)
-                            (def-syms (first form))
-                            (symbol? (second form)))
-                   (concat (tokenize (second form))
-                           (docstring-tokens form)))))
-       (concat (tokenize ns-sym))
-       vec))
+  (into (vec (tokenize ns-sym))
+    (comp
+      (filter (fn [form]
+                (and (seq? form)
+                     (def-syms (first form))
+                     (symbol? (second form)))))
+      (mapcat (fn [form]
+                (concat (tokenize (second form))
+                        (docstring-tokens form)))))
+    forms))

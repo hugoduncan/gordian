@@ -24,22 +24,23 @@
 (defn deps-from-ns-form
   "Return #{dep-syms} mentioned in (:require ...) clauses of a (ns ...) form."
   [ns-form]
-  (let [clauses      (drop 2 ns-form)
-        req-clauses  (filter require-clause? clauses)]
-    (->> req-clauses
-         (mapcat rest)
-         (keep extract-dep)
-         set)))
+  (let [req-clauses (filter require-clause? (drop 2 ns-form))]
+    (into #{} (comp (mapcat rest) (keep extract-dep)) req-clauses)))
 
 ;;; ── file parsing ─────────────────────────────────────────────────────────
 
 (def ^:private parse-opts
-  "edamame options for parsing .clj source files."
-  {:read-cond :allow
-   :features  #{:clj}
-   :fn        true
-   :deref     true
-   :regex     true})
+  "edamame options for parsing .clj source files.
+  :syntax-quote true — required for files containing defmacro bodies that use
+  backtick syntax-quote (e.g. `(do ~@body)).  Without this, edamame throws
+  on every sub-token inside the syntax-quoted form and the ::skip handler
+  retries from the same reader position, producing an infinite exception loop."
+  {:read-cond    :allow
+   :features     #{:clj}
+   :fn           true
+   :deref        true
+   :regex        true
+   :syntax-quote true})
 
 (defn- read-ns-form
   "Incrementally read forms from `content`, returning the first (ns ...)
