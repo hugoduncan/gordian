@@ -61,15 +61,29 @@ main.clj       pipeline + CLI (babashka.cli)                IO
 ## CLI
 
 ```
-gordian [analyze] <src-dir>... [options]
+gordian [analyze|diagnose|compare|explain|explain-pair] [args] [options]
 
-  --dot  <file>   Write DOT graph to <file> (status to stderr)
-  --json          JSON to stdout, suppress table
-  --edn           EDN to stdout, suppress table
-  --help          Usage summary
+Commands:
+  analyze      (default) Raw metrics + coupling
+  diagnose     Ranked findings (auto-enables all lenses) + clusters
+  compare      Compare two EDN snapshots (before.edn after.edn)
+  explain      Everything about a namespace
+  explain-pair Everything about a pair
+
+Options:
+  --dot  <file>          Write DOT graph to <file>
+  --json                 JSON to stdout
+  --edn                  EDN to stdout
+  --markdown             Markdown to stdout
+  --conceptual <float>   Conceptual coupling threshold
+  --change [<repo-dir>]  Change coupling (git log)
+  --change-since <date>  Limit change horizon
+  --include-tests        Include test dirs
+  --exclude <regex>      Exclude namespaces
+  --help                 Usage summary
 ```
 
-Output modes are mutually exclusive (--json / --edn).
+Output modes are mutually exclusive (--json / --edn / --markdown).
 Can combine --dot with any output mode.
 Multiple src-dirs merged into one graph (e.g. src/ test/).
 Cycles section only appears when cycles are present.
@@ -296,7 +310,9 @@ classify.clj    core/peripheral/shared/isolated roles        pure
 conceptual.clj  TF-IDF + cosine coupling                    pure
 cc_change.clj   change-coupling-pairs (Jaccard)              pure
 diagnose.clj    ranked findings (7 categories)               pure
-explain.clj     drill-down queries (ns + pair)               pure
+explain.clj     drill-down queries (ns + pair + verdict)     pure
+compare.clj     snapshot diff (health, nodes, pairs, etc.)   pure
+cluster.clj     union-find finding clustering                pure
 envelope.clj    metadata envelope for EDN/JSON               pure
 output.clj      human-readable table + markdown              pure
 dot.clj         Graphviz DOT string                          pure
@@ -365,11 +381,42 @@ New module: `explain.clj` (pure — 6 functions, 0 IO)
 explain-pair). Mutually exclusive with --json/--edn. Markdown tables,
 severity emoji, backtick namespaces, sections omitted when empty.
 
+## Session 13 commits — Phase C (compare + clusters)
+
+```
+(pending)  feat: compare.clj — health, node, cycle, pair, finding comparison
+(pending)  feat: cluster.clj — union-find finding clustering
+(pending)  feat: wire compare + clusters into CLI + output
+(pending)  docs: schema, PLAN, state for Phase C
+```
+
+190 tests, 1372 assertions, 0 failures.
+
+Compare mode (`gordian compare before.edn after.edn`):
+- Reads two EDN snapshots, produces structured diff
+- Health delta (PC, cycles, ns-count with direction arrows)
+- Node changes: added, removed, changed (metric deltas)
+- Cycle changes: added, removed
+- Pair changes: added, removed, score delta (conceptual + change)
+- Finding changes: added, removed
+- All 4 output modes: text, markdown, JSON, EDN
+
+Finding clusters (`gordian diagnose`):
+- Union-find on finding subjects (shared namespace mentions)
+- Groups related findings into clusters (≥ 2 findings)
+- Sorted by max severity, then cluster size
+- Unclustered findings shown separately
+- Both text and markdown output
+- EDN/JSON include :clusters and :unclustered keys
+
+New modules:
+- `compare.clj` — pure comparison functions
+- `cluster.clj` — pure union-find + clustering
+
 ## Roadmap
 
-See PLAN.md. All 5 primary items complete. Deferred items remain (v2):
-cluster detection, diff/baseline, change window comparison, test mode,
-presets.
+See PLAN.md. Phase C complete. Deferred items remain (v2):
+change window comparison, test mode, presets.
 
 ## Session 12 — user feedback analysis
 
@@ -437,6 +484,14 @@ e6d5345  step 4  feat: wire envelope into commands
 
 ## Potential next work (backlog)
 
+Phase D items:
+- Family/subgraph views (`gordian explain <prefix>`)
+- Actionability sort (`--rank actionability`)
+- CI/refactor-ratchet (`gordian gate --baseline X --max-pc-delta 0.01`)
+- Full cluster detection (community detection / label propagation)
+- Compare `--ref` mode (`gordian compare --ref HEAD~4 --ref HEAD`)
+
+Cleanup/feature:
 - Remove zombie API `scan-terms` / `scan-terms-dirs`
 - Shared `gordian.test-fixtures` ns
 - Keyword literal extraction

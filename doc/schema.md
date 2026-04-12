@@ -157,6 +157,65 @@ Finding categories:
   low Ce-external, delegates to family siblings (low)
 - `hub` — very high reach (low)
 
+### Cluster shape
+
+Diagnose output also includes clusters — groups of related findings that
+share namespace mentions, connected via union-find:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `clusters` | vector of maps | Grouped related findings |
+| `unclustered` | vector of maps | Findings not part of any cluster |
+
+```edn
+{:namespaces   #{sym}       ; all namespaces in this cluster
+ :findings     [finding]    ; findings in this cluster
+ :max-severity keyword      ; highest severity in cluster
+ :summary      string}      ; e.g. "3 findings across 4 namespaces"
+```
+
+Only clusters with ≥ 2 findings are emitted. Singleton findings appear
+in `:unclustered`.
+
+---
+
+## compare
+
+Command: `gordian compare <before.edn> <after.edn> --edn`
+
+Compares two saved EDN snapshots and produces a diff report.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `gordian/command` | keyword | `:compare` |
+| `before` | map | Metadata from the before snapshot |
+| `after` | map | Metadata from the after snapshot |
+| `health` | map | `{:before map :after map :delta map}` |
+| `nodes` | map | `{:added [node] :removed [node] :changed [diff]}` |
+| `cycles` | map | `{:added [set] :removed [set]}` |
+| `conceptual-pairs` | map | `{:added [pair] :removed [pair] :changed [diff]}` |
+| `change-pairs` | map | `{:added [pair] :removed [pair] :changed [diff]}` |
+| `findings` | map | `{:added [finding] :removed [finding]}` |
+
+### Node diff shape
+
+```edn
+{:ns     symbol
+ :before {:reach ... :role ...}
+ :after  {:reach ... :role ...}
+ :delta  {:reach -0.05 :role {:before :shared :after :core}}}
+```
+
+### Pair diff shape
+
+```edn
+{:ns-a   symbol
+ :ns-b   symbol
+ :before {:score 0.45}
+ :after  {:score 0.32}
+ :delta  {:score -0.13}}
+```
+
 ---
 
 ## explain

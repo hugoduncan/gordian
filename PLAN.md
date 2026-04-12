@@ -229,7 +229,7 @@ Highest strategic value. ~2 sessions.
 
 ### 10. Compare/diff mode
 
-**Status:** todo
+**Status:** ✅ done
 
 `gordian compare before.edn after.edn` — delta report:
 - Propagation cost delta
@@ -244,7 +244,7 @@ Depends on: item 6 (stable schema).
 
 ### 11. Grouped/clustered findings in diagnose
 
-**Status:** todo
+**Status:** ✅ done
 
 Post-process findings: group pairs sharing members into clusters.
 - Connected-component grouping on finding pairs (union-find)
