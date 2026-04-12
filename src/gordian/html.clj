@@ -41,3 +41,65 @@
                                         :content "width=device-width, initial-scale=1"} "")
                            (tag "title" (escape-html title))))
                  (tag "body" body)))))
+
+(defn summary-cards
+  [summary]
+  (tag "section" {:class "summary-cards"}
+       (join-html
+        [(tag "div" {:class "card"}
+              (str (tag "div" {:class "label"} "SCC Blocks")
+                   (tag "div" {:class "value"} (:block-count summary))))
+         (tag "div" {:class "card"}
+              (str (tag "div" {:class "label"} "Cyclic SCCs")
+                   (tag "div" {:class "value"} (:cyclic-block-count summary))))
+         (tag "div" {:class "card"}
+              (str (tag "div" {:class "label"} "Largest SCC")
+                   (tag "div" {:class "value"} (:largest-block-size summary))))
+         (tag "div" {:class "card"}
+              (str (tag "div" {:class "label"} "Inter-block edges")
+                   (tag "div" {:class "value"} (:inter-block-edge-count summary))))
+         (tag "div" {:class "card"}
+              (str (tag "div" {:class "label"} "Density")
+                   (tag "div" {:class "value"} (format "%.4f" (double (:density summary))))))])))
+
+(defn- block-row
+  [{:keys [id size cyclic? density members]}]
+  (tag "tr"
+       (str (tag "td" (str "B" id))
+            (tag "td" size)
+            (tag "td" (if cyclic? "yes" "no"))
+            (tag "td" (format "%.2f" (double density)))
+            (tag "td" (str/join ", " (map str members))))))
+
+(defn block-table
+  [blocks]
+  (tag "table" {:class "block-table"}
+       (str (tag "thead"
+                 (tag "tr"
+                      (str (tag "th" "Block")
+                           (tag "th" "Size")
+                           (tag "th" "Cyclic")
+                           (tag "th" "Density")
+                           (tag "th" "Members"))))
+            (tag "tbody" (join-html (map block-row blocks))))))
+
+(defn- edge-row
+  [{:keys [from to edge-count]}]
+  (tag "tr"
+       (str (tag "td" (str "B" from))
+            (tag "td" (str "B" to))
+            (tag "td" edge-count))))
+
+(defn edge-table
+  [edges]
+  (tag "table" {:class "edge-table"}
+       (str (tag "thead"
+                 (tag "tr"
+                      (str (tag "th" "From")
+                           (tag "th" "To")
+                           (tag "th" "Edge count"))))
+            (tag "tbody"
+                 (if (seq edges)
+                   (join-html (map edge-row edges))
+                   (tag "tr"
+                        (str (tag "td" {:colspan 3} "(none)"))))))))
