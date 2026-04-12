@@ -702,3 +702,23 @@
     (is (str/includes? text "baseline.edn"))
     (is (str/includes? text "## Warnings"))
     (is (str/includes? text "## Summary"))))
+
+(deftest format-diagnose-actionability-test
+  (let [fs [{:severity :medium
+             :category :hidden-conceptual
+             :subject {:ns-a 'a.core :ns-b 'b.svc}
+             :reason "hidden conceptual coupling"
+             :actionability-score 7.8
+             :evidence {:score 0.35 :same-family? false}}]
+        text (str/join "\n" (sut/format-diagnose {:src-dirs ["src/"]}
+                                                 {:propagation-cost 0.1 :health :healthy
+                                                  :cycle-count 0 :ns-count 2}
+                                                 fs nil :actionability))
+        md   (str/join "\n" (sut/format-diagnose-md {:src-dirs ["src/"]}
+                                                    {:propagation-cost 0.1 :health :healthy
+                                                     :cycle-count 0 :ns-count 2}
+                                                    fs nil :actionability))]
+    (is (str/includes? text "rank: actionability"))
+    (is (str/includes? text "[act=7.8]"))
+    (is (str/includes? md "**Rank:** `actionability`"))
+    (is (str/includes? md "[act=7.8]"))))

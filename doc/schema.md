@@ -139,11 +139,12 @@ Same payload as analyze, plus:
 ### Finding shape
 
 ```edn
-{:severity keyword             ; :high, :medium, or :low
- :category keyword             ; see categories below
- :subject  map                 ; {:ns sym} or {:ns-a sym :ns-b sym} or {:members set}
- :reason   string              ; human-readable explanation
- :evidence map}                ; category-specific evidence
+{:severity            keyword  ; :high, :medium, or :low
+ :category            keyword  ; see categories below
+ :subject             map      ; {:ns sym} or {:ns-a sym :ns-b sym} or {:members set}
+ :reason              string   ; human-readable explanation
+ :evidence            map      ; category-specific evidence
+ :actionability-score double}  ; relative prioritization score
 ```
 
 Finding categories:
@@ -166,6 +167,7 @@ share namespace mentions, connected via union-find:
 |-----|------|-------------|
 | `clusters` | vector of maps | Grouped related findings |
 | `unclustered` | vector of maps | Findings not part of any cluster |
+| `rank-by` | keyword | `:severity` or `:actionability` |
 
 ```edn
 {:namespaces   #{sym}       ; all namespaces in this cluster

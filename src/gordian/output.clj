@@ -226,7 +226,9 @@
   [f]
   (concat
    [(str (severity-marker (:severity f))
-         "  " (format-finding-subject f))
+         "  " (format-finding-subject f)
+         (when-let [a (:actionability-score f)]
+           (str "  [act=" (format "%.1f" a) "]")))
     (str "  " (:reason f))]
    (format-evidence-lines f)
    [""]))
@@ -245,7 +247,9 @@
                  ""]
                 (mapcat (fn [f]
                           [(str "    " (severity-marker (:severity f))
-                                "  " (format-finding-subject f))
+                                "  " (format-finding-subject f)
+                                (when-let [a (:actionability-score f)]
+                                  (str "  [act=" (format "%.1f" a) "]")))
                            (str "    " (:reason f))])
                         findings)
                 [""]))
@@ -255,10 +259,13 @@
   "Format findings as human-readable lines.
   health    — map from diagnose/health.
   findings  — sorted vec of finding maps.
-  clusters  — optional {:clusters [...] :unclustered [...]} from cluster/cluster-findings."
+  clusters  — optional {:clusters [...] :unclustered [...]} from cluster/cluster-findings.
+  rank      — :severity or :actionability."
   ([report health findings]
-   (format-diagnose report health findings nil))
-  ([{:keys [src-dirs]} health findings clusters-data]
+   (format-diagnose report health findings nil :severity))
+  ([report health findings clusters-data]
+   (format-diagnose report health findings clusters-data :severity))
+  ([{:keys [src-dirs]} health findings clusters-data rank]
    (let [count-sev (fn [s] (count (filter #(= s (:severity %)) findings)))
          n-high    (count-sev :high)
          n-medium  (count-sev :medium)
@@ -268,6 +275,7 @@
      (into
       [(str "gordian diagnose — " n-total " finding" (when (not= 1 n-total) "s"))
        (str "src: " (str/join " " src-dirs))
+       (str "rank: " (name rank))
        ""
        "HEALTH"
        (str "  propagation cost: "
@@ -558,7 +566,9 @@
 
 (defn- md-format-finding [f]
   (concat
-   [(str "### " (format-finding-subject f))
+   [(str "### " (format-finding-subject f)
+         (when-let [a (:actionability-score f)]
+           (str " [act=" (format "%.1f" a) "]")))
     ""
     (:reason f)
     ""]
@@ -582,10 +592,13 @@
 
 (defn format-diagnose-md
   "Markdown rendering of findings.
-  clusters-data — optional {:clusters [...] :unclustered [...]}."
+  clusters-data — optional {:clusters [...] :unclustered [...]}.
+  rank — :severity or :actionability."
   ([report health findings]
-   (format-diagnose-md report health findings nil))
-  ([{:keys [src-dirs]} health findings clusters-data]
+   (format-diagnose-md report health findings nil :severity))
+  ([report health findings clusters-data]
+   (format-diagnose-md report health findings clusters-data :severity))
+  ([{:keys [src-dirs]} health findings clusters-data rank]
    (let [count-sev (fn [s] (count (filter #(= s (:severity %)) findings)))
          n-high    (count-sev :high)
          n-medium  (count-sev :medium)
@@ -597,6 +610,8 @@
             (when (not= 1 n-total) "s"))
        ""
        (str "**Source:** `" (str/join " " src-dirs) "`")
+       ""
+       (str "**Rank:** `" (name rank) "`")
        ""
        "## Health"
        ""
@@ -1092,7 +1107,9 @@
   ([report health findings]
    (run! println (format-diagnose report health findings)))
   ([report health findings clusters]
-   (run! println (format-diagnose report health findings clusters))))
+   (run! println (format-diagnose report health findings clusters)))
+  ([report health findings clusters rank]
+   (run! println (format-diagnose report health findings clusters rank))))
 
 (defn print-explain-ns
   "Print a human-readable explain-ns report to stdout."

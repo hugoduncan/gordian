@@ -199,6 +199,11 @@
       (is (= :diagnose (:command opts)))
       (is (= 0.30 (:conceptual opts)))))
 
+  (testing "diagnose with --rank actionability"
+    (let [opts (sut/parse-args ["diagnose" "." "--rank" "actionability"])]
+      (is (= :diagnose (:command opts)))
+      (is (= :actionability (:rank opts)))))
+
   (testing "plain src/ → no :command (backward compat)"
     (is (nil? (:command (sut/parse-args ["src/"])))))
 

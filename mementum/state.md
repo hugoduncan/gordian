@@ -394,7 +394,22 @@ afec86d  feat: diagnose finding clusters via union-find
 8a30e8f  feat: gate mode — CI / refactor ratchet
 ```
 
-203 tests, 1424 assertions, 0 failures.
+## Session 15 commits — Phase D2 (actionability ranking)
+
+```
+(pending)  feat: actionability ranking for diagnose
+```
+
+209 tests, 1439 assertions, 0 failures.
+
+Actionability ranking (`gordian diagnose --rank actionability`):
+- new `prioritize.clj` pure ranking module
+- `:actionability-score` added to all findings
+- cluster-aware ranking context
+- `--rank severity|actionability` on diagnose
+- text and markdown show `[act=N.N]`
+- EDN/JSON include `:actionability-score`
+- diagnose output now records `:rank-by`
 
 Gate mode (`gordian gate --baseline base.edn`):
 - builds current diagnose-style report
@@ -505,7 +520,6 @@ e6d5345  step 4  feat: wire envelope into commands
 
 Phase D items:
 - Family/subgraph views (`gordian explain <prefix>`)
-- Actionability sort (`--rank actionability`)
 - CI/refactor-ratchet follow-ups: richer checks, cluster-aware checks, baseline workflows
 - Full cluster detection (community detection / label propagation)
 - Compare `--ref` mode (`gordian compare --ref HEAD~4 --ref HEAD`)

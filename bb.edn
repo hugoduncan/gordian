@@ -48,6 +48,7 @@
                                      'gordian.close-test
                                      'gordian.aggregate-test
                                      'gordian.output-test
+                                     'gordian.prioritize-test
                                      'gordian.metrics-test
                                      'gordian.scc-test
                                      'gordian.classify-test

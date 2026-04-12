@@ -263,8 +263,16 @@ Builds on everything above. Ongoing.
 Subgraph extraction + internal coupling density + boundary surface.
 
 ### Actionability sort
+**Status:** ✅ done
+
 `--rank actionability` vs `--rank severity`. Composite score using
 family-noise, façade detection, lens overlap.
+
+Implemented:
+- `--rank severity|actionability` on `diagnose`
+- `:actionability-score` on all findings
+- cluster-aware ranking context
+- text / markdown / EDN / JSON output
 
 ### CI/refactor-ratchet mode
 **Status:** in progress

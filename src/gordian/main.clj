@@ -15,6 +15,7 @@
             [gordian.compare     :as compare]
             [gordian.cluster     :as cluster]
             [gordian.gate        :as gate]
+            [gordian.prioritize  :as prioritize]
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
             [gordian.family      :as family]
@@ -41,6 +42,7 @@
    :max-new-high-findings {:desc "Maximum newly introduced high-severity findings" :coerce :long}
    :max-new-medium-findings {:desc "Maximum newly introduced medium-severity findings" :coerce :long}
    :fail-on               {:desc "Comma-separated strict gate checks e.g. new-cycles,new-high-findings"}
+   :rank                  {:desc "Diagnose ranking: severity or actionability" :coerce :keyword}
    :include-tests         {:desc "Include test directories in auto-discovery" :coerce :boolean}
    :exclude               {:desc "Exclude namespaces matching regex (repeatable)" :coerce [:string]}
    :help                  {:desc "Show this help message" :coerce :boolean}})
@@ -72,6 +74,7 @@ Options:
   --max-new-high-findings <n>   Maximum newly introduced high-severity findings
   --max-new-medium-findings <n> Maximum newly introduced medium-severity findings
   --fail-on <csv>               Comma-separated strict gate checks
+  --rank <mode>                 Diagnose ranking: severity or actionability
   --include-tests               Include test directories in auto-discovery
   --exclude <regex>             Exclude namespaces matching regex (repeatable)
   --help                        Show this help message
@@ -93,6 +96,7 @@ Examples:
   gordian compare before.edn after.edn --markdown
   gordian gate . --baseline baseline.edn
   gordian gate . --baseline baseline.edn --max-pc-delta 0.01
+  gordian diagnose . --rank actionability
   gordian explain gordian.scan        drill into a namespace
   gordian explain-pair a.core b.svc   drill into a pair")
 
@@ -284,24 +288,30 @@ Examples:
 (defn diagnose-cmd
   "Run diagnose with resolved opts map.
   Auto-enables conceptual (0.15) and change (.) when not explicitly set."
-  [{:keys [src-dirs json edn markdown conceptual change change-since exclude]
+  [{:keys [src-dirs json edn markdown conceptual change change-since exclude rank]
     :as opts}]
   (let [conceptual  (or conceptual 0.15)
         change      (if (nil? change) true change)
         change-dir  (when change (if (string? change) change "."))
         change-opts (when change-dir {:change change-dir :since change-since})
+        rank        (or rank :severity)
         report      (build-report src-dirs conceptual change-opts exclude)
         health      (diagnose/health report)
-        findings    (diagnose/diagnose report)
+        findings0   (diagnose/diagnose report)
+        clusters0   (cluster/cluster-findings findings0)
+        context     (prioritize/cluster-context (:clusters clusters0)
+                                                (:unclustered clusters0))
+        findings    (prioritize/rank-findings findings0 rank context)
         clusters    (cluster/cluster-findings findings)
         enriched    (assoc report :findings findings :health health
                            :clusters (:clusters clusters)
-                           :unclustered (:unclustered clusters))]
+                           :unclustered (:unclustered clusters)
+                           :rank-by rank)]
     (cond
       json     (println (report-json/generate (envelope/wrap opts enriched :diagnose)))
       edn      (print   (report-edn/generate  (envelope/wrap opts enriched :diagnose)))
-      markdown (run! println (output/format-diagnose-md report health findings clusters))
-      :else    (output/print-diagnose report health findings clusters))))
+      markdown (run! println (output/format-diagnose-md report health findings clusters rank))
+      :else    (output/print-diagnose report health findings clusters rank))))
 
 (defn explain-cmd
   "Run explain with resolved opts map.
