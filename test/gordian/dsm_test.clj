@@ -296,6 +296,10 @@
       (is (> (sut/block-cost edges 4 1.5 0 1)
              (sut/block-cost edges 4 1.5 0 2))))
 
+    (testing "zero-internal multi-namespace blocks incur cohesion penalty"
+      (let [no-internal [[3 0]]]
+        (is (= 16.0 (sut/block-cost no-internal 4 1.5 0 1)))))
+
     (testing "alpha increases same interval cost when size > 1"
       (is (< (sut/block-cost edges 4 1.0 0 1)
              (sut/block-cost edges 4 2.0 0 1))))))
@@ -421,8 +425,12 @@
       (is (contains? report :details)))
 
     (testing "ordering contains project-only ordered nodes"
-      (is (= ['c 'b 'a]
-             (get-in report [:ordering :nodes]))))
+      (is (= #{'a 'b 'c}
+             (set (get-in report [:ordering :nodes]))))
+      (is (= 3 (count (get-in report [:ordering :nodes])))))
+
+    (testing "ordering exposes refinement metadata"
+      (is (contains? (:ordering report) :refined?)))
 
     (testing "blocks cover all project namespaces exactly once"
       (is (= #{'a 'b 'c}

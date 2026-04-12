@@ -327,13 +327,18 @@
 
 (defn block-cost
   "Score inclusive interval block [a,b] using Thebeau-style costs.
-  Internal marks cost |B|^alpha; crossing marks cost n^alpha."
+  Internal marks cost |B|^alpha; crossing marks cost n^alpha.
+  Multi-namespace blocks with zero internal edges incur an extra cohesion penalty."
   [ordered-edges n alpha a b]
-  (let [block-size  (inc (- b a))
-        internal    (interval-internal-edge-count ordered-edges a b)
-        crossing    (interval-cross-edge-count ordered-edges a b n)]
+  (let [block-size        (inc (- b a))
+        internal          (interval-internal-edge-count ordered-edges a b)
+        crossing          (interval-cross-edge-count ordered-edges a b n)
+        cohesion-penalty  (if (and (> block-size 1) (zero? internal))
+                            (pow-cost n alpha)
+                            0.0)]
     (+ (* internal (pow-cost block-size alpha))
-       (* crossing (pow-cost n alpha)))))
+       (* crossing (pow-cost n alpha))
+       cohesion-penalty)))
 
 (defn- interval-endpoints
   [n]
