@@ -1,0 +1,1 @@
+💡 For subsystem views, `:touching` pair semantics should include `:internal` pairs. Users interpret “touching this family” as “relevant to this family,” not “strictly crossing the boundary.” So `:touching` should mean at least one endpoint in the family, including pairs where both endpoints are members.
