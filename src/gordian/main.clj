@@ -222,6 +222,20 @@ Examples:
           (fn [nodes]
             (mapv #(merge % (get metrics-map (:ns %) {})) nodes))))
 
+(defn structural-report-from-graph
+  "Build the structural report from a direct dependency graph.
+  Pure structural pipeline only: closure, aggregate metrics, direct metrics,
+  family metrics, role classification, and SCC cycle detection."
+  [direct]
+  (let [closed (close/close direct)]
+    (-> closed
+        aggregate/aggregate
+        (merge-node-metrics (metrics/compute direct))
+        (merge-node-metrics (family/family-metrics direct))
+        (update :nodes classify/classify)
+        (assoc :graph  direct
+               :cycles (scc/find-cycles direct)))))
+
 (defn build-report
   "Full pipeline: scan-dirs → close → aggregate + metrics + cycles.
   `src-dirs`            — vector of source directory paths.
@@ -252,15 +266,8 @@ Examples:
                        (let [keep? (set (keys direct))]
                          (into {} (filter (fn [[k _]] (keep? k))) ns->terms))
                        ns->terms))
-         closed (close/close direct)
-         report (-> closed
-                    aggregate/aggregate
-                    (merge-node-metrics (metrics/compute direct))
-                    (merge-node-metrics (family/family-metrics direct))
-                    (update :nodes classify/classify)
-                    (assoc :src-dirs src-dirs
-                           :graph    direct
-                           :cycles   (scc/find-cycles direct)))
+         report (assoc (structural-report-from-graph direct)
+                       :src-dirs src-dirs)
          report (if conceptual-threshold
                   (let [tfidf  (conceptual/build-tfidf ns->terms)
                         result (conceptual/conceptual-pairs tfidf direct conceptual-threshold 3)

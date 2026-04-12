@@ -521,6 +521,25 @@
                                     "resources/fixture-project/test"])]
       (is (= 2 (count (:nodes report)))))))
 
+(deftest structural-report-from-graph-test
+  (testing "structural helper builds the expected graph-backed report"
+    (let [graph  {'alpha '#{'beta}
+                  'beta  #{}}
+          report (sut/structural-report-from-graph graph)]
+      (is (= graph (:graph report)))
+      (is (= [] (:cycles report)))
+      (is (= 2 (count (:nodes report))))
+      (is (= #{'alpha 'beta} (set (map :ns (:nodes report)))))))
+
+  (testing "build-report structural portion matches helper"
+    (let [report      (sut/build-report ["resources/fixture"])
+          structural  (sut/structural-report-from-graph (:graph report))]
+      (is (= (:graph report) (:graph structural)))
+      (is (= (:cycles report) (:cycles structural)))
+      (is (= (:propagation-cost report) (:propagation-cost structural)))
+      (is (= (set (map :ns (:nodes report)))
+             (set (map :ns (:nodes structural))))))))
+
 ;;; ── parse-args / --change ────────────────────────────────────────────────
 
 (deftest parse-args-change-test
