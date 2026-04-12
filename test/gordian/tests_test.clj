@@ -113,3 +113,70 @@
       (is (= :unit-ish (get-in by-ns ['app.core-test :test-style])))
       (is (= :integration-ish (get-in by-ns ['app.api-test :test-style])))
       (is (= :support (get-in by-ns ['app.test-support :test-style]))))))
+
+(deftest invariant-detection-test
+  (let [graph {'app.core-test #{'app.core 'app.test-support}
+               'app.other-test #{'app.core-test 'app.test-support}
+               'app.api-test #{'app.core}
+               'app.core #{'app.db 'app.test-support}
+               'app.db #{}}
+        origins {'app.core-test :test
+                 'app.other-test :test
+                 'app.api-test :test
+                 'app.test-support :test
+                 'app.core :src
+                 'app.db :src}
+        profiles [{:ns 'app.core-test :test-role :executable :ca 1}
+                  {:ns 'app.other-test :test-role :executable :ca 0}
+                  {:ns 'app.api-test :test-role :executable :ca 0}
+                  {:ns 'app.test-support :test-role :support :ca 2}]
+        report {:graph graph
+                :cycles [#{'app.core 'app.test-support} #{'app.core-test 'app.other-test}]}
+        inv (sut/invariants report origins profiles)]
+    (testing "src->test edges are detected"
+      (is (= [{:src 'app.core :test 'app.test-support :test-role :support}]
+             (:src->test-edges inv))))
+
+    (testing "test->test edges are detected and annotated"
+      (is (= #{{:from 'app.core-test :to 'app.test-support :to-role :support}
+               {:from 'app.other-test :to 'app.core-test :to-role :executable}
+               {:from 'app.other-test :to 'app.test-support :to-role :support}}
+             (set (:test->test-edges inv)))))
+
+    (testing "executable tests with incoming deps are surfaced"
+      (is (= [{:ns 'app.core-test
+               :ca 1
+               :incoming-src []
+               :incoming-test ['app.other-test]
+               :from-support []
+               :from-executable ['app.other-test]}]
+             (:executable-tests-with-incoming-deps inv))))
+
+    (testing "support leaked to src is detected"
+      (is (= [{:ns 'app.test-support
+               :ca 2
+               :incoming-src ['app.core]}]
+             (:support-leaked-to-src inv))))
+
+    (testing "shared test support excludes support with src leakage"
+      (is (= [] (:shared-test-support inv))))
+
+    (testing "mixed cycles include only src+test SCCs"
+      (is (= [{:members ['app.core 'app.test-support]
+               :src-members ['app.core]
+               :test-members ['app.test-support]}]
+             (:mixed-cycles inv))))))
+
+(deftest shared-test-support-test
+  (let [graph {'app.core-test #{'app.test-support}
+               'app.api-test #{'app.test-support}}
+        origins {'app.core-test :test
+                 'app.api-test :test
+                 'app.test-support :test}
+        profiles [{:ns 'app.core-test :test-role :executable :ca 0}
+                  {:ns 'app.api-test :test-role :executable :ca 0}
+                  {:ns 'app.test-support :test-role :support :ca 2}]]
+    (is (= [{:ns 'app.test-support
+             :ca 2
+             :incoming-test ['app.api-test 'app.core-test]}]
+           (sut/shared-test-support graph origins profiles)))))

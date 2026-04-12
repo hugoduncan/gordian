@@ -104,3 +104,101 @@
                                  :integration-cue? (integration-cue? ns)))
                         nodes)]
     (classify-test-styles profiles)))
+
+(defn src->test-edges
+  "Return direct src→test dependency edges."
+  [graph origins profiles]
+  (let [role-by-ns (into {} (map (juxt :ns :test-role)) profiles)]
+    (vec
+     (for [[src deps] graph
+           :when (= :src (get origins src))
+           dep deps
+           :when (= :test (get origins dep))]
+       {:src src :test dep :test-role (get role-by-ns dep)}))))
+
+(defn test->test-edges
+  "Return direct test→test dependency edges annotated with target test role."
+  [graph origins profiles]
+  (let [role-by-ns (into {} (map (juxt :ns :test-role)) profiles)]
+    (vec
+     (for [[from deps] graph
+           :when (= :test (get origins from))
+           dep deps
+           :when (= :test (get origins dep))]
+       {:from from :to dep :to-role (get role-by-ns dep)}))))
+
+(defn executable-tests-with-incoming-deps
+  "Executable test namespaces with any incoming project deps. Incoming source
+  deps are more severe, but plain test reuse is still surfaced here."
+  [graph origins profiles]
+  (let [incoming    (incoming-index graph)
+        profile-by  (into {} (map (juxt :ns identity)) profiles)]
+    (->> profiles
+         (filter #(= :executable (:test-role %)))
+         (keep (fn [{:keys [ns ca] :as _profile}]
+                 (let [incoming-ns   (sort (get incoming ns #{}))
+                       incoming-src  (vec (filter #(= :src (get origins %)) incoming-ns))
+                       incoming-test (vec (filter #(= :test (get origins %)) incoming-ns))]
+                   (when (or (pos? (or ca 0)) (seq incoming-ns))
+                     {:ns ns
+                      :ca (or ca 0)
+                      :incoming-src incoming-src
+                      :incoming-test incoming-test
+                      :from-support (vec (filter #(= :support (:test-role (get profile-by %))) incoming-test))
+                      :from-executable (vec (filter #(= :executable (:test-role (get profile-by %))) incoming-test))}))))
+         vec)))
+
+(defn support-leaked-to-src
+  "Support test namespaces that have incoming source deps."
+  [graph origins profiles]
+  (let [incoming (incoming-index graph)]
+    (->> profiles
+         (filter #(= :support (:test-role %)))
+         (keep (fn [{:keys [ns ca]}]
+                 (let [incoming-ns  (sort (get incoming ns #{}))
+                       incoming-src (vec (filter #(= :src (get origins %)) incoming-ns))]
+                   (when (seq incoming-src)
+                     {:ns ns
+                      :ca (or ca 0)
+                      :incoming-src incoming-src}))))
+         vec)))
+
+(defn shared-test-support
+  "Support test namespaces with incoming deps only from tests. Usually healthy,
+  but surfaced for visibility."
+  [graph origins profiles]
+  (let [incoming (incoming-index graph)]
+    (->> profiles
+         (filter #(= :support (:test-role %)))
+         (keep (fn [{:keys [ns ca]}]
+                 (let [incoming-ns   (sort (get incoming ns #{}))
+                       incoming-src  (vec (filter #(= :src (get origins %)) incoming-ns))
+                       incoming-test (vec (filter #(= :test (get origins %)) incoming-ns))]
+                   (when (and (empty? incoming-src) (seq incoming-test))
+                     {:ns ns
+                      :ca (or ca 0)
+                      :incoming-test incoming-test}))))
+         vec)))
+
+(defn mixed-cycles
+  "Return SCCs that span both source and test namespaces."
+  [cycles origins]
+  (->> cycles
+       (keep (fn [members]
+               (let [src-members  (vec (sort (filter #(= :src (get origins %)) members)))
+                     test-members (vec (sort (filter #(= :test (get origins %)) members)))]
+                 (when (and (seq src-members) (seq test-members))
+                   {:members (vec (sort members))
+                    :src-members src-members
+                    :test-members test-members}))))
+       vec))
+
+(defn invariants
+  "Assemble test-architecture invariants and edge categories from a full report."
+  [full-report origins profiles]
+  {:src->test-edges                     (src->test-edges (:graph full-report) origins profiles)
+   :test->test-edges                    (test->test-edges (:graph full-report) origins profiles)
+   :executable-tests-with-incoming-deps (executable-tests-with-incoming-deps (:graph full-report) origins profiles)
+   :support-leaked-to-src               (support-leaked-to-src (:graph full-report) origins profiles)
+   :shared-test-support                 (shared-test-support (:graph full-report) origins profiles)
+   :mixed-cycles                        (mixed-cycles (:cycles full-report) origins)})
