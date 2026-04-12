@@ -1,0 +1,1 @@
+💡 In dual-purpose CLI resolution, exact namespace matches should take precedence over family-prefix fallback. `gordian explain gordian.scan` must remain exact explain even though it also matches the `gordian.*` family. Prefix fallback should only trigger when no exact namespace exists. This preserves existing user expectations while still making `explain gordian` ergonomic.
