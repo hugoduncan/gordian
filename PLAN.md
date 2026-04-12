@@ -344,6 +344,15 @@ Potential upgrades:
 - modularity/Louvain
 - stronger bridge/centrality metrics
 
+### compnent/base/projects
+
+Add analysis for tor polylith structured projects. This probably mirrors
+the namespace analysis.  We want to know about the dependencies between
+components/bases/projects int eh same way as we want to know about
+namespace depdendencies.  We also want to know about disconnected
+namespace sub-graphs within a component, which could point to the need to
+split a component.
+
 ---
 
 ## Deferred (v2+)
@@ -353,8 +362,16 @@ Classify change coupling findings as active coupling, historical scar,
 improving, or worsening by comparing two time windows.
 
 ### Test mode (`gordian tests .`)
-Dedicated analysis of test architecture: test ns depended on by src ns,
-high-reach tests, tests that pull too much of the system.
+**Status:** ✅ done
+
+Implemented as a dedicated test-architecture command with:
+- namespace provenance (`:src` vs `:test`)
+- executable tests vs shared test support heuristics
+- unit-ish vs integration-ish test profiling
+- `src -> test` leakage detection
+- core `Ca` delta analysis (`src` vs `src+test`)
+- propagation-cost delta interpretation for test-suite coupling
+- text / markdown / EDN / JSON output
 
 ### Presets (`--preset quick|audit|full|tests`)
 Named flag bundles. Nice-to-have once the individual flags are stable.

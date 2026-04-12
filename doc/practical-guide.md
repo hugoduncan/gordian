@@ -865,10 +865,15 @@ Run Gordian across both source and tests:
 gordian src/ test/
 # or
 gordian . --include-tests
+# or the dedicated test architecture mode
+gordian tests .
 ```
 
 Test namespaces appear alongside source namespaces, and their metrics carry
-special meaning.
+special meaning. `gordian tests` automates the test-specific interpretation
+below: executable vs support test namespaces, unit-ish vs integration-ish
+profiles, core `Ca` deltas, and propagation-cost delta from `src` to
+`src+test`.
 
 ## 15.1 Reach distinguishes unit and integration tests
 

@@ -14,8 +14,8 @@ Usage: `gordian` (auto-discovers from cwd) or `gordian src/` (explicit dirs)
 
 **v0.2.0 alpha.** Schema envelope, façade detection, family-noise suppression,
 explain-pair verdicts, family-scoped metrics, auto-discovery, config,
-diagnose, explain, markdown.
-163 tests, 1254 assertions, 0 failures.
+diagnose, explain, markdown, and dedicated `tests` mode.
+265 tests, 1723 assertions, 0 failures.
 
 ## Architecture (src/gordian/)
 
@@ -67,6 +67,7 @@ Commands:
   analyze      (default) Raw metrics + coupling
   diagnose     Ranked findings (auto-enables all lenses) + clusters
   compare      Compare two EDN snapshots (before.edn after.edn)
+  tests        Test architecture analysis
   explain      Everything about a namespace
   explain-pair Everything about a pair
 
@@ -317,6 +318,7 @@ gate.clj        CI / ratchet checks over compare diffs       pure
 prioritize.clj  actionability scoring and ranking            pure
 subgraph.clj    family/subsystem slicing and summaries       pure
 communities.clj architecture community discovery             pure
+tests.clj       test architecture analysis                   pure
 envelope.clj    metadata envelope for EDN/JSON               pure
 output.clj      human-readable table + markdown              pure
 dot.clj         Graphviz DOT string                          pure
@@ -418,6 +420,22 @@ b34940c  docs: update PLAN for completed Phase D work and remaining follow-ups
 5e196a0  docs: update state with communities commit hash
 ```
 
+## Session 18 commits — test architecture mode
+
+```
+93240bf  refactor: extract structural-report-from-graph
+93024ea  feat: add typed src/test path discovery
+ad8737e  feat: preserve namespace origins during scan
+cd457a8  feat: add tests.clj role and graph helpers
+7d7e93b  feat: classify test namespaces by role and style
+fda83c1  feat: detect test architecture invariant violations
+3dc60b7  feat: compare src and src+test architecture
+292280e  feat: add ranked findings for test mode
+c706417  feat: assemble tests command report
+b37aa07  feat: add text and markdown output for tests command
+74e8bd7  feat: add gordian tests subcommand
+```
+
 242 tests, 1564 assertions, 0 failures.
 
 Communities (`gordian communities`):
@@ -497,7 +515,6 @@ Remaining strategic work:
 
 Deferred (v2):
 - change window comparison
-- test mode
 - presets
 
 ## Session 12 — user feedback analysis

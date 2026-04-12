@@ -53,6 +53,10 @@ gordian /path/to/project
 # include test directories
 gordian . --include-tests
 
+# dedicated test architecture analysis
+gordian tests .
+gordian tests src/ test/
+
 # exclude namespaces by pattern
 gordian . --exclude 'user|scratch'
 
@@ -94,6 +98,31 @@ Create `.gordian.edn` in your project root for defaults:
 ```
 
 CLI flags override config values. Config `:src-dirs` replaces auto-discovery.
+
+## Test architecture mode (`tests`)
+
+`gordian tests` is a dedicated structural analysis of the test layer.
+It auto-includes test directories when run from a project root.
+
+```bash
+gordian tests .
+gordian tests src/ test/
+gordian tests . --edn > tests.edn
+gordian tests . --markdown > tests.md
+```
+
+It reports:
+- production namespaces that depend on test namespaces
+- executable tests vs shared test support namespaces
+- unit-ish vs integration-ish test profiles
+- core namespaces that gain direct test dependents
+- propagation-cost delta from `src` to `src+test`
+
+Interpretation notes:
+- **Broad integration-style tests are normal.** Broad unit-style tests are suspicious.
+- **Shared test support is normal.** Test support depended on by production code is suspicious.
+- **`Ca` delta on core namespaces is a proxy** for whether stable core code is directly exercised by tests.
+- **Propagation-cost delta** distinguishes targeted suites from over-coupled suites.
 
 ## Install via bbin
 
