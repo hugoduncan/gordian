@@ -52,3 +52,64 @@
     (is (= {'app.db   #{'app.core 'app.api}
             'app.core #{'app.api 'app.test}}
            (sut/incoming-index graph)))))
+
+(deftest test-style-test
+  (testing "support profiles stay :support"
+    (is (= :support
+           (sut/test-style {:test-role :support :reach 0.5 :ce 9}
+                           {:high-reach 0.25 :high-ce 4 :low-reach 0.08 :low-ce 2}))))
+
+  (testing "low reach + low ce => :unit-ish"
+    (is (= :unit-ish
+           (sut/test-style {:test-role :executable :reach 0.03 :ce 1}
+                           {:high-reach 0.25 :high-ce 4 :low-reach 0.08 :low-ce 2}))))
+
+  (testing "high reach => :integration-ish"
+    (is (= :integration-ish
+           (sut/test-style {:test-role :executable :reach 0.40 :ce 2}
+                           {:high-reach 0.25 :high-ce 4 :low-reach 0.08 :low-ce 2}))))
+
+  (testing "middle case => :mixed"
+    (is (= :mixed
+           (sut/test-style {:test-role :executable :reach 0.12 :ce 3}
+                           {:high-reach 0.25 :high-ce 4 :low-reach 0.08 :low-ce 2})))))
+
+(deftest classify-test-styles-test
+  (let [profiles [{:ns 'app.core-test :test-role :executable :reach 0.02 :ce 1}
+                  {:ns 'app.api-test :test-role :executable :reach 0.40 :ce 5}
+                  {:ns 'app.test-support :test-role :support :reach 0.01 :ce 0}]
+        by-ns    (into {} (map (juxt :ns identity)) (sut/classify-test-styles profiles))]
+    (is (= :unit-ish (get-in by-ns ['app.core-test :test-style])))
+    (is (= :integration-ish (get-in by-ns ['app.api-test :test-style])))
+    (is (= :support (get-in by-ns ['app.test-support :test-style])))))
+
+(deftest test-profiles-test
+  (let [full-report {:nodes [{:ns 'app.core-test
+                              :reach 0.03 :fan-in 0.0 :ca 0 :ce 1 :instability 1.0 :role :isolated}
+                             {:ns 'app.api-test
+                              :reach 0.45 :fan-in 0.0 :ca 0 :ce 6 :instability 1.0 :role :peripheral}
+                             {:ns 'app.test-support
+                              :reach 0.01 :fan-in 0.2 :ca 2 :ce 0 :instability 0.0 :role :core}
+                             {:ns 'app.core
+                              :reach 0.0 :fan-in 0.3 :ca 2 :ce 0 :instability 0.0 :role :core}]}
+        origins     {'app.core-test :test
+                     'app.api-test :test
+                     'app.test-support :test
+                     'app.core :src}
+        by-ns       (into {} (map (juxt :ns identity)) (sut/test-profiles full-report origins))]
+    (testing "only test-origin namespaces are profiled"
+      (is (= #{'app.core-test 'app.api-test 'app.test-support}
+             (set (keys by-ns)))))
+
+    (testing "test role is attached"
+      (is (= :executable (get-in by-ns ['app.core-test :test-role])))
+      (is (= :support (get-in by-ns ['app.test-support :test-role]))))
+
+    (testing "integration cue is surfaced"
+      (is (true? (get-in by-ns ['app.api-test :integration-cue?])))
+      (is (false? (get-in by-ns ['app.core-test :integration-cue?]))))
+
+    (testing "test style is attached"
+      (is (= :unit-ish (get-in by-ns ['app.core-test :test-style])))
+      (is (= :integration-ish (get-in by-ns ['app.api-test :test-style])))
+      (is (= :support (get-in by-ns ['app.test-support :test-style]))))))
