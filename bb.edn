@@ -61,6 +61,7 @@
                                      'gordian.conceptual-test
                                      'gordian.cc-change-test
                                      'gordian.git-test
+                                     'gordian.glossary-test
                                      'gordian.text-test
                                      'gordian.tests-test)
                             (let [r (t/run-all-tests (re-pattern "gordian\\..*-test"))]
