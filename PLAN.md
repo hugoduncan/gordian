@@ -256,7 +256,7 @@ Post-process findings: group pairs sharing members into clusters.
 
 ## Phase D — Workflows & CI
 
-Builds on everything above. Ongoing.
+Builds on everything above. **Core Phase D complete.** Follow-up refinements remain.
 
 ### Family/subgraph views
 **Status:** ✅ done
@@ -286,7 +286,7 @@ Implemented:
 - text / markdown / EDN / JSON output
 
 ### CI/refactor-ratchet mode
-**Status:** in progress
+**Status:** ✅ v1 done / follow-ups remain
 
 `gordian gate --baseline gordian.edn --max-pc-delta 0.01`
 Fail on PC rise, new cycles, new high-severity findings.
@@ -299,6 +299,12 @@ Implemented v1:
 - explicit check selection: `--fail-on`
 - text / markdown / EDN / JSON output
 - CI-friendly exit status
+
+Remaining follow-ups:
+- richer category-specific checks
+- cluster-aware checks
+- baseline update workflows
+- `--ref` / worktree-aware gating
 
 ### Full cluster detection
 **Status:** ✅ v1 done
@@ -315,6 +321,28 @@ Implemented v1:
 - dominant terms from conceptual shared terms
 - bridge namespace heuristic
 - text / markdown / EDN / JSON output
+
+---
+
+## Remaining strategic work
+
+### Compare `--ref` mode
+`gordian compare --ref HEAD~4 --ref HEAD`
+Compare two git refs directly via temporary worktrees or equivalent.
+
+### Gate follow-ups
+Extend `gordian gate` with:
+- richer category-specific checks
+- cluster-aware checks
+- baseline update workflows
+- possible worktree-aware `--ref-main` support
+
+### Community detection follow-ups
+Current communities use deterministic connected components.
+Potential upgrades:
+- label propagation
+- modularity/Louvain
+- stronger bridge/centrality metrics
 
 ---
 
