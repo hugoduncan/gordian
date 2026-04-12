@@ -18,6 +18,7 @@
             [gordian.prioritize  :as prioritize]
             [gordian.subgraph    :as subgraph]
             [gordian.communities :as communities]
+            [gordian.tests       :as tests]
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
             [gordian.family      :as family]
@@ -52,7 +53,7 @@
    :help                  {:desc "Show this help message" :coerce :boolean}})
 
 (def ^:private usage-summary
-  "Usage: gordian [analyze|diagnose|compare|gate|subgraph|communities|explain|explain-pair] [<dir-or-src>...] [options]
+  "Usage: gordian [analyze|diagnose|compare|gate|subgraph|communities|tests|explain|explain-pair] [<dir-or-src>...] [options]
 
 When given a project root (dir with deps.edn, bb.edn, etc.), gordian
 auto-discovers source directories. With no arguments, defaults to '.'.
@@ -64,6 +65,7 @@ Commands:
   gate         Compare current codebase against a saved baseline and fail CI on regressions
   subgraph     Family/subsystem view for a namespace prefix
   communities  Discover latent architecture communities
+  tests        Analyze test architecture and test-vs-source coupling
   explain      Everything gordian knows about a namespace
   explain-pair Everything gordian knows about a pair of namespaces
 
@@ -107,6 +109,7 @@ Examples:
   gordian diagnose . --rank actionability
   gordian subgraph gordian
   gordian communities . --lens combined
+  gordian tests .
   gordian explain gordian.scan        drill into a namespace
   gordian explain-pair a.core b.svc   drill into a pair")
 
@@ -130,7 +133,7 @@ Examples:
   (let [command  ({"analyze" :analyze "diagnose" :diagnose
                    "explain" :explain "explain-pair" :explain-pair
                    "compare" :compare "gate" :gate "subgraph" :subgraph
-                   "communities" :communities}
+                   "communities" :communities "tests" :tests}
                   (first raw-args))
         raw-args (if command (rest raw-args) raw-args)
         {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})]
@@ -165,6 +168,10 @@ Examples:
       (assoc opts :command :communities
              :src-dirs (if (seq args) (vec args) ["."]))
 
+      (= :tests command)
+      (assoc opts :command :tests
+             :src-dirs (if (seq args) (vec args) ["."]))
+
       (= :explain command)
       (if (first args)
         (assoc opts :command :explain
@@ -196,13 +203,16 @@ Examples:
   Otherwise treats positional args as explicit src-dirs (backward compatible).
   Returns opts map with :src-dirs guaranteed to be a non-empty vector,
   or an {:error ...} map."
-  [{:keys [src-dirs] :as opts}]
+  [{:keys [src-dirs command] :as opts}]
   (let [;; single dir that is a project root → discover + config
-        project-dir (when (and (= 1 (count src-dirs))
-                               (discover/project-root? (first src-dirs)))
-                      (first src-dirs))
-        cfg         (when project-dir (config/load-config project-dir))
-        merged      (if cfg (config/merge-opts cfg opts) opts)]
+        project-dir    (when (and (= 1 (count src-dirs))
+                                  (discover/project-root? (first src-dirs)))
+                         (first src-dirs))
+        cfg            (when project-dir (config/load-config project-dir))
+        merged0        (if cfg (config/merge-opts cfg opts) opts)
+        merged         (if (= :tests command)
+                         (assoc merged0 :include-tests true)
+                         merged0)]
     (if project-dir
       ;; auto-discovery: config :src-dirs overrides discovery, else probe
       (if-let [cfg-dirs (seq (:src-dirs cfg))]
@@ -235,6 +245,35 @@ Examples:
         (update :nodes classify/classify)
         (assoc :graph  direct
                :cycles (scc/find-cycles direct)))))
+
+(defn- explicit-test-path?
+  "Heuristic for explicit dir args in `gordian tests`: test/support dirs are
+  usually named .../test or contain /test/ in the path."
+  [dir]
+  (boolean (re-find #"(^|/)test(/|$)" (str dir))))
+
+(defn resolve-test-paths
+  "Resolve typed scan paths for the tests command.
+  Project-root mode uses discovery/config; explicit-dir mode infers :test from
+  path names containing /test/."
+  [{:keys [src-dirs] :as opts}]
+  (let [project-dir (when (and (= 1 (count src-dirs))
+                               (discover/project-root? (first src-dirs)))
+                      (first src-dirs))]
+    (if project-dir
+      (let [cfg        (config/load-config project-dir)
+            discovered (discover/discover-dirs project-dir)
+            src-dirs   (or (seq (:src-dirs cfg))
+                           (:src-dirs discovered))
+            typed      (discover/resolve-paths {:src-dirs src-dirs
+                                                :test-dirs (:test-dirs discovered)}
+                                               (assoc opts :include-tests true))]
+        (if (seq typed)
+          typed
+          {:error (str "no source directories found in " project-dir)}))
+      (mapv (fn [dir]
+              {:dir dir :kind (if (explicit-test-path? dir) :test :src)})
+            src-dirs))))
 
 (defn build-report
   "Full pipeline: scan-dirs → close → aggregate + metrics + cycles.
@@ -419,6 +458,21 @@ Examples:
       markdown (run! println (output/format-communities-md data))
       :else    (output/print-communities data))))
 
+(defn tests-cmd
+  "Run tests mode with resolved opts map."
+  [{:keys [json edn markdown] :as opts}]
+  (let [paths (resolve-test-paths opts)]
+    (if (:error paths)
+      (println (str "Error: " (:error paths)))
+      (let [{:keys [graph origins]} (scan/scan-paths paths)
+            data (-> (tests/tests-report graph origins structural-report-from-graph)
+                     (assoc :src-dirs (mapv :dir paths)))]
+        (cond
+          json     (println (report-json/generate (envelope/wrap opts data :tests)))
+          edn      (print   (report-edn/generate  (envelope/wrap opts data :tests)))
+          markdown (run! println (output/format-tests-md data))
+          :else    (output/print-tests data))))))
+
 (defn gate-cmd
   "Run gate with resolved opts map.
   Builds a current diagnose-style report, compares against baseline,
@@ -489,6 +543,7 @@ Examples:
                               :gate         (System/exit (gate-cmd opts))
                               :subgraph     (subgraph-cmd opts)
                               :communities  (communities-cmd opts)
+                              :tests        (tests-cmd opts)
                               :explain      (explain-cmd opts)
                               :explain-pair (explain-pair-cmd opts)
                               (analyze opts))))))))

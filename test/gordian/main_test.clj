@@ -180,6 +180,7 @@
       (is (str/includes? out "dir-or-src"))
       (is (str/includes? out "subgraph"))
       (is (str/includes? out "communities"))
+      (is (str/includes? out "tests"))
       (is (str/includes? out "--include-tests"))
       (is (str/includes? out "--exclude")))))
 
@@ -312,6 +313,17 @@
       (is (= :structural (:lens opts)))
       (is (= 1.0 (:threshold opts))))))
 
+(deftest parse-args-tests-test
+  (testing "tests -> :command :tests"
+    (let [opts (sut/parse-args ["tests"])]
+      (is (= :tests (:command opts)))
+      (is (= ["."] (:src-dirs opts)))))
+
+  (testing "tests . --markdown"
+    (let [opts (sut/parse-args ["tests" "." "--markdown"])]
+      (is (= :tests (:command opts)))
+      (is (true? (:markdown opts))))))
+
 ;;; ── diagnose integration ─────────────────────────────────────────────────
 
 (deftest diagnose-integration-test
@@ -415,6 +427,25 @@
       (is (contains? parsed :communities))
       (is (contains? parsed :summary)))))
 
+(deftest tests-integration-test
+  (testing "tests produces output"
+    (let [out (with-out-str
+                (sut/tests-cmd {:src-dirs ["resources/fixture-project"] :command :tests}))]
+      (is (str/includes? out "gordian tests"))
+      (is (str/includes? out "SUMMARY"))
+      (is (str/includes? out "TEST NAMESPACES"))))
+
+  (testing "tests with --edn returns structured map"
+    (let [out (with-out-str
+                (sut/tests-cmd {:src-dirs ["resources/fixture-project"]
+                                :command :tests
+                                :edn true}))
+          parsed (read-string out)]
+      (is (= :tests (:gordian/command parsed)))
+      (is (contains? parsed :summary))
+      (is (contains? parsed :test-namespaces))
+      (is (contains? parsed :findings)))))
+
 ;;; ── parse-args / --markdown ────────────────────────────────────────────────
 
 (deftest parse-args-markdown-test
@@ -498,6 +529,12 @@
   (testing "include-tests adds test dirs"
     (let [opts (sut/resolve-opts {:src-dirs ["resources/fixture-project"]
                                   :include-tests true})]
+      (is (some #(str/includes? % "test") (:src-dirs opts)))))
+
+  (testing "tests command forces include-tests during resolution"
+    (let [opts (sut/resolve-opts {:src-dirs ["resources/fixture-project"]
+                                  :command :tests})]
+      (is (true? (:include-tests opts)))
       (is (some #(str/includes? % "test") (:src-dirs opts))))))
 
 (deftest resolve-opts-empty-project-test
