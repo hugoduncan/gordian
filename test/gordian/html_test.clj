@@ -73,7 +73,9 @@
     (is (.contains html "<th>Block</th>"))
     (is (.contains html "B0"))
     (is (.contains html "foo.a, foo.b, foo.c"))
-    (is (.contains html "yes"))))
+    (is (.contains html "yes"))
+    (is (.contains html "href=\"#block-B1\""))
+    (is (.contains html "title=\"Jump to Cyclic SCC B1\""))))
 
 (deftest edge-table-test
   (testing "includes headers and counted edges"
@@ -102,21 +104,25 @@
       (is (.contains html ">B0<"))
       (is (.contains html ">B1<")))
 
+    (testing "header cells include tooltips"
+      (is (.contains html "title=\"B1: size=3, cyclic=yes, members=foo.a, foo.b, foo.c\"")))
+
     (testing "diagonal cells render with diagonal class"
       (is (.contains html "class=\"diag\"")))
 
     (testing "empty off-diagonal cells render empty state"
       (is (.contains html "class=\"empty\"")))
 
-    (testing "nonzero cells include edge count text"
+    (testing "nonzero cells include edge count text and tooltip"
       (is (.contains html "class=\"edge edge-2\""))
-      (is (.contains html ">2<")))
+      (is (.contains html ">2<"))
+      (is (.contains html "title=\"B1 -&gt; B0: 2 edges\"")))
 
     (testing "renders deterministically"
       (is (= html (sut/collapsed-matrix blocks edges))))
 
     (testing "single-block input handled"
-      (is (.contains (sut/collapsed-matrix [{:id 0}] []) ">B0<")))))
+      (is (.contains (sut/collapsed-matrix [{:id 0 :size 1 :cyclic? false :members ['a]}] []) ">B0<")))))
 
 (deftest mini-matrix-test
   (let [html (sut/mini-matrix (first details))]
@@ -129,6 +135,7 @@
 (deftest scc-detail-section-test
   (let [html (sut/scc-detail-section (first details))]
     (is (.contains html "<details"))
+    (is (.contains html "id=\"block-B1\""))
     (is (.contains html "<summary>"))
     (is (.contains html "Cyclic SCC B1"))
     (is (.contains html "foo.a, foo.b, foo.c"))

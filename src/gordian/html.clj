@@ -62,10 +62,18 @@
               (str (tag "div" {:class "label"} "Density")
                    (tag "div" {:class "value"} (format "%.4f" (double (:density summary))))))])))
 
+(defn- block-anchor-id [id]
+  (str "block-B" id))
+
 (defn- block-row
   [{:keys [id size cyclic? density members]}]
   (tag "tr"
-       (str (tag "td" (str "B" id))
+       (str (tag "td"
+                 (if cyclic?
+                   (tag "a" {:href (str "#" (block-anchor-id id))
+                             :title (str "Jump to Cyclic SCC B" id)}
+                        (str "B" id))
+                   (str "B" id)))
             (tag "td" size)
             (tag "td" (if cyclic? "yes" "no"))
             (tag "td" (format "%.2f" (double density)))
@@ -123,6 +131,7 @@
 (defn collapsed-matrix
   [blocks edges]
   (let [ids    (mapv :id blocks)
+        block-by-id (into {} (map (juxt :id identity) blocks))
         lookup (edge-lookup edges)]
     (tag "div" {:class "matrix-scroll"}
          (tag "table" {:class "dsm-matrix"}
@@ -130,19 +139,32 @@
                (tag "thead"
                     (tag "tr"
                          (str (tag "th" "")
-                              (join-html (map (fn [id] (tag "th" (str "B" id))) ids)))))
+                              (join-html (map (fn [id]
+                                                (let [{:keys [size cyclic? members]} (get block-by-id id)]
+                                                  (tag "th" {:title (str "B" id ": size=" size
+                                                                         ", cyclic=" (if cyclic? "yes" "no")
+                                                                         ", members=" (str/join ", " (map str members)))}
+                                                       (str "B" id))))
+                                              ids)))))
                (tag "tbody"
                     (join-html
                      (map (fn [row-id]
                             (tag "tr"
-                                 (str (tag "th" (str "B" row-id))
+                                 (str (let [{:keys [size cyclic? members]} (get block-by-id row-id)]
+                                        (tag "th" {:title (str "B" row-id ": size=" size
+                                                               ", cyclic=" (if cyclic? "yes" "no")
+                                                               ", members=" (str/join ", " (map str members)))}
+                                             (str "B" row-id)))
                                       (join-html
                                        (map (fn [col-id]
                                               (if (= row-id col-id)
                                                 (tag "td" {:class "diag"} "")
                                                 (let [edge-count (get lookup [row-id col-id] 0)]
                                                   (if (pos? edge-count)
-                                                    (tag "td" {:class (str "edge " (edge-intensity-class edge-count))}
+                                                    (tag "td" {:class (str "edge " (edge-intensity-class edge-count))
+                                                               :title (str "B" row-id " -> B" col-id
+                                                                           ": " edge-count " edge"
+                                                                           (when (not= 1 edge-count) "s"))}
                                                          edge-count)
                                                     (tag "td" {:class "empty"} "")))))
                                             ids)))))
@@ -176,7 +198,8 @@
 
 (defn scc-detail-section
   [{:keys [id size members internal-edge-count density] :as detail}]
-  (tag "details" {:class "scc-detail"}
+  (tag "details" {:class "scc-detail"
+                  :id (block-anchor-id id)}
        (str
         (tag "summary"
              (str "Cyclic SCC B" id " — " size " members, density "
