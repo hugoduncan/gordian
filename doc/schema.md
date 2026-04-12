@@ -421,11 +421,6 @@ block `:from` to block `:to`.
 `internal-edges` are local mini-matrix coordinates relative to the ordered
 `:members` vector.
 
-### Compatibility note
-Current output may still include compatibility keys from the earlier SCC-based
-DSM implementation while renderers migrate, but the primary semantics are the
-partitioned fields above.
-
 ---
 
 ## explain

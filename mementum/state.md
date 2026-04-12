@@ -655,6 +655,8 @@ Revised design:
 - partitioned block summaries and inter-block edge counts
 - block detail mini-matrices replacing SCC-specific detail semantics
 - text / markdown / EDN / JSON / HTML updated toward block-partition terminology
+- local adjacent-swap refinement with `:ordering :refined?`
+- compatibility shims removed; partitioned payload is now canonical
 
 Potential follow-ups:
 - local adjacent-swap refinement of ordering
