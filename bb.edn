@@ -38,6 +38,7 @@
                                      'gordian.config-test
                                      'gordian.compare-test
                                      'gordian.diagnose-test
+                                     'gordian.dsm-test
                                      'gordian.gate-test
                                      'gordian.discover-test
                                      'gordian.envelope-test
