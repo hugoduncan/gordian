@@ -1,127 +1,264 @@
-# Practical guide to coupling metrics
+# Practical guide to Gordian
 
-This document explains how to use the metrics gordian produces to make
-concrete improvements to both source and test code.  The examples are drawn
-from gordian's own self-analysis.
+This document explains how to use Gordian's metrics and commands to make
+concrete architectural improvements. The examples are drawn from Gordian's own
+self-analysis, but the guidance is intended for real codebases: application
+code, libraries, monorepos, and Polylith-style layouts.
+
+It covers:
+- whole-project analysis (`analyze`)
+- hidden coupling lenses (`--conceptual`, `--change`)
+- triage (`diagnose`)
+- drill-down (`explain`, `explain-pair`)
+- subsystem views (`subgraph`)
+- latent architecture groups (`communities`)
+- before/after deltas (`compare`)
+- CI ratchets (`gate`)
 
 ---
 
-## The report at a glance
+## 1. Start with the default workflow
+
+In most projects, this sequence gives the highest signal with the least effort:
+
+```bash
+gordian
+gordian diagnose
+gordian explain <namespace>
+gordian explain-pair <ns-a> <ns-b>
+```
+
+If you are working on a subsystem rather than the whole codebase:
+
+```bash
+gordian subgraph <prefix>
+```
+
+If you want to enforce architectural direction in CI:
+
+```bash
+gordian diagnose --edn > gordian-baseline.edn
+gordian gate --baseline gordian-baseline.edn
+```
+
+If you want to compare two snapshots directly:
+
+```bash
+gordian --edn > before.edn
+# make changes
+gordian --edn > after.edn
+gordian compare before.edn after.edn
+```
+
+---
+
+## 2. Project discovery and setup
+
+Gordian can analyze explicit source directories, but in normal use you should
+usually point it at the project root or just run it with no arguments.
+
+```bash
+gordian
+gordian .
+gordian /path/to/project
+```
+
+When run at a project root, Gordian auto-discovers source trees from common
+Clojure layouts:
+- `src/`
+- `test/` when `--include-tests` is enabled
+- Polylith `components/*/src`, `bases/*/src`, etc.
+- layouts rooted by `deps.edn`, `bb.edn`, `project.clj`, `workspace.edn`
+
+Useful flags:
+
+```bash
+gordian . --include-tests
+gordian . --exclude 'user|scratch|dev'
+```
+
+You can also set project defaults in `.gordian.edn`:
+
+```edn
+{:include-tests false
+ :conceptual    0.20
+ :change        true
+ :change-since  "90 days ago"
+ :exclude       ["user" ".*-scratch"]}
+```
+
+Use config for local defaults; use CLI flags for one-off investigation.
+
+---
+
+## 3. The whole-project report at a glance
+
+```bash
+gordian analyze src/
+```
+
+Example:
 
 ```
-gordian analyze src/
-
 propagation cost: 0.0663  (on average 6.6% of project reachable per change)
 
 namespace               reach   fan-in   Ce   Ca      I  role
 ─────────────────────────────────────────────────────────────
 gordian.main           92.9%    0.0%   13    0  1.00  peripheral
 gordian.aggregate       0.0%    7.1%    0    1  0.00  core
-gordian.cc-change       0.0%    7.1%    0    1  0.00  core
 gordian.classify        0.0%    7.1%    0    1  0.00  core
 ...
 ```
 
-**Propagation cost** is the headline number — average fraction of the project
-transitively reachable from any one namespace.  Everything else is per-namespace
-detail.
+**Propagation cost** is the headline number: the average fraction of the
+project transitively reachable from any namespace.
+
+Everything else is per-namespace detail:
+- **reach** — how much of the project this namespace depends on, transitively
+- **fan-in** — how much of the project depends on this namespace, transitively
+- **Ce** — direct outgoing project dependencies
+- **Ca** — direct incoming project dependencies
+- **I** — instability (`Ce / (Ca + Ce)`)
+- **role** — `core`, `peripheral`, `shared`, or `isolated`
+
+### A quick reading strategy
+
+Read the report in this order:
+1. cycles
+2. propagation cost
+3. high-`Ca` namespaces
+4. `:shared` namespaces
+5. high-instability namespaces with high `Ca`
+6. odd `peripheral` namespaces with very high reach
+
+That sequence catches most structural problems quickly.
 
 ---
 
-## Source files
+## 4. Structural metrics: what to do with them
 
-### 1. Start with cycles
+## 4.1 Start with cycles
 
-If the cycles section is present, fix those first.  A cycle means two or more
-namespaces cannot be changed independently; they are effectively one module even
-if they live in separate files.
+If the cycles section is present, fix those first.
 
-Options, in order of preference:
+A cycle means the participating namespaces cannot be changed independently.
+They are one design unit whether or not the file layout admits it.
 
-1. **Merge them** — if `a` and `b` always change together, they are one thing
-2. **Extract the shared dependency** — find what `a` and `b` both need and pull
-   it into a third namespace `c`; both then depend on `c`, the cycle is gone
-3. **Invert via a protocol** — if `a` depends on `b` for a callback, define
-   the callback protocol in `a` and have `b` implement it
+Fix options, in order of preference:
 
-### 2. Check the instability gradient
+1. **Merge them** if they are truly one thing
+2. **Extract a shared dependency** that both currently depend on
+3. **Invert the dependency** via protocol, callback, or data contract
 
-In a healthy architecture instability increases from the inside out.  Foundation
-namespaces should sit near I=0; entry points, adapters, and CLI handlers near
-I=1.
+A cycle is not merely a cleanliness issue. It blocks independent evolution.
+Everything else in the report is easier to interpret after cycles are removed.
 
-**What to look for:** a core or domain namespace with high I.
+## 4.2 Read propagation cost as architectural drag
+
+Propagation cost answers:
+
+> If one namespace changes, how much of the project tends to sit in its
+> transitive blast radius?
+
+Rules of thumb:
+- below `0.20` — typically healthy
+- `0.20–0.30` — worth review
+- above `0.30` — strong signal of spreading change cost
+
+The number is most useful as a **trend**:
+
+```bash
+gordian --edn > before.edn
+# refactor
+gordian --edn > after.edn
+gordian compare before.edn after.edn
+```
+
+If propagation cost went down, modularity improved. If it went up, some new
+edge or cluster of edges increased the project's transitive connectivity.
+
+## 4.3 Check the instability gradient
+
+Healthy systems tend to have a stability gradient:
+- foundations near `I=0`
+- orchestration and entry points near `I=1`
+
+Smell:
 
 ```
-;; Smell: load-bearing namespace that itself depends on much
 my.app.domain    reach=35%  fan-in=60%   Ce=7  Ca=12  I=0.37  shared
 ```
 
-`my.app.domain` is depended on by 12 namespaces but itself requires 7 others.
-A change anywhere in those 7 propagates to all 12.  This violates the **Stable
-Dependencies Principle**: stable things (high Ca) should not depend on unstable
-things (high Ce).
+If many things depend on a namespace but it itself depends on much, it violates
+Robert Martin's Stable Dependencies Principle.
 
-**Fix:** split the namespace.  Extract the part with no outward dependencies into
-`my.app.domain.model` (Ce=0, I=0).  The parts that need infrastructure become
-separate adapters.
+Typical fix:
+- extract a stable core model or protocol layer
+- isolate infrastructure or orchestration concerns in separate namespaces
+- make the highly depended-on part require less
 
-### 3. Investigate :shared namespaces
+## 4.4 Investigate `:shared` namespaces
 
-`:shared` means high reach *and* high fan-in — the namespace sits in the middle
-of everything.  A small number of shared namespaces is normal (utility layers,
-protocols).  Many shared namespaces, or one with very high reach, signals a
-"god module".
+`:shared` means high reach and high fan-in.
 
-Ask: does this namespace have a single, clear responsibility?  If not, split it.
+Some are legitimate:
+- central domain protocols
+- shared data model layers
+- intentional integration hubs
 
-### 4. Read reach as blast radius
+But many `:shared` namespaces indicate god-module drift.
 
-`reach` answers: *if something I depend on changes, how exposed am I?*
+Questions to ask:
+- Does this namespace have one clear responsibility?
+- Is it both depended on and depending on much because it mixes layers?
+- Is it serving as a convenience dumping ground?
 
-A namespace with 80% reach will be touched by changes anywhere in 80% of the
-project.  That is fragile regardless of how stable each individual dependency is.
+If yes, split by reason to change.
 
-The companion metric is `fan-in`, which answers the inverse: *if I change, how
-many things might need to change?*  A namespace with both high reach and high
-fan-in is the most expensive to change in the project.
+## 4.5 Use family-scoped Ca/Ce to avoid false alarms
 
-### 5. Track propagation cost over time
+Modern projects often have families of namespaces, e.g.:
+- `my.app.invoice.*`
+- `my.app.user.*`
+- `psi.agent-session.*`
 
-Run gordian before and after a refactor.  If PC went down, coupling improved.
-If it went up, a new dependency was introduced that spreads cost.
+Raw `Ca`/`Ce` can make a façade namespace look worse than it is. A family entry
+point that delegates inward will naturally have many intra-family relationships.
 
-Well-modularised projects tend to sit below 0.20.  Above 0.30 is worth
-investigating.  The number is most useful as a trend, not an absolute threshold.
+Gordian now exposes family-aware structure:
+- `ca-family`
+- `ca-external`
+- `ce-family`
+- `ce-external`
 
-**Gordian on itself:**
+Interpretation:
+- **high `ca-external`, low `ce-external`** often means a healthy façade
+- **high `ca-external`, high `ce-external`** is more suspicious
+- **high internal traffic only** may just reflect family organization
 
-```
-gordian src/   →   PC = 0.0663
-```
-
-Star topology: one peripheral entry point (`gordian.main`) and independent
-core modules.  PC is low because no module transitively depends on any other
-project module.
+This matters especially in `diagnose`, where Gordian distinguishes true god
+modules from façade-shaped modules.
 
 ---
 
-## Conceptual coupling
+## 5. Conceptual coupling: shared language without edges
 
-Structural coupling (the `require` graph) is not the only way namespaces
-can be coupled.  Two namespaces that share vocabulary — the same function
-names, the same domain terms in their docstrings — are *conceptually coupled*
-even if neither imports the other.
+Structural coupling only sees `require` edges. Conceptual coupling asks whether
+namespaces talk about the same concepts, whether or not they import one another.
 
 ```bash
-gordian src/ --conceptual 0.30
+gordian . --conceptual 0.30
 ```
 
-gordian extracts terms from namespace names, function names, and docstrings,
-applies TF-IDF weighting (so common English words and noise are suppressed),
-and reports pairs whose cosine similarity meets the threshold.
+Gordian extracts terms from:
+- namespace names
+- function names
+- docstrings
 
-### Reading the output
+Then it builds TF-IDF vectors and reports pairs above the chosen similarity
+threshold.
+
+Example:
 
 ```
 conceptual coupling (sim ≥ 0.20):
@@ -132,123 +269,90 @@ gordian.aggregate     gordian.close         0.35  no  ←    reach transitive no
 gordian.main          gordian.scan          0.23  yes      file scan read
 ```
 
-Each row shows a pair of namespaces, their similarity score, whether a
-structural (`require`) edge exists, and the terms most responsible for the
-similarity.
+### How to read it
 
-**`←` rows (no structural edge)** are the primary discovery signal.
-`gordian.aggregate` and `gordian.close` share vocabulary around reachability
-(`reach`, `transitive`, `node`) but neither requires the other.  This is
-expected here — they are independent algorithms on the same graph domain —
-but in a less deliberate codebase it might reveal a hidden abstraction waiting
-to be named.
+- **`yes` structural edge** — the code dependency is also conceptually aligned
+- **`←` no structural edge** — the pair shares vocabulary but the dependency
+  graph does not acknowledge it
 
-**`yes` rows (structural edge)** confirm that the structural coupling is
-*about* the right thing.  `gordian.main` and `gordian.scan` are coupled on
-file/directory IO vocabulary (`file`, `scan`, `read`), which is exactly what
-you'd expect: `main` orchestrates `scan`'s IO work.  If the shared terms
-looked unrelated to what the dependency is supposed to be, that would be worth
-investigating.
+The `←` rows are the discovery signal.
 
-### What the shared concepts column tells you
+### Three common patterns
 
-The similarity score tells you how similar two namespaces are.  The shared
-concepts tell you *why*.  Without the terms you would have to read both files
-to understand the relationship; with them the nature of the coupling is
-immediately visible.
-
-Three patterns to watch for:
-
-**1. Hidden concept (← row, domain terms)**
+**1. Hidden concept**
 
 ```
 my.app.invoice    my.app.payment    0.45  no  ←   amount due total format
 ```
 
-Both namespaces talk about amounts, due dates, and formatting but neither
-requires the other.  This is often a sign that a shared abstraction (`Money`,
-`LineItem`) exists in the domain but has not been given a home in the code.
+Likely causes:
+- missing shared abstraction
+- duplicate domain logic
+- shared data concept with no home
 
-**2. Accidental concept (yes row, unrelated terms)**
-
-```
-my.app.render    my.app.database    0.38  yes    row col format table
-```
-
-`render` requires `database`, and they share table/column vocabulary.  The
-structural dependency is real, but the conceptual overlap suggests rendering
-logic has drifted into the database layer (or vice versa).  The shared terms
-name the leakage.
-
-**3. Expected concept (yes row, domain terms)**
+**2. Expected conceptual overlap**
 
 ```
-my.app.invoice    my.app.invoice-pdf    0.61  yes    invoice line total format
+my.app.invoice    my.app.invoice-pdf    0.61  yes   invoice line total format
 ```
 
-High similarity, structural edge, domain terms: the coupling is intentional and
-well-named.  Nothing to do here.
+This is usually fine. The dependency and the vocabulary agree.
+
+**3. Suspicious structural edge**
+
+```
+my.app.render    my.app.database    0.38  yes   row col format table
+```
+
+The dependency exists, but the shared language hints that concepts may be
+bleeding across layers.
+
+### Family-noise suppression
+
+A common false positive is family naming noise:
+
+```
+my.app.invoice.api    my.app.invoice.db
+```
+
+These may appear conceptually similar simply because they share the family
+prefix `invoice`.
+
+Gordian now separates:
+- **family terms** — overlap explained by namespace prefix naming
+- **independent terms** — overlap not explained by shared prefix
+
+Interpretation:
+- same family + no independent terms = likely naming noise
+- same family + independent terms = real shared concept within a subsystem
+
+This is especially useful in `diagnose` and `explain-pair`, where not all
+hidden conceptual pairs deserve the same urgency.
 
 ### Threshold guidance
 
-| threshold | what you see |
-|-----------|-------------|
-| 0.15–0.25 | Many pairs, including weak signals; useful for exploration |
-| 0.25–0.40 | Strong signals only; good for routine audits |
-| 0.40+     | Only the most tightly coupled pairs |
+| threshold | meaning |
+|-----------|---------|
+| 0.15–0.25 | exploratory, many weak signals |
+| 0.25–0.40 | good routine audit range |
+| 0.40+     | only strongest conceptual overlap |
 
-Start at 0.20 to explore.  For a routine check, 0.30 is a reasonable default.
-The score is most useful as a ranking — the highest-scoring `←` rows are the
-most actionable.
+Start at `0.20` when learning a codebase. Raise it when you want a shorter,
+higher-confidence list.
 
 ---
 
-## Change coupling
+## 6. Change coupling: what the codebase keeps changing together
 
-Structural coupling and conceptual coupling analyse the codebase as it stands
-today.  Change coupling analyses the *git history*: namespaces that frequently
-appear together in the same commit are logically coupled, regardless of whether
-they import each other.
+Change coupling analyzes git history instead of current code structure.
 
 ```bash
-gordian src/ --change                              # full history, current repo
-gordian src/ --change --change-since "90 days ago" # recent history only
-gordian src/ --change /other/repo                  # another repo
+gordian . --change
+gordian . --change --change-since "90 days ago"
+gordian . --change /other/repo
 ```
 
-### The horizon problem
-
-By default gordian uses the full git history.  This is maximally stable — more
-commits means more statistical confidence — but old coupling survives
-indefinitely even after deliberate refactors.  A pair that was decoupled six
-months ago will still appear in full-history results.
-
-`--change-since` scopes the window:
-
-```bash
-gordian src/ --change --change-since "90 days ago"
-gordian src/ --change --change-since "6 months ago"
-gordian src/ --change --change-since "2024-01-01"
-```
-
-The argument is passed directly to `git log --since`, so any format git accepts
-works.  Research (Zimmermann et al. 2005) found that recent history predicts
-future coupling better than full history; 90 days is a reasonable starting point
-for an active project.  Use full history on young codebases where 90 days covers
-most of the development.
-
-To distinguish a historical scar from an active coupling, compare results with
-and without `--change-since`:
-
-```bash
-gordian src/ --change            # does the pair appear?
-gordian src/ --change --change-since "90 days ago"  # still appears?
-```
-
-A pair that vanishes with a recent window is archaeological — the coupling
-existed but has been resolved.  A pair that persists is still active.
-
-### Reading the output
+Example:
 
 ```
 change coupling (Jaccard ≥ 0.30):
@@ -259,250 +363,687 @@ gordian.main          gordian.output        0.4000   6   42.9%   85.7%  yes
 gordian.conceptual    gordian.scan          0.3750   3   60.0%   50.0%  no  ←
 ```
 
-**Jaccard** — symmetric coupling score: `co / (changes-a + changes-b - co)`.
-Ranges from 0 (never co-change) to 1 (always change together and never
-independently).
+### The columns
 
-**co** — raw count of commits containing both namespaces.  Low values (1–2)
-on short histories are noise; use `min-co` (default 2) to gate them out.
+- **Jaccard** — symmetric co-change score
+- **co** — raw co-change count
+- **conf-a / conf-b** — directional conditional probabilities
+- **structural** — whether a direct code edge exists
 
-**conf-a / conf-b** — conditional probabilities: "when `a` changed, `b` also
-changed X% of the time" and vice versa.  These are *directional* where Jaccard
-is symmetric.
+### What it reveals
 
-**structural** — whether a `require` edge exists in either direction.
-
-### Patterns
-
-**1. Historical scar (← row, disappears with `--change-since`)**
+**1. Active implicit coupling**
 
 ```
-gordian.conceptual    gordian.scan    0.38  no  ←
+my.app.invoice    my.app.pdf    0.72  no  ←
 ```
 
-The pair shows in full history but not in a recent window.  The namespaces
-changed together during early development when they were structurally coupled;
-the structural edge was later deliberately removed.  The git log still carries
-the memory of that coupling.  No action needed — the refactor worked.
+These files evolve together but the require graph does not explain why.
+Typical causes:
+- hidden shared data shape
+- protocol or dispatch contract
+- feature split across files that should be closer together
 
-**2. Active implicit coupling (← row, persists with `--change-since`)**
+**2. Historical scar**
 
-```
-my.app.invoice    my.app.pdf    0.72  no  ←   conf-a=90%  conf-b=65%
-```
+A pair may show in full history but vanish under `--change-since "90 days ago"`.
+That often means the coupling used to be real and has already been refactored
+away.
 
-These namespaces change together regularly but have no structural edge.  This
-is the sharpest signal change coupling produces: an implicit contract that the
-`require` graph cannot see.  Common causes:
-
-- A shared data format or schema defined nowhere in code
-- A protocol implemented in one namespace and consumed in the other via dynamic
-  dispatch, reflection, or string-keyed data
-- Two halves of a feature that belong in one namespace but were split
-
-The shared terms from `--conceptual` often name the missing abstraction.
-
-**3. Confirmed structural coupling (yes row)**
+**3. Satellite coupling**
 
 ```
-gordian.main    gordian.output    0.40  yes   conf-a=43%  conf-b=86%
+my.app.emails    my.app.templates    J=0.55  conf-a=95%  conf-b=30%
 ```
 
-A structural edge exists *and* the namespaces co-change often.  The coupling is
-real and acknowledged.  High Jaccard here (> 0.7) raises a different question:
-are these two namespaces actually one thing?  If they always change together
-and share a structural edge, consider whether the file boundary serves any
-purpose.
+`emails` almost always moves with `templates`, but `templates` often moves
+independently. That suggests a narrow client riding on a broad, unstable surface.
 
-**4. Asymmetric confidence — satellite coupling**
+### Windowing matters
 
-```
-my.app.emails    my.app.templates    0.55  yes   conf-a=95%  conf-b=30%
-```
-
-`conf-a=95%` means nearly every time `emails` changed, `templates` also
-changed.  `conf-b=30%` means `templates` often changes independently.
-`emails` is a satellite of `templates`: it cannot move without `templates`
-moving too, but the reverse is not true.
-
-This asymmetry signals that `emails` is fragile with respect to `templates`.
-The interface between them — what `emails` depends on in `templates` — may be
-too wide.  Narrowing it (extracting a smaller protocol or data contract) would
-reduce the satellite's surface area.
-
-### Combining structural, conceptual, and change signals
-
-The three coupling signals see different things:
-
-| Signal | Sees | Blind to |
-|--------|------|----------|
-| Structural | `require` edges today | Dynamic dispatch, data contracts, history |
-| Conceptual | Shared vocabulary today | Whether coupling is intentional |
-| Change | Co-evolution over time | Current code structure |
-
-The most actionable rows are those where **change coupling confirms a
-conceptual coupling** with no structural edge:
-
-```
-my.app.invoice    my.app.payment    0.45  no  ←   [conceptual]
-my.app.invoice    my.app.payment    0.61  no  ←   [change coupling]
-```
-
-Three signals, no structural edge: the coupling is real, active, and unnamed.
-A missing abstraction is almost certain.
-
-Conversely, a structural edge with *no* change coupling and *no* conceptual
-coupling is worth scrutinising:
-
-```
-my.app.render    my.app.database    yes  [structural]
-                                    —    [no conceptual overlap]
-                                    —    [rarely co-change]
-```
-
-The `require` edge exists but the namespaces almost never change together and
-share no vocabulary.  The dependency may be vestigial — added for a feature
-that was later removed — or the coupling is so thin (a single value, a single
-function call) that it carries no design weight.
-
----
-
-## Test files
-
-Run gordian over source *and* tests together:
-
-```
-gordian src/ test/
-```
-
-Test namespaces appear alongside source namespaces.  Their metrics carry
-specific meaning.
-
-### reach reveals unit vs integration tests
-
-`reach` is the most direct unit/integration discriminator available without
-reading the test code.
-
-| reach | what it means |
-|-------|---------------|
-| ≈ 1/N | Unit test — requires only its subject module, which itself has no project deps |
-| high  | Integration test — transitively pulls in a pipeline entry point |
-
-**Gordian on itself:**
-
-```
-gordian src/ test/   →   PC = 0.0809
-
-gordian.integration-test   48.3%   peripheral  ← pipeline tests, correctly labelled
-gordian.main-test          48.3%   peripheral  ← tests the wiring layer, expected
-gordian.output-test        48.3%   peripheral  ← tests formatted output via pipeline
-gordian.aggregate-test      3.4%   isolated    ← unit test
-gordian.close-test          3.4%   isolated    ← unit test
-gordian.conceptual-test     3.4%   isolated    ← unit test
-gordian.dot-test            3.4%   isolated    ← unit test
-...
-```
-
-The module tests each require exactly one project namespace with no further
-project deps; they are pure unit tests and the metric confirms it.
-
-**A test namespace with unexpectedly high reach** is the most common signal that
-something has been written as an integration test without intent.  The typical
-cause is using a pipeline function (e.g., `build-report`, `analyze`) as a test
-fixture for a serialisation or formatting test.  The fix is to hand-craft the
-input data instead — the test then only requires the module under test.
-
-### Check that core modules are tested
-
-Look at `:core` namespaces in the `src/` view.  Note which ones have high Ca
-(many things depend on them).  Then run `src/ test/` and check whether those
-same namespaces gained any Ca from the test tree.
-
-If a :core namespace has Ca=8 in source but Ca=0 in source+test, nothing tests
-it directly.  It is the most relied-upon code in the project and the least
-directly exercised.
-
-**Gordian on itself:**
-
-```
-;; src/ view
-gordian.close    Ca=1   core   (only gordian.main depends on it)
-
-;; src/ test/ view
-gordian.close    Ca=2   core   (main + close-test)
-```
-
-`gordian.close-test` shows up in the Ca count, confirming direct test coverage.
-A Ca difference of zero between the two views flags a missing test.
-
-### Test namespaces must have Ca = 0
-
-In the combined `src/ test/` view, every test namespace should have Ca = 0.
-No production code should require a test namespace; no test should be required
-by another test.
-
-A test namespace with Ca > 0 means one of:
-
-- **Test utilities used by source** — extract them to a `dev/` or
-  `test-support/` source tree visible only in the test classpath
-- **One test importing another** — break the dependency; each test namespace
-  should be fully self-contained
-
-### Interpret the PC delta
-
-```
-gordian src/        →  PC = 0.0663
-gordian src/ test/  →  PC = 0.0809
-```
-
-The increase reflects how broadly the tests connect to the source graph.  A
-small increase is healthy: tests are targeted.  A large increase means tests
-are pulling in wide swathes of the project, which often indicates either
-over-coupled tests or insufficient isolation in the source itself.
-
-If PC barely changes when you add tests, your tests are not exercising the
-coupling structure — likely all integration tests testing only the outermost
-layer, or unit tests on leaf namespaces leaving the connected core untested.
-
----
-
-## The unit/integration boundary in practice
-
-When a test file mixes unit and integration tests, the namespace-level metric
-reflects the worst case — the whole file looks integrated even if 90% of the
-tests are unit tests.  Separation requires physical separation into files.
-
-A practical convention:
-
-```
-test/myapp/core_test.clj          ← unit tests; requires only myapp.core
-test/myapp/integration_test.clj   ← integration tests; requires myapp.main
-```
-
-Running gordian confirms the boundary is clean:
-
-```
-myapp.core-test         4%  reach   isolated   ← unit
-myapp.integration-test  60% reach   peripheral ← integration
-```
-
-If `myapp.core-test` shows high reach, the unit file has grown an integration
-dependency and the boundary has blurred.
-
----
-
-## CI integration
-
-gordian outputs JSON, which makes threshold checks straightforward:
+Use a recent window to separate active architectural pressure from archaeology:
 
 ```bash
-# fail the build if source propagation cost exceeds 0.20
-pc=$(gordian src/ --json | bb -i '(-> (read) :propagation-cost)')
-bb -e "(when (> $pc 0.20) (System/exit 1))"
+gordian . --change --change-since "90 days ago"
 ```
 
-Run this on every commit to give the architecture a ratchet: it can improve or
-hold, but cannot silently degrade.
+Recent history is often the most actionable history.
 
-Tighter checks are possible: fail if any namespace has both Ca > 3 and I > 0.5,
-or if any cycles are introduced.  The JSON output contains everything needed.
+---
+
+## 7. Combine the three lenses
+
+The strongest architectural signal usually comes from **agreement across
+lenses**.
+
+| Lens | Sees | Misses |
+|------|------|--------|
+| Structural | code edges today | history, dynamic/data coupling |
+| Conceptual | shared language today | intentionality |
+| Change | co-evolution over time | current code shape |
+
+Most actionable cases:
+
+### 7.1 Hidden in both conceptual and change lenses
+
+```
+my.app.invoice    my.app.payment   conceptual=yes, change=yes, structural=no
+```
+
+This often means:
+- real coupling
+- active coupling
+- unnamed coupling
+
+A missing abstraction is likely.
+
+### 7.2 Structural edge with no support from either other lens
+
+```
+my.app.render    my.app.database
+structural=yes, conceptual=no, change=no
+```
+
+This can indicate:
+- vestigial dependency
+- very thin dependency with low design importance
+- leftover wiring from removed behavior
+
+These edges are worth pruning if unnecessary.
+
+---
+
+## 8. Diagnose mode: triage before deep reading
+
+`diagnose` is the best default command once you already trust the raw metrics.
+It synthesizes structure, conceptual overlap, and change history into ranked
+findings.
+
+```bash
+gordian diagnose
+```
+
+`diagnose` auto-enables:
+- conceptual coupling at a default exploratory threshold
+- change coupling
+
+Example:
+
+```
+gordian diagnose — 11 findings
+
+HEALTH
+  propagation cost: 5.2% (healthy)
+  cycles: none
+  namespaces: 18
+
+● MEDIUM  gordian.aggregate ↔ gordian.close
+  hidden conceptual coupling — score=0.37
+  shared terms: reach, transitive, node
+  → no structural edge
+```
+
+### Finding categories
+
+Common categories include:
+- **cycle** — structural cycle
+- **cross-lens-hidden** — hidden in conceptual and change lenses
+- **hidden-conceptual** — conceptually coupled, no direct edge
+- **hidden-change** — co-changing, no direct edge
+- **sdp-violation** — stable namespace depending outward too much
+- **god-module** — extreme shared centrality
+- **facade** — looks central but is façade-shaped, usually lower concern
+- **hub** — very high reach, usually informational
+
+### Use `diagnose` as a queue, not a verdict oracle
+
+`diagnose` is best used to answer:
+- what should I inspect first?
+- which pairs are surprising?
+- where is the architectural risk concentrated?
+
+Then move to `explain`, `explain-pair`, or `subgraph`.
+
+### Severity vs actionability
+
+Severity tells you how concerning a finding is in the abstract.
+Actionability tells you how likely it is to be worth working on now.
+
+```bash
+gordian diagnose --rank severity
+gordian diagnose --rank actionability
+```
+
+Use:
+- **severity** when doing architecture review
+- **actionability** when planning practical refactor work
+
+Actionability helps avoid spending all your time on theoretically serious but
+hard-to-move issues while ignoring easy high-leverage improvements.
+
+### Clusters: groups of related findings
+
+A codebase often produces several findings that all point to the same local knot.
+Gordian clusters findings by shared namespace involvement.
+
+Use clusters when you want to answer:
+- is this one issue or five symptoms of one issue?
+- which namespaces form the local refactor surface?
+
+This is especially helpful when planning a single refactor story.
+
+---
+
+## 9. Explain mode: drill into one namespace
+
+After `diagnose`, use `explain` on anything interesting.
+
+```bash
+gordian explain gordian.scan
+```
+
+This shows:
+- metrics for the namespace
+- direct project deps and external deps
+- direct dependents
+- conceptual pairs involving the namespace
+- change pairs involving the namespace
+- cycle participation
+
+Use it to answer:
+- who depends on this?
+- what does it depend on directly?
+- is it coupled by language, by history, or both?
+- if I change this namespace, where should I look next?
+
+### What `explain` is good for
+
+**A suspicious hub**
+- check whether high reach is expected orchestration
+- inspect whether dependents are broad or local
+
+**An SDP violation**
+- inspect the direct outward deps
+- identify which one should be inverted or extracted
+
+**A core namespace**
+- verify it is actually stable
+- see whether tests depend on it directly
+
+---
+
+## 10. Explain-pair: decide what a pair means
+
+`explain-pair` is the best tool when you have a suspicious pair from conceptual
+or change coupling.
+
+```bash
+gordian explain-pair gordian.aggregate gordian.close
+```
+
+It combines:
+- structural relationship
+- shortest path if one exists
+- conceptual score and shared terms
+- change coupling data if present
+- any diagnose finding for the pair
+- a verdict
+
+### Why the verdict matters
+
+Raw facts are useful, but they still leave an interpretation burden. Gordian now
+adds a verdict category to summarize what the pair most likely means.
+
+Typical verdicts:
+- `expected-structural`
+- `family-naming-noise`
+- `family-siblings`
+- `likely-missing-abstraction`
+- `hidden-conceptual`
+- `hidden-change`
+- `transitive-only`
+- `unrelated`
+
+### How to use the verdicts
+
+**`expected-structural`**
+- direct edge exists
+- usually low urgency unless other signals are extreme
+
+**`family-naming-noise`**
+- hidden conceptual overlap explained entirely by shared prefix naming
+- usually ignore
+
+**`family-siblings`**
+- hidden overlap inside one namespace family with real independent terms
+- inspect if the family feels repetitive or scattered
+
+**`likely-missing-abstraction`**
+- strongest hidden-coupling signal
+- high-value refactor candidate
+
+**`hidden-change`**
+- co-change without structural or conceptual support
+- often vestigial workflow coupling or implicit contract
+
+**`transitive-only`**
+- path exists but no strong hidden signal
+- usually informational
+
+This command is often the fastest way to decide whether a suspicious pair is a
+real design smell or just benign local structure.
+
+---
+
+## 11. Subgraph mode: analyze one subsystem properly
+
+Most day-to-day work happens inside one family or subsystem, not across the
+entire codebase.
+
+```bash
+gordian subgraph gordian
+gordian subgraph psi.agent-session --rank actionability
+```
+
+Subgraph mode answers questions like:
+- what namespaces belong to this family?
+- how dense is the internal graph?
+- are there cycles inside it?
+- what crosses its boundary?
+- what hidden conceptual or change couplings touch it?
+- which local findings matter most?
+
+It reports:
+- members
+- induced internal metrics (nodes, edges, density, local propagation cost)
+- internal cycles
+- incoming/outgoing boundary edges
+- conceptual and change pairs sliced into `internal` vs `touching`
+- findings touching the family
+- local clusters of those findings
+
+### When to use subgraph instead of whole-project analysis
+
+Use `subgraph` when:
+- a team owns a namespace family
+- you are refactoring one bounded area
+- whole-project output is too broad
+- you want local coupling, not global ranking
+
+### Explain fallback
+
+`explain` now falls back to subgraph mode when you give it a family prefix that
+is not an exact namespace:
+
+```bash
+gordian explain psi.agent-session
+```
+
+If `psi.agent-session` is not itself a concrete namespace but matches several
+family members, Gordian returns the subgraph view.
+
+That makes exploratory use much smoother.
+
+### What to look for in a subgraph
+
+- **high internal density** — subsystem is tightly interdependent
+- **many outgoing edges** — subsystem leaks outward or depends on too much
+- **many incoming edges** — subsystem is an important service boundary
+- **many touching hidden pairs** — family boundary may be wrong or incomplete
+- **local cycles** — the subsystem is internally tangled even if the global
+  graph still looks manageable
+
+---
+
+## 12. Communities: discover latent architecture groups
+
+Subgraph starts with a known prefix. `communities` starts with the graph and
+asks what groups naturally exist.
+
+```bash
+gordian communities
+gordian communities --lens structural
+gordian communities --lens conceptual --threshold 0.20
+gordian communities --lens change --threshold 0.30
+gordian communities --lens combined
+```
+
+Communities are discovered from an undirected weighted graph built from one
+lens or a combination of lenses.
+
+The output highlights:
+- community members
+- density
+- internal weight
+- boundary weight
+- dominant terms
+- likely bridge namespaces
+
+### When communities is useful
+
+Use `communities` when you want to answer:
+- what subsystems exist even if they are not namespace-prefix aligned?
+- which namespaces form a natural cluster?
+- what are the bridges between groups?
+- where are the likely modular boundaries in a messy codebase?
+
+### Lens choice
+
+**Structural lens**
+- finds groups already visible in the require graph
+- useful for explicit module structure
+
+**Conceptual lens**
+- finds groups that share domain language
+- useful for discovering latent domain clusters
+
+**Change lens**
+- finds groups that evolve together
+- useful for real workflow coupling
+
+**Combined lens**
+- often the best exploratory default
+- highlights groups supported by multiple forms of evidence
+
+### Interpreting bridge namespaces
+
+A bridge namespace often indicates one of:
+- legitimate integration point
+- façade between communities
+- accidental cross-cutting dependency
+- architectural boundary under strain
+
+Bridges deserve inspection because they often control how easily the system can
+be split or evolved.
+
+---
+
+## 13. Compare mode: evaluate refactors, not just snapshots
+
+`compare` turns two machine-readable snapshots into a structured delta report.
+
+```bash
+gordian --edn > before.edn
+# make changes
+gordian --edn > after.edn
+gordian compare before.edn after.edn
+```
+
+It reports changes in:
+- health
+- propagation cost
+- namespace metrics
+- cycles
+- conceptual pairs
+- change pairs
+- findings
+
+### When to use compare
+
+**Refactor validation**
+- did PC go down?
+- did cycles disappear?
+- did hidden pairs weaken?
+
+**Review support**
+- did this branch create new high-risk findings?
+- which namespaces changed role?
+
+**Architecture tracking**
+- is the codebase becoming more modular over time?
+
+### What to look for
+
+Good signs:
+- lower propagation cost
+- fewer or smaller cycles
+- `shared` → `core` or `shared` → `peripheral` role simplifications
+- fewer hidden cross-lens pairs
+
+Bad signs:
+- new cycles
+- new high findings
+- increased density in already-dense areas
+- a namespace becoming both more central and more unstable
+
+---
+
+## 14. Gate mode: architecture ratchets in CI
+
+Use `gate` when you want to stop architectural drift instead of merely noticing
+it later.
+
+```bash
+gordian diagnose --edn > gordian-baseline.edn
+gordian gate --baseline gordian-baseline.edn
+```
+
+`gate` compares the current report to a saved baseline and evaluates checks.
+
+Common usage:
+
+```bash
+gordian gate --baseline gordian-baseline.edn
+gordian gate --baseline gordian-baseline.edn --max-pc-delta 0.01
+gordian gate --baseline gordian-baseline.edn --fail-on new-cycles,new-high-findings
+```
+
+Typical checks include:
+- propagation cost delta
+- new cycles
+- new high findings
+- new medium findings
+
+### Recommended adoption path
+
+Start gentle:
+1. fail on new cycles
+2. fail on new high findings
+3. later add a small max propagation-cost delta
+
+That creates a ratchet without blocking useful work too early.
+
+### Why gate is better than ad hoc scripts
+
+You can still script against `--json` or `--edn`, but `gate` bakes in the core
+comparison workflow:
+- baseline snapshot
+- structured diff
+- pass/fail result
+- machine-readable output
+- exit code suitable for CI
+
+Use custom scripts only when you want checks beyond the built-ins.
+
+---
+
+## 15. Tests: reading source + test structure together
+
+Run Gordian across both source and tests:
+
+```bash
+gordian src/ test/
+# or
+gordian . --include-tests
+```
+
+Test namespaces appear alongside source namespaces, and their metrics carry
+special meaning.
+
+## 15.1 Reach distinguishes unit and integration tests
+
+| reach | interpretation |
+|-------|----------------|
+| very low | likely unit test |
+| high | likely integration/wiring test |
+
+Example:
+
+```
+gordian.integration-test   48.3%   peripheral
+gordian.main-test          48.3%   peripheral
+gordian.aggregate-test      3.4%   isolated
+gordian.close-test          3.4%   isolated
+```
+
+This is exactly what you want:
+- integration tests near the pipeline edge
+- module tests near the leaf they directly exercise
+
+If a test namespace has surprisingly high reach, it may be testing through too
+much machinery.
+
+## 15.2 Core modules should gain Ca from tests
+
+Compare `src/` with `src/ + test/`.
+
+If a stable core namespace gains no extra `Ca` from the test tree, it may not
+be tested directly at all.
+
+## 15.3 Test namespaces should have `Ca = 0`
+
+If a test namespace has incoming project deps, something is wrong:
+- production code depending on test code
+- test namespaces depending on each other
+- utilities living in the wrong source tree
+
+Keep tests independent and move shared support to a test-only support path.
+
+---
+
+## 16. Markdown and machine-readable outputs
+
+Human-readable output is good for exploration. Markdown is good for sharing.
+EDN/JSON are good for automation.
+
+```bash
+gordian --markdown > report.md
+gordian diagnose --markdown > findings.md
+gordian explain foo.bar --markdown > explain.md
+```
+
+Use markdown when you want to:
+- attach architecture reports to PRs
+- paste findings into docs
+- discuss subsystem state asynchronously
+
+Use EDN/JSON when you want to:
+- snapshot the architecture
+- diff before/after states
+- feed dashboards or custom checks
+- integrate with CI
+
+All machine-readable output uses a stable schema envelope. See
+`doc/schema.md` for the exact contract.
+
+---
+
+## 17. Practical workflows
+
+## 17.1 New codebase: first-hour workflow
+
+```bash
+gordian
+gordian diagnose
+gordian communities
+gordian subgraph <largest-family>
+```
+
+Goal:
+- find major structural shape
+- identify obvious hotspots
+- discover natural subsystems
+- choose one area to inspect deeply
+
+## 17.2 Suspicious pair workflow
+
+```bash
+gordian diagnose
+gordian explain-pair <ns-a> <ns-b>
+gordian explain <ns-a>
+gordian explain <ns-b>
+```
+
+Goal:
+- determine if the pair is real coupling, naming noise, or expected structure
+
+## 17.3 Refactor workflow
+
+```bash
+gordian --edn > before.edn
+# refactor
+gordian --edn > after.edn
+gordian compare before.edn after.edn
+gordian diagnose
+```
+
+Goal:
+- validate that architectural pressure actually dropped
+
+## 17.4 Team-owned subsystem workflow
+
+```bash
+gordian subgraph my.team.area --rank actionability
+gordian explain my.team.area
+```
+
+Goal:
+- review only the area you own
+- prioritize local changes
+- understand boundary crossings
+
+## 17.5 CI ratchet workflow
+
+```bash
+gordian diagnose --edn > gordian-baseline.edn
+# commit baseline
+gordian gate --baseline gordian-baseline.edn
+```
+
+Goal:
+- prevent regressions without demanding immediate perfection
+
+---
+
+## 18. How to tell healthy complexity from unhealthy coupling
+
+Not all coupling is bad.
+
+Healthy patterns:
+- one clear peripheral entry point wiring many pure modules
+- stable core namespaces with low `Ce`
+- façade namespaces with high external `Ca` but low external `Ce`
+- expected conceptual overlap inside a coherent domain family
+- bridge namespaces that are deliberate integrations
+
+Unhealthy patterns:
+- cycles
+- high-`Ca`, high-instability namespaces
+- many `:shared` namespaces without crisp responsibilities
+- cross-lens hidden pairs with no direct edge
+- families with lots of touching hidden pairs across the boundary
+- high propagation cost trending upward over time
+
+The point is not to eliminate all dependency. The point is to make the real
+architecture visible, intentional, and cheap to change.
+
+---
+
+## 19. A good default practice
+
+If you only adopt a small part of Gordian, make it this:
+
+```bash
+gordian diagnose
+gordian explain-pair <interesting-pair>
+gordian subgraph <active-family>
+gordian gate --baseline gordian-baseline.edn
+```
+
+That combination gives you:
+- triage
+- interpretation
+- local context
+- enforcement
+
+Which is usually enough to keep a codebase from quietly tangling itself.
