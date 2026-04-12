@@ -129,9 +129,9 @@
 (deftest mini-matrix-test
   (let [html (sut/mini-matrix (first details))]
     (is (.contains html "<table"))
-    (is (.contains html ">0<"))
-    (is (.contains html ">1<"))
-    (is (.contains html ">2<"))
+    (is (.contains html ">foo.a<"))
+    (is (.contains html ">foo.b<"))
+    (is (.contains html ">foo.c<"))
     (is (.contains html ">X<"))))
 
 (deftest block-detail-section-test

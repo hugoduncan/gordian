@@ -176,7 +176,8 @@
 
 (defn mini-matrix
   [{:keys [members internal-edges]}]
-  (let [size     (count members)
+  (let [members  (vec members)
+        size     (count members)
         edge-set (set internal-edges)
         idxs     (range size)]
     (tag "table" {:class "mini-matrix"}
@@ -184,12 +185,18 @@
           (tag "thead"
                (tag "tr"
                     (str (tag "th" "")
-                         (join-html (map (fn [i] (tag "th" i)) idxs)))))
+                         (join-html (map (fn [i]
+                                           (tag "th"
+                                                {:title (str (members i))}
+                                                (str (members i))))
+                                         idxs)))))
           (tag "tbody"
                (join-html
                 (map (fn [row]
                        (tag "tr"
-                            (str (tag "th" row)
+                            (str (tag "th"
+                                      {:title (str (members row))}
+                                      (str (members row)))
                                  (join-html
                                   (map (fn [col]
                                          (cond
