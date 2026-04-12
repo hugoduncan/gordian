@@ -313,6 +313,10 @@ diagnose.clj    ranked findings (7 categories)               pure
 explain.clj     drill-down queries (ns + pair + verdict)     pure
 compare.clj     snapshot diff (health, nodes, pairs, etc.)   pure
 cluster.clj     union-find finding clustering                pure
+gate.clj        CI / ratchet checks over compare diffs       pure
+prioritize.clj  actionability scoring and ranking            pure
+subgraph.clj    family/subsystem slicing and summaries       pure
+communities.clj architecture community discovery             pure
 envelope.clj    metadata envelope for EDN/JSON               pure
 output.clj      human-readable table + markdown              pure
 dot.clj         Graphviz DOT string                          pure
@@ -410,9 +414,11 @@ a668948  feat: subgraph views + explain prefix fallback
 
 ```
 77a8e1b  feat: communities discovery command
+b34940c  docs: update PLAN for completed Phase D work and remaining follow-ups
+5e196a0  docs: update state with communities commit hash
 ```
 
-242 tests, 1563 assertions, 0 failures.
+242 tests, 1564 assertions, 0 failures.
 
 Communities (`gordian communities`):
 - new `communities.clj` pure module
@@ -482,8 +488,17 @@ New modules:
 
 ## Roadmap
 
-See PLAN.md. Phase C complete. Deferred items remain (v2):
-change window comparison, test mode, presets.
+See PLAN.md. Core Phase D complete.
+
+Remaining strategic work:
+- compare `--ref` mode
+- gate follow-ups (richer checks, cluster-aware checks, baseline workflows)
+- community-detection follow-ups (label propagation / modularity, richer bridge metrics)
+
+Deferred (v2):
+- change window comparison
+- test mode
+- presets
 
 ## Session 12 — user feedback analysis
 
