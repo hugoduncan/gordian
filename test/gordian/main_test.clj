@@ -327,7 +327,12 @@
   (testing "dsm --include-tests"
     (let [opts (sut/parse-args ["dsm" "--include-tests"])]
       (is (= :dsm (:command opts)))
-      (is (true? (:include-tests opts))))))
+      (is (true? (:include-tests opts)))))
+
+  (testing "dsm --html-file out.html"
+    (let [opts (sut/parse-args ["dsm" "--html-file" "out.html"])]
+      (is (= :dsm (:command opts)))
+      (is (= "out.html" (:html-file opts))))))
 
 (deftest parse-args-tests-test
   (testing "tests -> :command :tests"
@@ -456,7 +461,26 @@
           parsed (json/parse-string out true)]
       (is (= "dsm" (name (:gordian/command parsed))))
       (is (contains? parsed :collapsed))
-      (is (contains? parsed :scc-details)))))
+      (is (contains? parsed :scc-details))))
+
+  (testing "dsm writes html file when requested"
+    (let [tmp (str (java.io.File/createTempFile "gordian-dsm" ".html"))]
+      (with-out-str (sut/dsm-cmd {:src-dirs ["resources/fixture"] :html-file tmp}))
+      (let [html (slurp tmp)]
+        (is (str/includes? html "<!DOCTYPE html>"))
+        (is (str/includes? html "<title>Gordian DSM</title>"))
+        (is (pos? (count html))))
+      (io/delete-file tmp)))
+
+  (testing "dsm can emit edn and html artifact together"
+    (let [tmp (str (java.io.File/createTempFile "gordian-dsm" ".html"))
+          out (with-out-str (sut/dsm-cmd {:src-dirs ["resources/fixture"]
+                                          :edn true
+                                          :html-file tmp}))
+          parsed (read-string out)]
+      (is (= :dsm (:gordian/command parsed)))
+      (is (.exists (io/file tmp)))
+      (io/delete-file tmp))))
 
 (deftest tests-integration-test
   (testing "tests produces output"

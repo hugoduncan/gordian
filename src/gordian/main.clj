@@ -15,6 +15,7 @@
             [gordian.compare     :as compare]
             [gordian.cluster     :as cluster]
             [gordian.gate        :as gate]
+            [gordian.html        :as html]
             [gordian.prioritize  :as prioritize]
             [gordian.subgraph    :as subgraph]
             [gordian.communities :as communities]
@@ -38,6 +39,7 @@
    :json                  {:desc "Output JSON to stdout (suppresses table)" :coerce :boolean}
    :edn                   {:desc "Output EDN to stdout (suppresses table)"  :coerce :boolean}
    :markdown              {:desc "Output Markdown to stdout (suppresses table)" :coerce :boolean}
+   :html-file             {:desc "Write self-contained HTML report to <file>"}
    :conceptual            {:desc "Conceptual coupling analysis; provide similarity threshold e.g. 0.30"
                            :coerce :double}
    :change                {:desc "Change coupling analysis; optional repo dir (default: .)"}
@@ -77,6 +79,7 @@ Options:
   --json                        Output JSON to stdout (suppresses human-readable table)
   --edn                         Output EDN to stdout (suppresses human-readable table)
   --markdown                    Output Markdown to stdout (suppresses human-readable table)
+  --html-file <file>            Write self-contained HTML report to <file>
   --conceptual <float>          Conceptual coupling analysis at given similarity threshold
   --change [<repo-dir>]         Change coupling analysis; repo dir defaults to .
   --change-since <date>         Limit to commits after <date> e.g. \"90 days ago\"
@@ -113,6 +116,7 @@ Examples:
   gordian subgraph gordian
   gordian communities . --lens combined
   gordian dsm .
+  gordian dsm . --html-file dsm.html
   gordian tests .
   gordian explain gordian.scan        drill into a namespace
   gordian explain-pair a.core b.svc   drill into a pair")
@@ -468,12 +472,14 @@ Examples:
 
 (defn dsm-cmd
   "Run DSM with resolved opts map."
-  [{:keys [src-dirs json edn markdown exclude]
+  [{:keys [src-dirs json edn markdown exclude html-file]
     :as opts}]
   (let [direct (-> (scan/scan-dirs src-dirs)
                    (gfilter/filter-graph exclude))
         data   (assoc (dsm/dsm-report direct)
                       :src-dirs src-dirs)]
+    (when html-file
+      (spit html-file (html/dsm-html data)))
     (cond
       json     (println (report-json/generate (envelope/wrap opts data :dsm)))
       edn      (print   (report-edn/generate  (envelope/wrap opts data :dsm)))
