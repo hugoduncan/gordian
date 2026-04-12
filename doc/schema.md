@@ -15,7 +15,7 @@ Every command's output includes these top-level keys:
 |-----|------|-------------|
 | `gordian/version` | string | Gordian version (e.g. `"0.2.0"`) |
 | `gordian/schema` | integer | Schema version. Bumped on breaking changes. |
-| `gordian/command` | keyword | `analyze`, `diagnose`, `explain`, or `explain-pair` |
+| `gordian/command` | keyword | `analyze`, `diagnose`, `compare`, `gate`, `subgraph`, `communities`, `dsm`, `tests`, `explain`, or `explain-pair` |
 | `lenses` | map | Which analysis lenses ran and their parameters |
 | `src-dirs` | vector of strings | Source directories analysed |
 | `excludes` | vector of strings | Namespace exclusion patterns applied |
@@ -348,6 +348,77 @@ or combined signals.
  :weight  double
  :sources #{keyword}}
 ```
+
+---
+
+## dsm
+
+Command: `gordian dsm [dirs...] --edn`
+
+Dependency Structure Matrix view over SCC blocks.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `gordian/command` | keyword | `:dsm` |
+| `basis` | keyword | `:scc` in v1 |
+| `collapsed` | map | Collapsed SCC matrix over the condensation graph |
+| `scc-details` | vector of maps | Mini-matrix detail for each non-singleton SCC |
+
+### Collapsed shape
+
+```edn
+{:block-count integer
+ :blocks      [block]
+ :edges       [collapsed-edge]
+ :summary     collapsed-summary}
+```
+
+### Block shape
+
+```edn
+{:id                  integer
+ :members             [sym]
+ :size                integer
+ :cyclic?             boolean
+ :internal-edge-count integer
+ :density             double}
+```
+
+### Collapsed edge shape
+
+```edn
+{:from       integer
+ :to         integer
+ :edge-count integer}
+```
+
+`edge-count` is the number of namespace-level structural edges crossing from
+block `:from` to block `:to`.
+
+### Collapsed summary shape
+
+```edn
+{:block-count            integer
+ :singleton-block-count  integer
+ :cyclic-block-count     integer
+ :largest-block-size     integer
+ :inter-block-edge-count integer
+ :density                double}
+```
+
+### SCC detail shape
+
+```edn
+{:id                  integer
+ :members             [sym]
+ :size                integer
+ :internal-edges      [[int int]]
+ :internal-edge-count integer
+ :density             double}
+```
+
+`internal-edges` are local mini-matrix coordinates relative to the ordered
+`:members` vector.
 
 ---
 

@@ -344,6 +344,25 @@ Potential upgrades:
 - modularity/Louvain
 - stronger bridge/centrality metrics
 
+### DSM / SCC matrix view
+**Status:** ✅ v1 done
+
+Implemented:
+- `gordian dsm`
+- collapsed SCC matrix over the condensation graph
+- deterministic dependees-first SCC ordering
+- counted inter-block structural edges
+- SCC block summaries: size, cyclic?, internal-edge-count, density
+- detail mini-matrices for non-singleton SCCs
+- text / markdown / EDN / JSON output
+
+Potential follow-ups:
+- full namespace-level matrix as explicit debug/export mode
+- community-blocked DSM mode
+- richer matrix rendering for small collapsed graphs
+- compare / gate support for SCC/DSM metrics
+- drilldown on selected block or inter-block edge
+
 ### compnent/base/projects
 
 Add analysis for tor polylith structured projects. This probably mirrors

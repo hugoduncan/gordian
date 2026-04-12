@@ -607,6 +607,39 @@ Phase D items:
 - Community detection follow-ups: label propagation / modularity, richer bridge metrics
 - Compare `--ref` mode (`gordian compare --ref HEAD~4 --ref HEAD`)
 
+## Session 19 commits — DSM / SCC matrix view
+
+```
+44e239f  feat: add DSM SCC ordering foundation
+f060e9a  feat: add collapsed DSM edge and block metrics
+cb24517  feat: add DSM SCC detail matrix data
+f6cb438  feat: assemble pure DSM report data
+aa06636  feat: wire DSM command and output
+```
+
+284 tests, 1788 assertions, 0 failures.
+
+New command:
+- `gordian dsm`
+
+Design implemented:
+- collapsed SCC matrix over the condensation graph
+- deterministic dependees-first SCC ordering
+- counted inter-block structural edges
+- SCC block metadata: `:size`, `:cyclic?`, `:internal-edge-count`, `:density`
+- non-singleton SCC detail mini-matrices via local `:internal-edges` coordinates
+- text / markdown / EDN / JSON output
+
+New module:
+- `dsm.clj` — pure SCC/DSM shaping and report assembly
+
+Potential follow-ups:
+- full namespace-level matrix as explicit debug/export mode
+- community-blocked DSM mode
+- richer collapsed-matrix rendering for small graphs
+- compare / gate integration for SCC/DSM metrics
+- drilldown on one block or one inter-block relation
+
 Cleanup/feature:
 - Remove zombie API `scan-terms` / `scan-terms-dirs`
 - Shared `gordian.test-fixtures` ns
