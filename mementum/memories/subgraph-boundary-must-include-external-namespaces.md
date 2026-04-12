@@ -1,0 +1,1 @@
+💡 Subgraph boundary analysis must include external namespaces, not just project-internal ones. If outgoing boundary edges only count edges to known project nodes, subsystem leakage is underreported. Family/subgraph boundary summaries should include external deps like `clojure.set` and other non-project namespaces.
