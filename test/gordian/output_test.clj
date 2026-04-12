@@ -563,3 +563,111 @@
     (let [lines (sut/format-explain-pair-md explain-pair-data)
           change-section (drop-while #(not (str/includes? % "## Change Coupling")) lines)]
       (is (some #(str/includes? % "(no data)") change-section)))))
+
+;;; ── compare output ───────────────────────────────────────────────────────
+
+(def compare-diff
+  {:gordian/command  :compare
+   :before           {:gordian/version "0.2.0" :src-dirs ["src/"]}
+   :after            {:gordian/version "0.2.0" :src-dirs ["src/"]}
+   :health           {:before {:propagation-cost 0.21 :cycle-count 2 :ns-count 10}
+                      :after  {:propagation-cost 0.15 :cycle-count 0 :ns-count 11}
+                      :delta  {:propagation-cost -0.06 :cycle-count -2 :ns-count 1}}
+   :nodes            {:added   [{:ns 'd.new :metrics {:reach 0.05 :role :peripheral}}]
+                      :removed [{:ns 'c.old :metrics {:reach 0.10 :role :core}}]
+                      :changed [{:ns 'a.core
+                                 :before {:reach 0.30 :instability 0.40 :role :shared}
+                                 :after  {:reach 0.25 :instability 0.33 :role :core}
+                                 :delta  {:reach -0.05 :instability -0.07
+                                          :role {:before :shared :after :core}}}]}
+   :cycles           {:added [] :removed [#{:x :y}]}
+   :conceptual-pairs {:added   [{:ns-a 'a.core :ns-b 'd.new :score 0.28}]
+                      :removed [{:ns-a 'a.core :ns-b 'c.old :score 0.35}]
+                      :changed [{:ns-a 'a.core :ns-b 'b.core
+                                 :before {:score 0.45} :after {:score 0.32}
+                                 :delta {:score -0.13}}]}
+   :change-pairs     {:added [] :removed [] :changed []}
+   :findings         {:added   [{:severity :medium :category :hidden-conceptual
+                                 :subject {:ns-a 'a.core :ns-b 'd.new}
+                                 :reason "hidden conceptual coupling — score=0.28"}]
+                      :removed [{:severity :high :category :cycle
+                                 :subject {:members #{:x :y}}
+                                 :reason "2-namespace cycle"}]}})
+
+(deftest format-compare-test
+  (let [lines (sut/format-compare compare-diff)
+        text  (str/join "\n" lines)]
+
+    (testing "header"
+      (is (str/includes? text "gordian compare")))
+
+    (testing "health section shows before → after"
+      (is (str/includes? text "21.0%"))
+      (is (str/includes? text "15.0%")))
+
+    (testing "namespace changes"
+      (is (str/includes? text "d.new"))
+      (is (str/includes? text "c.old"))
+      (is (str/includes? text "a.core")))
+
+    (testing "cycles"
+      (is (str/includes? text "✅ removed")))
+
+    (testing "conceptual pairs"
+      (is (str/includes? text "0.28"))
+      (is (str/includes? text "0.35"))
+      (is (str/includes? text "0.45"))
+      (is (str/includes? text "0.32")))
+
+    (testing "findings"
+      (is (str/includes? text "hidden-conceptual"))
+      (is (str/includes? text "cycle")))))
+
+(deftest format-compare-md-test
+  (let [lines (sut/format-compare-md compare-diff)
+        text  (str/join "\n" lines)]
+
+    (testing "markdown header"
+      (is (str/includes? text "# gordian compare")))
+
+    (testing "health table"
+      (is (str/includes? text "| Propagation cost |"))
+      (is (str/includes? text "21.0%"))
+      (is (str/includes? text "15.0%")))
+
+    (testing "namespace sections"
+      (is (str/includes? text "`d.new`"))
+      (is (str/includes? text "`c.old`")))
+
+    (testing "cycles section"
+      (is (str/includes? text "✅ Removed")))
+
+    (testing "conceptual pairs section"
+      (is (str/includes? text "## Conceptual Pairs")))
+
+    (testing "findings section"
+      (is (str/includes? text "## Findings")))))
+
+(deftest format-compare-empty-diff-test
+  (let [empty-diff {:gordian/command :compare
+                    :before {:gordian/version "0.2.0" :src-dirs ["src/"]}
+                    :after  {:gordian/version "0.2.0" :src-dirs ["src/"]}
+                    :health {:before {:propagation-cost 0.10 :cycle-count 0 :ns-count 5}
+                             :after  {:propagation-cost 0.10 :cycle-count 0 :ns-count 5}
+                             :delta  {:propagation-cost 0.0 :cycle-count 0 :ns-count 0}}
+                    :nodes  {:added [] :removed [] :changed []}
+                    :cycles {:added [] :removed []}
+                    :conceptual-pairs {:added [] :removed [] :changed []}
+                    :change-pairs     {:added [] :removed [] :changed []}
+                    :findings         {:added [] :removed []}}
+        lines (sut/format-compare empty-diff)
+        text  (str/join "\n" lines)]
+
+    (testing "health is always shown"
+      (is (str/includes? text "HEALTH")))
+
+    (testing "empty sections are omitted"
+      (is (not (str/includes? text "NAMESPACES")))
+      (is (not (str/includes? text "CYCLES")))
+      (is (not (str/includes? text "CONCEPTUAL PAIRS")))
+      (is (not (str/includes? text "FINDINGS"))))))

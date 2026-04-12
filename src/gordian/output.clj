@@ -140,7 +140,7 @@
                                                           change-threshold)))]
     (into
      (into
-      [(str "gordian — namespace coupling report")
+      ["gordian — namespace coupling report"
        (str "src: " (str/join " " src-dirs))
        ""
        (str "propagation cost: " (format "%.4f" propagation-cost)
@@ -157,7 +157,7 @@
 
 (defn- format-finding-subject [{:keys [category subject]}]
   (case category
-    :cycle          (str (str/join " → " (sort (map str (:members subject)))))
+    :cycle          (str/join " → " (sort (map str (:members subject))))
     (:cross-lens-hidden :hidden-conceptual :hidden-change)
     (str (:ns-a subject) " ↔ " (:ns-b subject))
     (str (:ns subject))))
@@ -221,40 +221,76 @@
 
     []))
 
+(defn- format-finding-lines
+  "Format a single finding as lines (reusable for both flat and clustered)."
+  [f]
+  (concat
+   [(str (severity-marker (:severity f))
+         "  " (format-finding-subject f))
+    (str "  " (:reason f))]
+   (format-evidence-lines f)
+   [""]))
+
+(defn- format-cluster-section
+  "Format clusters as lines. Returns nil when no clusters."
+  [clusters]
+  (when (seq clusters)
+    (concat
+     ["" "CLUSTERS" ""]
+     (mapcat (fn [{:keys [namespaces findings max-severity summary]}]
+               (concat
+                [(str (severity-marker max-severity)
+                      "  cluster: " (str/join ", " (sort-by str namespaces)))
+                 (str "  " summary)
+                 ""]
+                (mapcat (fn [f]
+                          [(str "    " (severity-marker (:severity f))
+                                "  " (format-finding-subject f))
+                           (str "    " (:reason f))])
+                        findings)
+                [""]))
+             clusters))))
+
 (defn format-diagnose
   "Format findings as human-readable lines.
-  health — map from diagnose/health.
-  findings — sorted vec of finding maps."
-  [{:keys [src-dirs]} health findings]
-  (let [count-sev (fn [s] (count (filter #(= s (:severity %)) findings)))
-        n-high    (count-sev :high)
-        n-medium  (count-sev :medium)
-        n-low     (count-sev :low)
-        n-total   (count findings)]
-    (into
-     [(str "gordian diagnose — " n-total " finding" (when (not= 1 n-total) "s"))
-      (str "src: " (str/join " " src-dirs))
-      ""
-      "HEALTH"
-      (str "  propagation cost: "
-           (format "%.1f%%" (* 100.0 (:propagation-cost health)))
-           " (" (name (:health health)) ")")
-      (str "  cycles: " (if (zero? (:cycle-count health))
-                          "none"
-                          (:cycle-count health)))
-      (str "  namespaces: " (:ns-count health))
-      ""]
-     (concat
-      (mapcat (fn [f]
-                (concat
-                 [(str (severity-marker (:severity f))
-                       "  " (format-finding-subject f))
-                  (str "  " (:reason f))]
-                 (format-evidence-lines f)
-                 [""]))
-              findings)
-      [(str n-total " finding" (when (not= 1 n-total) "s")
-            " (" n-high " high, " n-medium " medium, " n-low " low)")]))))
+  health    — map from diagnose/health.
+  findings  — sorted vec of finding maps.
+  clusters  — optional {:clusters [...] :unclustered [...]} from cluster/cluster-findings."
+  ([report health findings]
+   (format-diagnose report health findings nil))
+  ([{:keys [src-dirs]} health findings clusters-data]
+   (let [count-sev (fn [s] (count (filter #(= s (:severity %)) findings)))
+         n-high    (count-sev :high)
+         n-medium  (count-sev :medium)
+         n-low     (count-sev :low)
+         n-total   (count findings)
+         has-clusters? (seq (:clusters clusters-data))]
+     (into
+      [(str "gordian diagnose — " n-total " finding" (when (not= 1 n-total) "s"))
+       (str "src: " (str/join " " src-dirs))
+       ""
+       "HEALTH"
+       (str "  propagation cost: "
+            (format "%.1f%%" (* 100.0 (:propagation-cost health)))
+            " (" (name (:health health)) ")")
+       (str "  cycles: " (if (zero? (:cycle-count health))
+                           "none"
+                           (:cycle-count health)))
+       (str "  namespaces: " (:ns-count health))
+       ""]
+      (concat
+       ;; When clusters exist, show clusters first, then unclustered
+       (if has-clusters?
+         (concat
+          (format-cluster-section (:clusters clusters-data))
+          (when (seq (:unclustered clusters-data))
+            (concat
+             ["UNCLUSTERED" ""]
+             (mapcat format-finding-lines (:unclustered clusters-data)))))
+         ;; No clustering: flat list as before
+         (mapcat format-finding-lines findings))
+       [(str n-total " finding" (when (not= 1 n-total) "s")
+             " (" n-high " high, " n-medium " medium, " n-low " low)")])))))
 
 ;;; ── explain output ───────────────────────────────────────────────────────
 
@@ -392,7 +428,7 @@
            conceptual-pairs conceptual-threshold
            change-pairs change-threshold]}]
   (into
-   [(str "# Gordian — Namespace Coupling Report")
+   ["# Gordian — Namespace Coupling Report"
     ""
     (str "**Source:** `" (str/join " " src-dirs) "`")
     ""
@@ -520,50 +556,78 @@
 
     []))
 
+(defn- md-format-finding [f]
+  (concat
+   [(str "### " (format-finding-subject f))
+    ""
+    (:reason f)
+    ""]
+   (md-evidence-lines f)
+   [""]))
+
+(defn- md-format-cluster-section [clusters]
+  (when (seq clusters)
+    (concat
+     ["## Clusters" ""]
+     (mapcat (fn [{:keys [namespaces findings max-severity summary]}]
+               (concat
+                [(str "### " (case max-severity :high "🔴" :medium "🟡" :low "🟢" "")
+                      " Cluster: " (str/join ", " (map #(str "`" % "`")
+                                                       (sort-by str namespaces))))
+                 ""
+                 (str "*" summary "*")
+                 ""]
+                (mapcat md-format-finding findings)))
+             clusters))))
+
 (defn format-diagnose-md
-  "Markdown rendering of findings."
-  [{:keys [src-dirs]} health findings]
-  (let [count-sev (fn [s] (count (filter #(= s (:severity %)) findings)))
-        n-high    (count-sev :high)
-        n-medium  (count-sev :medium)
-        n-low     (count-sev :low)
-        n-total   (count findings)
-        grouped   (group-by :severity findings)
-        sections  (keep (fn [sev]
-                          (when-let [fs (seq (get grouped sev))]
-                            (into [(md-severity-heading sev) ""]
-                                  (mapcat (fn [f]
-                                            (concat
-                                             [(str "### " (format-finding-subject f))
-                                              ""
-                                              (:reason f)
-                                              ""]
-                                             (md-evidence-lines f)
-                                             [""]))
-                                          fs))))
-                        [:high :medium :low])]
-    (into
-     [(str "# Gordian Diagnose — " n-total " Finding"
-           (when (not= 1 n-total) "s"))
-      ""
-      (str "**Source:** `" (str/join " " src-dirs) "`")
-      ""
-      "## Health"
-      ""
-      "| Metric | Value |"
-      "|--------|-------|"
-      (str "| Propagation cost | " (md-pct (:propagation-cost health))
-           " (" (name (:health health)) ") |")
-      (str "| Cycles | " (if (zero? (:cycle-count health))
-                           "none"
-                           (:cycle-count health)) " |")
-      (str "| Namespaces | " (:ns-count health) " |")]
-     (concat
-      (mapcat identity sections)
-      ["---"
+  "Markdown rendering of findings.
+  clusters-data — optional {:clusters [...] :unclustered [...]}."
+  ([report health findings]
+   (format-diagnose-md report health findings nil))
+  ([{:keys [src-dirs]} health findings clusters-data]
+   (let [count-sev (fn [s] (count (filter #(= s (:severity %)) findings)))
+         n-high    (count-sev :high)
+         n-medium  (count-sev :medium)
+         n-low     (count-sev :low)
+         n-total   (count findings)
+         has-clusters? (seq (:clusters clusters-data))]
+     (into
+      [(str "# Gordian Diagnose — " n-total " Finding"
+            (when (not= 1 n-total) "s"))
        ""
-       (str "**" n-total " finding" (when (not= 1 n-total) "s")
-            "** (" n-high " high, " n-medium " medium, " n-low " low)")]))))
+       (str "**Source:** `" (str/join " " src-dirs) "`")
+       ""
+       "## Health"
+       ""
+       "| Metric | Value |"
+       "|--------|-------|"
+       (str "| Propagation cost | " (md-pct (:propagation-cost health))
+            " (" (name (:health health)) ") |")
+       (str "| Cycles | " (if (zero? (:cycle-count health))
+                            "none"
+                            (:cycle-count health)) " |")
+       (str "| Namespaces | " (:ns-count health) " |")]
+      (concat
+       (if has-clusters?
+         (concat
+          (md-format-cluster-section (:clusters clusters-data))
+          (when (seq (:unclustered clusters-data))
+            (concat
+             ["## Unclustered" ""]
+             (mapcat md-format-finding (:unclustered clusters-data)))))
+         ;; No clustering: by-severity grouping as before
+         (let [grouped  (group-by :severity findings)]
+           (mapcat identity
+                   (keep (fn [sev]
+                           (when-let [fs (seq (get grouped sev))]
+                             (into [(md-severity-heading sev) ""]
+                                   (mapcat md-format-finding fs))))
+                         [:high :medium :low]))))
+       ["---"
+        ""
+        (str "**" n-total " finding" (when (not= 1 n-total) "s")
+             "** (" n-high " high, " n-medium " medium, " n-low " low)")])))))
 
 (defn format-explain-ns-md
   "Markdown rendering of explain-ns data."
@@ -713,6 +777,237 @@
                 "**" (str/replace (name (:category verdict)) "-" " ")
                 "** — " (:explanation verdict))]))))))
 
+;;; ── compare output (text) ─────────────────────────────────────────────────
+
+(defn- arrow [delta]
+  (cond (pos? delta) "↑" (neg? delta) "↓" :else "→"))
+
+(defn- delta-str [v fmt]
+  (let [s (format fmt v)]
+    (cond (pos? v) (str "+" s)
+          :else    s)))
+
+(defn- format-compare-health [{:keys [before after delta]}]
+  [(str "  propagation cost: "
+        (format "%.1f%%" (* 100.0 (:propagation-cost before)))
+        " → " (format "%.1f%%" (* 100.0 (:propagation-cost after)))
+        "  " (arrow (:propagation-cost delta))
+        (delta-str (:propagation-cost delta) "%.1f%%"))
+   (str "  cycles: " (:cycle-count before) " → " (:cycle-count after)
+        (when (not= 0 (:cycle-count delta))
+          (str "  " (arrow (:cycle-count delta))
+               (delta-str (:cycle-count delta) "%d"))))
+   (str "  namespaces: " (:ns-count before) " → " (:ns-count after)
+        (when (not= 0 (:ns-count delta))
+          (str "  " (arrow (:ns-count delta))
+               (delta-str (:ns-count delta) "%d"))))])
+
+(defn- format-compare-nodes [{:keys [added removed changed]}]
+  (concat
+   (when (seq removed)
+     (cons "  Removed:"
+           (mapv #(str "    - " (:ns %)) removed)))
+   (when (seq added)
+     (cons "  Added:"
+           (mapv #(str "    + " (:ns %)) added)))
+   (when (seq changed)
+     (cons "  Changed:"
+           (mapcat (fn [{:keys [ns delta]}]
+                     [(str "    " ns
+                           (when-let [r (:role delta)]
+                             (str "  role: " (:before r) " → " (:after r)))
+                           (when-let [d (:instability delta)]
+                             (str "  I" (delta-str d "%.2f")))
+                           (when-let [d (:reach delta)]
+                             (str "  reach" (delta-str (* 100.0 d) "%.1f%%")))
+                           (when-let [d (:ca delta)]
+                             (str "  Ca" (delta-str d "%.0f")))
+                           (when-let [d (:ce delta)]
+                             (str "  Ce" (delta-str d "%.0f"))))])
+                   changed)))))
+
+(defn- format-compare-cycles [{:keys [added removed]}]
+  (concat
+   (when (seq removed)
+     (mapv #(str "  ✅ removed: " (str/join " ↔ " (sort-by str %))) removed))
+   (when (seq added)
+     (mapv #(str "  🔴 added: " (str/join " ↔ " (sort-by str %))) added))))
+
+(defn- format-compare-pairs [{:keys [added removed changed]}]
+  (concat
+   (when (seq removed)
+     (mapv #(str "  ✅ removed: " (:ns-a %) " ↔ " (:ns-b %)
+                 " (was " (format "%.2f" (get-in % [:score])) ")")
+           removed))
+   (when (seq added)
+     (mapv #(str "  🔴 added: " (:ns-a %) " ↔ " (:ns-b %)
+                 " (" (format "%.2f" (:score %)) ")")
+           added))
+   (when (seq changed)
+     (mapv #(str "  " (arrow (get-in % [:delta :score])) " "
+                 (:ns-a %) " ↔ " (:ns-b %)
+                 "  " (format "%.2f" (get-in % [:before :score]))
+                 " → " (format "%.2f" (get-in % [:after :score]))
+                 "  (" (delta-str (get-in % [:delta :score]) "%.2f") ")")
+           changed))))
+
+(defn- format-compare-findings [{:keys [added removed]}]
+  (concat
+   (when (seq removed)
+     (mapv #(str "  ✅ " (name (:category %)) ": "
+                 (format-finding-subject %) " — " (:reason %))
+           removed))
+   (when (seq added)
+     (mapv #(str "  🔴 " (name (:category %)) ": "
+                 (format-finding-subject %) " — " (:reason %))
+           added))))
+
+(defn- section-if-nonempty
+  "Emit header + lines only when content is non-empty."
+  [header lines]
+  (when (seq lines)
+    (into [header] lines)))
+
+(defn format-compare
+  "Format a compare diff as human-readable lines."
+  [diff]
+  (let [health   (:health diff)
+        nodes    (:nodes diff)
+        cycles   (:cycles diff)
+        c-pairs  (:conceptual-pairs diff)
+        x-pairs  (:change-pairs diff)
+        findings (:findings diff)]
+    (into
+     ["gordian compare"
+      ""
+      "HEALTH"]
+     (concat
+      (format-compare-health health)
+      [""]
+      (section-if-nonempty "NAMESPACES" (format-compare-nodes nodes))
+      (when (seq (format-compare-nodes nodes)) [""])
+      (section-if-nonempty "CYCLES" (format-compare-cycles cycles))
+      (when (seq (format-compare-cycles cycles)) [""])
+      (section-if-nonempty "CONCEPTUAL PAIRS" (format-compare-pairs c-pairs))
+      (when (seq (format-compare-pairs c-pairs)) [""])
+      (section-if-nonempty "CHANGE PAIRS" (format-compare-pairs x-pairs))
+      (when (seq (format-compare-pairs x-pairs)) [""])
+      (section-if-nonempty "FINDINGS" (format-compare-findings findings))))))
+
+;;; ── compare output (markdown) ────────────────────────────────────────────
+
+(defn format-compare-md
+  "Format a compare diff as markdown lines."
+  [diff]
+  (let [health   (:health diff)
+        nodes    (:nodes diff)
+        cycles   (:cycles diff)
+        c-pairs  (:conceptual-pairs diff)
+        x-pairs  (:change-pairs diff)
+        findings (:findings diff)]
+    (into
+     ["# gordian compare" ""]
+     (concat
+      ;; health table
+      ["## Health" ""
+       "| Metric | Before | After | Δ |"
+       "|--------|--------|-------|---|"
+       (str "| Propagation cost | "
+            (format "%.1f%%" (* 100.0 (get-in health [:before :propagation-cost])))
+            " | "
+            (format "%.1f%%" (* 100.0 (get-in health [:after :propagation-cost])))
+            " | " (delta-str (get-in health [:delta :propagation-cost]) "%.1f%%") " |")
+       (str "| Cycles | " (get-in health [:before :cycle-count])
+            " | " (get-in health [:after :cycle-count])
+            " | " (delta-str (get-in health [:delta :cycle-count]) "%d") " |")
+       (str "| Namespaces | " (get-in health [:before :ns-count])
+            " | " (get-in health [:after :ns-count])
+            " | " (delta-str (get-in health [:delta :ns-count]) "%d") " |")
+       ""]
+      ;; namespaces
+      (when (or (seq (:added nodes)) (seq (:removed nodes)) (seq (:changed nodes)))
+        (concat
+         ["## Namespaces" ""]
+         (when (seq (:added nodes))
+           (cons "**Added:**"
+                 (conj (mapv #(str "- `" (:ns %) "`") (:added nodes)) "")))
+         (when (seq (:removed nodes))
+           (cons "**Removed:**"
+                 (conj (mapv #(str "- `" (:ns %) "`") (:removed nodes)) "")))
+         (when (seq (:changed nodes))
+           (concat
+            ["**Changed:**" ""
+             "| Namespace | Metric | Before | After | Δ |"
+             "|-----------|--------|--------|-------|---|"]
+            (mapcat (fn [{:keys [ns before after delta]}]
+                      (keep (fn [k]
+                              (when-let [d (get delta k)]
+                                (if (map? d)
+                                  (str "| `" ns "` | " (name k) " | " (:before d) " | " (:after d) " | — |")
+                                  (str "| `" ns "` | " (name k) " | "
+                                       (let [bv (get before k)] (if (float? bv) (format "%.2f" bv) bv))
+                                       " | "
+                                       (let [av (get after k)] (if (float? av) (format "%.2f" av) av))
+                                       " | " (if (float? d) (delta-str d "%.2f") (delta-str d "%d")) " |"))))
+                            (keys delta)))
+                    (:changed nodes))
+            [""]))))
+      ;; cycles
+      (when (or (seq (:added cycles)) (seq (:removed cycles)))
+        (concat
+         ["## Cycles" ""]
+         (when (seq (:removed cycles))
+           (mapv #(str "- ✅ Removed: " (str/join " ↔ " (sort-by str %))) (:removed cycles)))
+         (when (seq (:added cycles))
+           (mapv #(str "- 🔴 Added: " (str/join " ↔ " (sort-by str %))) (:added cycles)))
+         [""]))
+      ;; conceptual pairs
+      (when (or (seq (:added c-pairs)) (seq (:removed c-pairs)) (seq (:changed c-pairs)))
+        (concat
+         ["## Conceptual Pairs" ""]
+         (when (seq (:removed c-pairs))
+           (mapv #(str "- ✅ `" (:ns-a %) "` ↔ `" (:ns-b %) "` (was " (format "%.2f" (:score %)) ")")
+                 (:removed c-pairs)))
+         (when (seq (:added c-pairs))
+           (mapv #(str "- 🔴 `" (:ns-a %) "` ↔ `" (:ns-b %) "` (" (format "%.2f" (:score %)) ")")
+                 (:added c-pairs)))
+         (when (seq (:changed c-pairs))
+           (mapv #(str "- " (arrow (get-in % [:delta :score]))
+                       " `" (:ns-a %) "` ↔ `" (:ns-b %) "`"
+                       " " (format "%.2f" (get-in % [:before :score]))
+                       " → " (format "%.2f" (get-in % [:after :score]))
+                       " (" (delta-str (get-in % [:delta :score]) "%.2f") ")")
+                 (:changed c-pairs)))
+         [""]))
+      ;; change pairs
+      (when (or (seq (:added x-pairs)) (seq (:removed x-pairs)) (seq (:changed x-pairs)))
+        (concat
+         ["## Change Pairs" ""]
+         (when (seq (:removed x-pairs))
+           (mapv #(str "- ✅ `" (:ns-a %) "` ↔ `" (:ns-b %) "` (was " (format "%.2f" (:score %)) ")")
+                 (:removed x-pairs)))
+         (when (seq (:added x-pairs))
+           (mapv #(str "- 🔴 `" (:ns-a %) "` ↔ `" (:ns-b %) "` (" (format "%.2f" (:score %)) ")")
+                 (:added x-pairs)))
+         (when (seq (:changed x-pairs))
+           (mapv #(str "- " (arrow (get-in % [:delta :score]))
+                       " `" (:ns-a %) "` ↔ `" (:ns-b %) "`"
+                       " " (format "%.2f" (get-in % [:before :score]))
+                       " → " (format "%.2f" (get-in % [:after :score]))
+                       " (" (delta-str (get-in % [:delta :score]) "%.2f") ")")
+                 (:changed x-pairs)))
+         [""]))
+      ;; findings
+      (when (or (seq (:added findings)) (seq (:removed findings)))
+        (concat
+         ["## Findings" ""]
+         (when (seq (:removed findings))
+           (mapv #(str "- ✅ " (name (:category %)) ": " (:reason %))
+                 (:removed findings)))
+         (when (seq (:added findings))
+           (mapv #(str "- 🔴 " (name (:category %)) ": " (:reason %))
+                 (:added findings)))))))))
+
 ;;; ── IO ───────────────────────────────────────────────────────────────────
 
 (defn print-report
@@ -723,8 +1018,10 @@
 
 (defn print-diagnose
   "Print a human-readable diagnose report to stdout."
-  [report health findings]
-  (run! println (format-diagnose report health findings)))
+  ([report health findings]
+   (run! println (format-diagnose report health findings)))
+  ([report health findings clusters]
+   (run! println (format-diagnose report health findings clusters))))
 
 (defn print-explain-ns
   "Print a human-readable explain-ns report to stdout."
@@ -735,3 +1032,8 @@
   "Print a human-readable explain-pair report to stdout."
   [data]
   (run! println (format-explain-pair data)))
+
+(defn print-compare
+  "Print a human-readable compare report to stdout."
+  [diff]
+  (run! println (format-compare diff)))

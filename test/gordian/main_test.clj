@@ -234,6 +234,24 @@
   (testing "explain-pair with no args → error"
     (is (contains? (sut/parse-args ["explain-pair"]) :error))))
 
+(deftest parse-args-compare-test
+  (testing "compare <a> <b> → :command :compare"
+    (let [opts (sut/parse-args ["compare" "before.edn" "after.edn"])]
+      (is (= :compare (:command opts)))
+      (is (= "before.edn" (:before-file opts)))
+      (is (= "after.edn" (:after-file opts)))))
+
+  (testing "compare with --markdown"
+    (let [opts (sut/parse-args ["compare" "a.edn" "b.edn" "--markdown"])]
+      (is (= :compare (:command opts)))
+      (is (true? (:markdown opts)))))
+
+  (testing "compare with one arg → error"
+    (is (contains? (sut/parse-args ["compare" "only.edn"]) :error)))
+
+  (testing "compare with no args → error"
+    (is (contains? (sut/parse-args ["compare"]) :error))))
+
 ;;; ── diagnose integration ─────────────────────────────────────────────────
 
 (deftest diagnose-integration-test

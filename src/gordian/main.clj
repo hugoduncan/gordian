@@ -12,6 +12,8 @@
             [gordian.diagnose    :as diagnose]
             [gordian.discover    :as discover]
             [gordian.explain     :as explain]
+            [gordian.compare     :as compare]
+            [gordian.cluster     :as cluster]
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
             [gordian.family      :as family]
@@ -19,7 +21,8 @@
             [gordian.dot         :as dot]
             [gordian.json        :as report-json]
             [gordian.edn         :as report-edn]
-            [babashka.cli        :as cli]))
+            [babashka.cli        :as cli]
+            [clojure.edn         :as edn]))
 
 ;;; ── CLI spec ─────────────────────────────────────────────────────────────
 
@@ -37,7 +40,7 @@
    :help          {:desc "Show this help message"                   :coerce :boolean}})
 
 (def ^:private usage-summary
-  "Usage: gordian [analyze|diagnose] [<dir-or-src>...] [options]
+  "Usage: gordian [analyze|diagnose|compare|explain|explain-pair] [<dir-or-src>...] [options]
 
 When given a project root (dir with deps.edn, bb.edn, etc.), gordian
 auto-discovers source directories. With no arguments, defaults to '.'.
@@ -45,6 +48,7 @@ auto-discovers source directories. With no arguments, defaults to '.'.
 Commands:
   analyze      (default) Raw metrics table + optional coupling sections
   diagnose     Ranked findings with severity levels (auto-enables all lenses)
+  compare      Compare two saved EDN snapshots (before.edn after.edn)
   explain      Everything gordian knows about a namespace
   explain-pair Everything gordian knows about a pair of namespaces
 
@@ -73,6 +77,8 @@ Examples:
   gordian src/ --change --change-since \"90 days ago\"
   gordian diagnose                    ranked findings (auto-enables all lenses)
   gordian diagnose . --edn            machine-readable diagnose output
+  gordian compare before.edn after.edn     compare two snapshots
+  gordian compare before.edn after.edn --markdown
   gordian explain gordian.scan        drill into a namespace
   gordian explain-pair a.core b.svc   drill into a pair")
 
@@ -94,7 +100,8 @@ Examples:
     {:command :diagnose|:explain|:explain-pair ...}"
   [raw-args]
   (let [command  ({"analyze" :analyze "diagnose" :diagnose
-                   "explain" :explain "explain-pair" :explain-pair}
+                   "explain" :explain "explain-pair" :explain-pair
+                   "compare" :compare}
                   (first raw-args))
         raw-args (if command (rest raw-args) raw-args)
         {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})]
@@ -104,6 +111,13 @@ Examples:
 
       (< 1 (count (filter identity [(:json opts) (:edn opts) (:markdown opts)])))
       {:error "--json, --edn, and --markdown are mutually exclusive"}
+
+      (= :compare command)
+      (if (and (first args) (second args))
+        (assoc opts :command :compare
+               :before-file (first args)
+               :after-file (second args))
+        {:error "compare requires two EDN file arguments: <before.edn> <after.edn>"})
 
       (= :explain command)
       (if (first args)
@@ -259,12 +273,15 @@ Examples:
         report      (build-report src-dirs conceptual change-opts exclude)
         health      (diagnose/health report)
         findings    (diagnose/diagnose report)
-        enriched    (assoc report :findings findings :health health)]
+        clusters    (cluster/cluster-findings findings)
+        enriched    (assoc report :findings findings :health health
+                           :clusters (:clusters clusters)
+                           :unclustered (:unclustered clusters))]
     (cond
       json     (println (report-json/generate (envelope/wrap opts enriched :diagnose)))
       edn      (print   (report-edn/generate  (envelope/wrap opts enriched :diagnose)))
-      markdown (run! println (output/format-diagnose-md report health findings))
-      :else    (output/print-diagnose report health findings))))
+      markdown (run! println (output/format-diagnose-md report health findings clusters))
+      :else    (output/print-diagnose report health findings clusters))))
 
 (defn explain-cmd
   "Run explain with resolved opts map.
@@ -282,6 +299,21 @@ Examples:
       edn      (print   (report-edn/generate  (envelope/wrap opts data :explain)))
       markdown (run! println (output/format-explain-ns-md data))
       :else    (output/print-explain-ns data))))
+
+(defn compare-cmd
+  "Run compare with parsed opts map.
+  Reads two EDN files and produces a diff report."
+  [{:keys [before-file after-file json edn markdown]}]
+  (let [read-edn (fn [path]
+                   (edn/read-string (slurp path)))
+        before   (read-edn before-file)
+        after    (read-edn after-file)
+        diff     (compare/compare-reports before after)]
+    (cond
+      json     (println (report-json/generate diff))
+      edn      (print   (report-edn/generate diff))
+      markdown (run! println (output/format-compare-md diff))
+      :else    (output/print-compare diff))))
 
 (defn explain-pair-cmd
   "Run explain-pair with resolved opts map."
@@ -308,17 +340,19 @@ Examples:
                           (println)
                           (print-help)
                           (System/exit 1))
-      :else           (let [opts (resolve-opts parsed)]
-                        (if (:error opts)
-                          (do (println (str "Error: " (:error opts)))
-                              (println)
-                              (print-help)
-                              (System/exit 1))
-                          (case (:command opts)
-                            :diagnose     (diagnose-cmd opts)
-                            :explain      (explain-cmd opts)
-                            :explain-pair (explain-pair-cmd opts)
-                            (analyze opts)))))))
+      :else           (if (= :compare (:command parsed))
+                        (compare-cmd parsed)
+                        (let [opts (resolve-opts parsed)]
+                          (if (:error opts)
+                            (do (println (str "Error: " (:error opts)))
+                                (println)
+                                (print-help)
+                                (System/exit 1))
+                            (case (:command opts)
+                              :diagnose     (diagnose-cmd opts)
+                              :explain      (explain-cmd opts)
+                              :explain-pair (explain-pair-cmd opts)
+                              (analyze opts))))))))
 
 (defn -main [& args]
   (run args))
