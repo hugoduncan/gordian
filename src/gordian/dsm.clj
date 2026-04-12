@@ -137,3 +137,41 @@
                    :internal-edge-count edge-count
                    :density (block-density graph members))))
         blocks))
+
+(defn ordered-members
+  "Return deterministic local member ordering for an SCC detail matrix."
+  [members]
+  (->> members (sort-by str) vec))
+
+(defn internal-edge-coords
+  "Return local [i j] coordinates for internal edges under ordered-members."
+  [graph members]
+  (let [members    (vec members)
+        index-of   (zipmap members (range))
+        member-set (set members)]
+    (->> members
+         (mapcat (fn [from]
+                   (let [i (get index-of from)]
+                     (->> (get graph from #{})
+                          (filter member-set)
+                          (sort-by str)
+                          (mapv (fn [to] [i (get index-of to)]))))))
+         vec)))
+
+(defn scc-detail
+  "Return one detail record for a non-singleton SCC block."
+  [graph {:keys [id members] :as _block}]
+  (let [members' (ordered-members members)]
+    {:id id
+     :members members'
+     :size (count members')
+     :internal-edges (internal-edge-coords graph members')
+     :internal-edge-count (internal-edge-count graph members')
+     :density (block-density graph members')}))
+
+(defn scc-details
+  "Return detail records for all non-singleton SCC blocks in block-id order."
+  [graph blocks]
+  (->> blocks
+       (filter #(< 1 (:size %)))
+       (mapv (partial scc-detail graph))))

@@ -127,3 +127,50 @@
     (testing "preserves member ordering"
       (is (= [['c] ['a 'b]]
              (mapv :members annotated))))))
+
+(deftest ordered-members-test
+  (is (= ['alpha.core 'middle.ns 'zeta.core]
+         (sut/ordered-members ['zeta.core 'alpha.core 'middle.ns]))))
+
+(deftest internal-edge-coords-test
+  (testing "2-node mutual dep returns both local coordinates"
+    (is (= [[0 1] [1 0]]
+           (sut/internal-edge-coords {'a #{'b}
+                                      'b #{'a}}
+                                     ['a 'b]))))
+
+  (testing "omits non-existent edges"
+    (is (= [[0 1] [1 2] [2 0]]
+           (sut/internal-edge-coords {'a #{'b}
+                                      'b #{'c}
+                                      'c #{'a}}
+                                     ['a 'b 'c])))))
+
+(deftest scc-detail-test
+  (let [graph {'a #{'b}
+               'b #{'a 'c}
+               'c #{}}
+        block {:id 1 :members ['b 'a] :size 2}]
+    (is (= {:id 1
+            :members ['a 'b]
+            :size 2
+            :internal-edges [[0 1] [1 0]]
+            :internal-edge-count 2
+            :density 1.0}
+           (sut/scc-detail graph block)))))
+
+(deftest scc-details-test
+  (let [graph {'a #{'b}
+               'b #{'a 'c}
+               'c #{}
+               'x #{'y}
+               'y #{'x}}
+        blocks [{:id 0 :members ['c] :size 1}
+                {:id 1 :members ['a 'b] :size 2}
+                {:id 2 :members ['x 'y] :size 2}]
+        details (sut/scc-details graph blocks)]
+    (testing "excludes singleton SCCs"
+      (is (= [1 2] (mapv :id details))))
+
+    (testing "includes multiple cyclic SCCs in block-id order"
+      (is (= [1 2] (mapv :id details))))))
