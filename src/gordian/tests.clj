@@ -132,8 +132,8 @@
   "Executable test namespaces with any incoming project deps. Incoming source
   deps are more severe, but plain test reuse is still surfaced here."
   [graph origins profiles]
-  (let [incoming    (incoming-index graph)
-        profile-by  (into {} (map (juxt :ns identity)) profiles)]
+  (let [incoming   (incoming-index graph)
+        profile-by (into {} (map (juxt :ns identity)) profiles)]
     (->> profiles
          (filter #(= :executable (:test-role %)))
          (keep (fn [{:keys [ns ca] :as _profile}]
@@ -380,3 +380,42 @@
         (find-suite-coupling-findings pc))
        (sort-by finding-sort-key)
        vec))
+
+(defn- count-by-key
+  [k xs]
+  (reduce (fn [acc x] (update acc (k x) (fnil inc 0))) {} xs))
+
+(defn tests-report
+  "Assemble the full pure report for the `gordian tests` command.
+  `structural-report-from-graph` is injected to keep this namespace pure and
+  easy to test."
+  [graph origins structural-report-from-graph]
+  (let [full-report  (structural-report-from-graph graph)
+        src-report   (structural-report-from-graph (src-only-graph graph origins))
+        profiles     (test-profiles full-report origins)
+        invariants   (invariants full-report origins profiles)
+        coverage     (core-coverage src-report full-report origins)
+        pc           (pc-summary src-report full-report)
+        findings     (tests-findings graph origins src-report full-report profiles invariants coverage pc)
+        src-count    (count (filter #(= :src (val %)) origins))
+        test-count   (count (filter #(= :test (val %)) origins))]
+    {:gordian/command :tests
+     :summary         {:src-count src-count
+                       :test-count test-count
+                       :test-role-counts  (count-by-key :test-role profiles)
+                       :test-style-counts (count-by-key :test-style profiles)
+                       :pc-src (:pc-src pc)
+                       :pc-with-tests (:pc-with-tests pc)
+                       :pc-delta (:pc-delta pc)
+                       :src->test-edge-count (count (:src->test-edges invariants))
+                       :test-support-leaked-to-src-count (count (:support-leaked-to-src invariants))
+                       :executable-tests-with-incoming-deps-count (count (:executable-tests-with-incoming-deps invariants))
+                       :unit-test-too-broad-count (count (filter #(= :unit-test-too-broad (:category %)) findings))
+                       :untested-core-count (count (:untested-core coverage))}
+     :src-report       src-report
+     :full-report      full-report
+     :test-namespaces  profiles
+     :invariants       invariants
+     :core-coverage    coverage
+     :pc-summary       pc
+     :findings         findings}))

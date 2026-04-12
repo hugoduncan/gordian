@@ -253,3 +253,63 @@
            categories))
     (is (= [:high :high :high :medium :medium :medium :medium :low]
            severities))))
+
+(deftest tests-report-test
+  (let [graph {'app.core-test #{'app.core 'app.test-support}
+               'app.integration-test #{'app.main}
+               'app.test-support #{}
+               'app.core #{'app.db}
+               'app.main #{'app.core}
+               'app.db #{}}
+        origins {'app.core-test :test
+                 'app.integration-test :test
+                 'app.test-support :test
+                 'app.core :src
+                 'app.main :src
+                 'app.db :src}
+        structural-report-from-graph
+        (fn [g]
+          (let [src-only? (not (contains? g 'app.core-test))
+                nodes (if src-only?
+                        [{:ns 'app.core :role :core :ca 1 :reach 0.0 :fan-in 0.3 :ce 1 :instability 0.5}
+                         {:ns 'app.main :role :peripheral :ca 0 :reach 0.6 :fan-in 0.0 :ce 1 :instability 1.0}
+                         {:ns 'app.db :role :core :ca 1 :reach 0.0 :fan-in 0.2 :ce 0 :instability 0.0}]
+                        [{:ns 'app.core-test :role :isolated :ca 0 :reach 0.05 :fan-in 0.0 :ce 2 :instability 1.0}
+                         {:ns 'app.integration-test :role :peripheral :ca 0 :reach 0.55 :fan-in 0.0 :ce 1 :instability 1.0}
+                         {:ns 'app.test-support :role :core :ca 1 :reach 0.0 :fan-in 0.2 :ce 0 :instability 0.0}
+                         {:ns 'app.core :role :core :ca 3 :reach 0.0 :fan-in 0.4 :ce 1 :instability 0.25}
+                         {:ns 'app.main :role :peripheral :ca 0 :reach 0.7 :fan-in 0.0 :ce 1 :instability 1.0}
+                         {:ns 'app.db :role :core :ca 1 :reach 0.0 :fan-in 0.2 :ce 0 :instability 0.0}])]
+            {:graph g
+             :nodes nodes
+             :cycles []
+             :propagation-cost (if src-only? 0.10 0.22)}))
+        report (sut/tests-report graph origins structural-report-from-graph)]
+    (testing "top-level shape"
+      (is (= :tests (:gordian/command report)))
+      (is (contains? report :summary))
+      (is (contains? report :test-namespaces))
+      (is (contains? report :invariants))
+      (is (contains? report :core-coverage))
+      (is (contains? report :pc-summary))
+      (is (contains? report :findings)))
+
+    (testing "summary counts"
+      (is (= 3 (get-in report [:summary :src-count])))
+      (is (= 3 (get-in report [:summary :test-count])))
+      (is (= {:executable 2 :support 1}
+             (get-in report [:summary :test-role-counts])))
+      (is (= 1 (get-in report [:summary :untested-core-count]))))
+
+    (testing "profiles reflect derived styles"
+      (let [by-ns (into {} (map (juxt :ns identity)) (:test-namespaces report))]
+        (is (= :unit-ish (get-in by-ns ['app.core-test :test-style])))
+        (is (= :integration-ish (get-in by-ns ['app.integration-test :test-style])))
+        (is (= :support (get-in by-ns ['app.test-support :test-style])))))
+
+    (testing "core coverage and pc summary are included"
+      (is (= [{:ns 'app.core :role :core :ca-src 1 :ca-with-tests 3 :ca-delta 2}]
+             (get-in report [:core-coverage :tested-core])))
+      (is (= [{:ns 'app.db :role :core :ca-src 1 :ca-with-tests 1 :ca-delta 0}]
+             (get-in report [:core-coverage :untested-core])))
+      (is (= :over-coupled (get-in report [:pc-summary :interpretation]))))))
