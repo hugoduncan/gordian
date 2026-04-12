@@ -452,6 +452,47 @@
      :inter-block-edge-count inter-block-edge-count
      :density density}))
 
+(defn partition-cost
+  "Return total cost of the optimal partition for ordered namespaces."
+  [graph ordered alpha]
+  (let [edges     (ordered-edges graph ordered)
+        n         (count ordered)
+        parts     (optimal-partition graph ordered alpha)]
+    (reduce (fn [acc [a b]]
+              (+ acc (block-cost edges n alpha a b)))
+            0.0
+            parts)))
+
+(defn valid-adjacent-swap?
+  "True when adjacent nodes at idx and idx+1 are incomparable in the dependency graph."
+  [graph ordered idx]
+  (let [project (project-graph graph)
+        closed  (close/close project)
+        a       (nth ordered idx nil)
+        b       (nth ordered (inc idx) nil)]
+    (and a b
+         (not (contains? (get closed a #{}) b))
+         (not (contains? (get closed b #{}) a)))))
+
+(defn- swap-adjacent
+  [v idx]
+  (assoc v idx (v (inc idx)) (inc idx) (v idx)))
+
+(defn refine-order
+  "Deterministically improve order by accepting leftmost cost-lowering valid adjacent swaps."
+  [graph ordered alpha]
+  (loop [ordered (vec ordered)]
+    (let [base-cost (partition-cost graph ordered alpha)
+          candidate (first (for [idx (range (dec (count ordered)))
+                                 :when (valid-adjacent-swap? graph ordered idx)
+                                 :let [swapped (swap-adjacent ordered idx)
+                                       cost    (partition-cost graph swapped alpha)]
+                                 :when (< cost base-cost)]
+                             swapped))]
+      (if candidate
+        (recur candidate)
+        ordered))))
+
 (defn dsm-report
   "Assemble the complete pure DSM payload from a structural graph."
   [graph]

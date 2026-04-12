@@ -377,6 +377,36 @@
     (is (= 1.0 (sut/co-usage-similarity obs 'a 'b)))
     (is (= 0.3333333333333333 (sut/co-usage-similarity obs 'a 'c)))))
 
+(deftest valid-adjacent-swap-test
+  (testing "rejects swap when dependency relation exists"
+    (is (false? (sut/valid-adjacent-swap? {'a #{'b}
+                                           'b #{'c}
+                                           'c #{}}
+                                          ['c 'b 'a]
+                                          1))))
+
+  (testing "accepts swap for incomparable adjacent nodes"
+    (is (true? (sut/valid-adjacent-swap? {'a #{}
+                                          'b #{}}
+                                         ['a 'b]
+                                         0)))))
+
+(deftest refine-order-test
+  (testing "refinement deterministic for same input"
+    (let [graph {'a #{} 'b #{} 'c #{}}
+          ordered ['a 'b 'c]]
+      (is (= (sut/refine-order graph ordered 1.5)
+             (sut/refine-order graph ordered 1.5)))))
+
+  (testing "refinement never worsens partition cost"
+    (let [graph {'a #{}
+                 'b #{}
+                 'c #{}}
+          ordered ['a 'b 'c]
+          refined (sut/refine-order graph ordered 1.5)]
+      (is (<= (sut/partition-cost graph refined 1.5)
+              (sut/partition-cost graph ordered 1.5))))))
+
 (deftest dsm-report-test
   (let [graph {'a #{'b}
                'b #{'a 'c}
