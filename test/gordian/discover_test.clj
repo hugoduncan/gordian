@@ -96,3 +96,26 @@
       (is (= ["/a/src"]
              (sut/resolve-dirs {:src-dirs ["/a/src"] :test-dirs []}
                                {:include-tests true}))))))
+
+(deftest resolve-paths-test
+  (let [discovered {:src-dirs  ["/a/src" "/b/src"]
+                    :test-dirs ["/a/test"]}]
+
+    (testing "src-only by default"
+      (is (= [{:dir "/a/src" :kind :src}
+              {:dir "/b/src" :kind :src}]
+             (sut/resolve-paths discovered {}))))
+
+    (testing "with :include-tests → typed test dirs appended"
+      (is (= [{:dir "/a/src" :kind :src}
+              {:dir "/b/src" :kind :src}
+              {:dir "/a/test" :kind :test}]
+             (sut/resolve-paths discovered {:include-tests true}))))
+
+    (testing "empty discover result → empty vec"
+      (is (= [] (sut/resolve-paths {:src-dirs [] :test-dirs []} {}))))
+
+    (testing "empty test-dirs + include-tests → just typed src dirs"
+      (is (= [{:dir "/a/src" :kind :src}]
+             (sut/resolve-paths {:src-dirs ["/a/src"] :test-dirs []}
+                                {:include-tests true}))))))

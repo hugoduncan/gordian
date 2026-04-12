@@ -58,3 +58,13 @@
   (if include-tests
     (into (vec src-dirs) test-dirs)
     (vec src-dirs)))
+
+(defn resolve-paths
+  "Given discover result + options, return typed path entries.
+  Includes test dirs only when :include-tests is truthy.
+  Result shape: [{:dir string :kind :src|:test} ...]."
+  [{:keys [src-dirs test-dirs]} {:keys [include-tests]}]
+  (vec (concat
+        (mapv (fn [dir] {:dir dir :kind :src}) src-dirs)
+        (when include-tests
+          (mapv (fn [dir] {:dir dir :kind :test}) test-dirs)))))
