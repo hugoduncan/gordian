@@ -1,5 +1,7 @@
 (ns gordian.dsm
-  (:require [clojure.string :as str]
+  (:require [clojure.set :as set]
+            [clojure.string :as str]
+            [gordian.close :as close]
             [gordian.scc :as scc]))
 
 (defn- condensation-edges
@@ -381,6 +383,31 @@
             (recur (inc t)
                    (assoc dp t best-cost)
                    (assoc back t best-a))))))))
+
+(defn transitive-consumers
+  "Return {ns -> #{project namespaces that transitively depend on ns}}."
+  [graph]
+  (let [project   (project-graph graph)
+        reversed  (reverse-graph project)
+        closed    (close/close reversed)]
+    (into {}
+          (map (fn [ns]
+                 [ns (disj (get closed ns #{}) ns)]))
+          (keys project))))
+
+(defn jaccard
+  "Jaccard similarity of two sets. Empty/empty = 1.0."
+  [a b]
+  (let [u (count (set/union a b))]
+    (if (zero? u)
+      1.0
+      (/ (count (set/intersection a b))
+         (double u)))))
+
+(defn co-usage-similarity
+  "Return transitive-consumer Jaccard similarity for namespace pair."
+  [obs a b]
+  (jaccard (get obs a #{}) (get obs b #{})))
 
 (defn block-members
   "Map inclusive interval partitions back to ordered namespace member vectors."

@@ -355,6 +355,28 @@
     (is (= 1 (:inter-block-edge-count summary)))
     (is (= 0.5 (:density summary)))))
 
+(deftest transitive-consumers-test
+  (let [graph {'a #{'b}
+               'b #{'c}
+               'c #{}}
+        obs   (sut/transitive-consumers graph)]
+    (is (= #{'a 'b} (get obs 'c)))
+    (is (= #{'a} (get obs 'b)))
+    (is (= #{} (get obs 'a)))))
+
+(deftest jaccard-test
+  (is (= 1.0 (sut/jaccard #{} #{})))
+  (is (= 1.0 (sut/jaccard #{1 2} #{1 2})))
+  (is (= 0.0 (sut/jaccard #{1} #{2})))
+  (is (= 0.3333333333333333 (sut/jaccard #{1 2} #{2 3}))))
+
+(deftest co-usage-similarity-test
+  (let [obs {'a #{'x 'y}
+             'b #{'x 'y}
+             'c #{'y 'z}}]
+    (is (= 1.0 (sut/co-usage-similarity obs 'a 'b)))
+    (is (= 0.3333333333333333 (sut/co-usage-similarity obs 'a 'c)))))
+
 (deftest dsm-report-test
   (let [graph {'a #{'b}
                'b #{'a 'c}
