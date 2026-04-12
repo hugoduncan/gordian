@@ -1,14 +1,6 @@
 (ns gordian.dsm
-  (:require [gordian.scc :as scc]))
-
-(defn block-label
-  "Return a stable label basis for an SCC block.
-  Uses the lexicographically smallest member namespace name."
-  [members]
-  (->> members
-       (map str)
-       sort
-       first))
+  (:require [clojure.string :as str]
+            [gordian.scc :as scc]))
 
 (defn- condensation-edges
   [graph sccs]
@@ -55,6 +47,8 @@
                  (sort-by labels (into ready' newly-ready))
                  (conj order n)))
         order))))
+
+(declare block-label)
 
 (defn ordered-sccs
   "Return SCCs in deterministic topological order of the condensation graph.
@@ -205,6 +199,103 @@
                  [ns (into #{} (filter project-ns) deps)]))
           graph)))
 
+(defn reverse-graph
+  "Reverse all edges in a project graph, preserving all nodes as keys."
+  [graph]
+  (reduce-kv (fn [rev from deps]
+               (reduce (fn [m to]
+                         (update m to (fnil conj #{}) from))
+                       rev
+                       deps))
+             (zipmap (keys graph) (repeat #{}))
+             graph))
+
+(defn topo-order
+  "Return a dependees-first topological order for an acyclic graph.
+  Stable lexical tie-break by namespace name."
+  [graph]
+  (let [rev      (reverse-graph graph)
+        nodes    (sort-by str (keys rev))
+        indegree (reduce-kv (fn [m _from tos]
+                              (reduce (fn [m' to] (update m' to (fnil inc 0)))
+                                      m
+                                      tos))
+                            (zipmap nodes (repeat 0))
+                            rev)]
+    (loop [indegree indegree
+           ready    (sort-by str (filter #(zero? (get indegree % 0)) nodes))
+           order    []]
+      (if-let [n (first ready)]
+        (let [ready' (vec (rest ready))
+              [indegree' newly-ready]
+              (reduce (fn [[m rs] to]
+                        (let [m' (update m to dec)]
+                          (if (zero? (get m' to))
+                            [m' (conj rs to)]
+                            [m' rs])))
+                      [indegree []]
+                      (sort-by str (get rev n #{})))]
+          (recur indegree'
+                 (sort-by str (into ready' newly-ready))
+                 (conj order n)))
+        order))))
+
+(defn dfs-topo-order
+  "Return a deterministic DFS post-order linearization, reversed into
+  dependees-first topological order. Tie-break lexicographically by namespace."
+  [graph]
+  (let [nodes   (sort-by str (keys graph))
+        seen    (atom #{})
+        out     (atom [])]
+    (letfn [(visit [n]
+              (when-not (contains? @seen n)
+                (swap! seen conj n)
+                (doseq [dep (sort-by str (get graph n #{}))]
+                  (visit dep))
+                (swap! out conj n)))]
+      (doseq [n nodes]
+        (visit n))
+      (vec @out))))
+
+(defn ordered-nodes
+  "Return deterministic project-internal namespace order for DSM layout."
+  [graph]
+  (-> graph project-graph dfs-topo-order))
+
+(defn common-prefix
+  "Return the common dot-prefix of namespace strings, or nil if none."
+  [members]
+  (let [parts (map #(str/split (str %) #"\.") members)
+        prefix (->> (apply map vector parts)
+                    (take-while (fn [xs] (apply = xs)))
+                    (map first)
+                    vec)]
+    (when (seq prefix)
+      (str/join "." prefix))))
+
+(defn block-label
+  "Return a stable representative label basis for a block."
+  [members]
+  (or (common-prefix members)
+      (->> members (map str) sort first)))
+
+(defn index-of
+  "Map ordered namespaces to 0-based positions."
+  [ordered]
+  (zipmap ordered (range)))
+
+(defn ordered-edges
+  "Return project-internal edges as sorted index pairs [from to]."
+  [graph ordered]
+  (let [idx        (index-of ordered)
+        project-ns (set ordered)]
+    (->> ordered
+         (mapcat (fn [from]
+                   (for [to (sort-by str (get graph from #{}))
+                         :when (project-ns to)]
+                     [(idx from) (idx to)])))
+         vec)))
+
 (defn dsm-report
   "Assemble the complete pure DSM payload from a structural graph."
   [graph]
@@ -215,6 +306,8 @@
                      (annotate-blocks graph))
         edges   (collapsed-edges graph blocks)]
     {:basis :scc
+     :ordering {:strategy :dfs-topo
+                :nodes (ordered-nodes graph)}
      :collapsed {:block-count (count blocks)
                  :blocks blocks
                  :edges edges

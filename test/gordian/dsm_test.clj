@@ -3,10 +3,14 @@
             [gordian.dsm :as sut]))
 
 (deftest block-label-test
-  (testing "singleton SCC → member name"
+  (testing "singleton block → member name"
     (is (= "foo.core" (sut/block-label ['foo.core]))))
 
-  (testing "multi-member SCC → lexicographically smallest member"
+  (testing "multi-member block → common prefix when present"
+    (is (= "alpha"
+           (sut/block-label ['alpha.beta 'alpha.gamma 'alpha.delta]))))
+
+  (testing "falls back to lexicographically smallest member when no common prefix"
     (is (= "alpha.beta"
            (sut/block-label ['zeta.core 'alpha.beta 'middle.ns])))))
 
@@ -204,14 +208,73 @@
             'c #{}}
            result))))
 
+(deftest reverse-graph-test
+  (is (= {'a #{}
+          'b #{'a}
+          'c #{'b}}
+         (sut/reverse-graph {'a #{'b}
+                             'b #{'c}
+                             'c #{}}))))
+
+(deftest topo-order-test
+  (is (= ['c 'b 'a]
+         (sut/topo-order {'a #{'b}
+                          'b #{'c}
+                          'c #{}}))))
+
+(deftest dfs-topo-order-test
+  (testing "returns dependees-first order"
+    (is (= ['c 'b 'a]
+           (sut/dfs-topo-order {'a #{'b}
+                                'b #{'c}
+                                'c #{}}))))
+
+  (testing "deterministic under map variation"
+    (is (= (sut/dfs-topo-order {'a #{'b}
+                                'b #{'c}
+                                'c #{}})
+           (sut/dfs-topo-order {'c #{}
+                                'a #{'b}
+                                'b #{'c}}))))
+
+  (testing "lexical tie-break on incomparable nodes"
+    (is (= ['myapp.billing.core 'myapp.reporting.core]
+           (sut/dfs-topo-order {'myapp.reporting.core #{}
+                                'myapp.billing.core #{}})))))
+
+(deftest ordered-nodes-test
+  (let [graph {'a #{'b 'ext.lib}
+               'b #{'c}
+               'c #{}}
+        ordered (sut/ordered-nodes graph)]
+    (is (= ['c 'b 'a] ordered))
+    (is (= #{'a 'b 'c} (set ordered)))
+    (is (= 3 (count ordered)))))
+
+(deftest index-of-test
+  (is (= {'c 0 'b 1 'a 2}
+         (sut/index-of ['c 'b 'a]))))
+
+(deftest ordered-edges-test
+  (is (= [[1 0] [2 1]]
+         (sut/ordered-edges {'a #{'b}
+                             'b #{'c 'ext.lib}
+                             'c #{}}
+                            ['c 'b 'a]))))
+
 (deftest dsm-report-test
   (let [graph {'a #{'b}
                'b #{'a 'c}
                'c #{'ext.lib}}
         report (sut/dsm-report graph)]
-    (testing "returns both collapsed and scc-details"
+    (testing "returns collapsed, ordering, and scc-details"
       (is (contains? report :collapsed))
+      (is (contains? report :ordering))
       (is (contains? report :scc-details)))
+
+    (testing "ordering contains project-only ordered nodes"
+      (is (= ['c 'b 'a]
+             (get-in report [:ordering :nodes]))))
 
     (testing "includes all project SCCs in collapsed blocks"
       (is (= 2 (count (get-in report [:collapsed :blocks])))))
