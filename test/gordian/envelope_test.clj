@@ -10,6 +10,7 @@
    :cycles                []
    :nodes                 [{:ns 'a.core :reach 0.5 :fan-in 0.2}]
    :graph                 {'a.core #{'b.util}}
+   :ns->terms             {'a.core ["alpha" "beta"]}
    :conceptual-pairs      [{:ns-a 'a.core :ns-b 'b.util :score 0.35}]
    :conceptual-threshold  0.20
    :conceptual-candidate-count 42
@@ -86,6 +87,8 @@
   (let [env (sut/wrap opts analyze-report :analyze)]
     (testing ":graph stripped from output"
       (is (not (contains? env :graph))))
+    (testing ":ns->terms stripped from output"
+      (is (not (contains? env :ns->terms))))
     (testing "threshold keys stripped (moved to :lenses)"
       (is (not (contains? env :conceptual-threshold)))
       (is (not (contains? env :change-threshold))))

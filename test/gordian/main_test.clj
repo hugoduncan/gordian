@@ -159,11 +159,14 @@
     (let [report (sut/build-report ["resources/fixture"] 0.01)]
       (is (contains? report :conceptual-pairs))
       (is (contains? report :conceptual-threshold))
+      (is (contains? report :ns->terms))
+      (is (map? (:ns->terms report)))
       (is (number? (:conceptual-threshold report)))))
 
   (testing "build-report without threshold has no conceptual keys"
     (let [report (sut/build-report ["resources/fixture"])]
-      (is (not (contains? report :conceptual-pairs))))))
+      (is (not (contains? report :conceptual-pairs)))
+      (is (not (contains? report :ns->terms))))))
 
 ;;; ── print-help ───────────────────────────────────────────────────────────
 
