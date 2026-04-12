@@ -47,13 +47,13 @@
   (tag "section" {:class "summary-cards"}
        (join-html
         [(tag "div" {:class "card"}
-              (str (tag "div" {:class "label"} "SCC Blocks")
+              (str (tag "div" {:class "label"} "Blocks")
                    (tag "div" {:class "value"} (:block-count summary))))
          (tag "div" {:class "card"}
-              (str (tag "div" {:class "label"} "Cyclic SCCs")
-                   (tag "div" {:class "value"} (:cyclic-block-count summary))))
+              (str (tag "div" {:class "label"} "Singleton blocks")
+                   (tag "div" {:class "value"} (:singleton-block-count summary))))
          (tag "div" {:class "card"}
-              (str (tag "div" {:class "label"} "Largest SCC")
+              (str (tag "div" {:class "label"} "Largest block")
                    (tag "div" {:class "value"} (:largest-block-size summary))))
          (tag "div" {:class "card"}
               (str (tag "div" {:class "label"} "Inter-block edges")

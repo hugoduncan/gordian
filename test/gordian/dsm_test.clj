@@ -331,29 +331,54 @@
                                       1.5)]
       (is (= [[0 2] [3 3]] part)))))
 
+(deftest block-members-test
+  (is (= [['c 'b] ['a]]
+         (sut/block-members ['c 'b 'a] [[0 1] [2 2]]))))
+
+(deftest block-edge-counts-test
+  (let [graph {'a #{'b}
+               'b #{'c}
+               'c #{}}
+        blocks [{:id 0 :members ['c 'b] :size 2}
+                {:id 1 :members ['a] :size 1}]]
+    (is (= [{:from 1 :to 0 :edge-count 1}]
+           (sut/block-edge-counts graph blocks)))))
+
+(deftest block-summary-test
+  (let [blocks [{:id 0 :size 2}
+                {:id 1 :size 1}]
+        edges [{:from 1 :to 0 :edge-count 1}]
+        summary (sut/block-summary blocks edges)]
+    (is (= 2 (:block-count summary)))
+    (is (= 1 (:singleton-block-count summary)))
+    (is (= 2 (:largest-block-size summary)))
+    (is (= 1 (:inter-block-edge-count summary)))
+    (is (= 0.5 (:density summary)))))
+
 (deftest dsm-report-test
   (let [graph {'a #{'b}
                'b #{'a 'c}
                'c #{'ext.lib}}
         report (sut/dsm-report graph)]
-    (testing "returns collapsed, ordering, and scc-details"
-      (is (contains? report :collapsed))
+    (testing "returns basis, ordering, blocks, edges, summary, and details"
+      (is (= :diagonal-blocks (:basis report)))
       (is (contains? report :ordering))
-      (is (contains? report :scc-details)))
+      (is (contains? report :blocks))
+      (is (contains? report :edges))
+      (is (contains? report :summary))
+      (is (contains? report :details)))
 
     (testing "ordering contains project-only ordered nodes"
       (is (= ['c 'b 'a]
              (get-in report [:ordering :nodes]))))
 
-    (testing "includes all project SCCs in collapsed blocks"
-      (is (= 2 (count (get-in report [:collapsed :blocks])))))
-
-    (testing "excludes external-only dependency nodes from blocks"
+    (testing "blocks cover all project namespaces exactly once"
       (is (= #{'a 'b 'c}
-             (set (mapcat :members (get-in report [:collapsed :blocks]))))))
+             (set (mapcat :members (:blocks report))))))
 
-    (testing "includes only non-singleton SCCs in scc-details"
-      (is (= [1] (mapv :id (:scc-details report)))))
+    (testing "details correspond to block ids"
+      (is (= (mapv :id (:blocks report))
+             (mapv :id (:details report)))))
 
     (testing "is deterministic for same input graph"
       (is (= report (sut/dsm-report graph))))))

@@ -382,20 +382,74 @@
                    (assoc dp t best-cost)
                    (assoc back t best-a))))))))
 
+(defn block-members
+  "Map inclusive interval partitions back to ordered namespace member vectors."
+  [ordered intervals]
+  (mapv (fn [[a b]] (subvec (vec ordered) a (inc b))) intervals))
+
+(defn block-edge-counts
+  "Return counted inter-block edges for a partition-defined block set."
+  [graph blocks]
+  (collapsed-edges graph blocks))
+
+(defn block-detail
+  "Return one detail record for a block."
+  [graph {:keys [id members] :as _block}]
+  (let [members' (vec members)]
+    {:id id
+     :members members'
+     :size (count members')
+     :internal-edges (internal-edge-coords graph members')
+     :internal-edge-count (internal-edge-count graph members')
+     :density (block-density graph members')}))
+
+(defn block-details
+  "Return detail records for all blocks in block-id order."
+  [graph blocks]
+  (mapv (partial block-detail graph) blocks))
+
+(defn block-summary
+  "Return top-level summary metrics for partitioned DSM blocks."
+  [blocks edges]
+  (let [block-count            (count blocks)
+        singleton-block-count  (count (filter #(= 1 (:size %)) blocks))
+        largest-block-size     (apply max 0 (map :size blocks))
+        inter-block-edge-count (reduce + 0 (map :edge-count edges))
+        density                (if (<= block-count 1)
+                                 0.0
+                                 (double (/ inter-block-edge-count
+                                            (* block-count (dec block-count)))))]
+    {:block-count block-count
+     :singleton-block-count singleton-block-count
+     :largest-block-size largest-block-size
+     :inter-block-edge-count inter-block-edge-count
+     :density density}))
+
 (defn dsm-report
   "Assemble the complete pure DSM payload from a structural graph."
   [graph]
-  (let [graph   (project-graph graph)
-        blocks  (->> graph
-                     ordered-sccs
-                     index-blocks
-                     (annotate-blocks graph))
-        edges   (collapsed-edges graph blocks)]
-    {:basis :scc
+  (let [graph    (project-graph graph)
+        ordered  (ordered-nodes graph)
+        alpha    1.5
+        parts    (optimal-partition graph ordered alpha)
+        blocks   (->> parts
+                      (block-members ordered)
+                      index-blocks
+                      (annotate-blocks graph))
+        edges    (block-edge-counts graph blocks)
+        details  (block-details graph blocks)
+        summary  (block-summary blocks edges)]
+    {:basis :diagonal-blocks
      :ordering {:strategy :dfs-topo
-                :nodes (ordered-nodes graph)}
+                :alpha alpha
+                :nodes ordered}
+     :blocks blocks
+     :edges edges
+     :summary summary
+     :details details
+     ;; compatibility during renderer migration
      :collapsed {:block-count (count blocks)
                  :blocks blocks
                  :edges edges
-                 :summary (collapsed-summary blocks edges)}
-     :scc-details (scc-details graph blocks)}))
+                 :summary summary}
+     :scc-details details}))

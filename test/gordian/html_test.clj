@@ -39,7 +39,7 @@
 
 (def summary
   {:block-count 12
-   :cyclic-block-count 2
+   :singleton-block-count 2
    :largest-block-size 4
    :inter-block-edge-count 9
    :density 0.1364})
@@ -61,10 +61,10 @@
 
 (deftest summary-cards-test
   (let [html (sut/summary-cards summary)]
-    (is (.contains html "SCC Blocks"))
+    (is (.contains html "Blocks"))
     (is (.contains html ">12<"))
-    (is (.contains html "Cyclic SCCs"))
-    (is (.contains html "Largest SCC"))
+    (is (.contains html "Singleton blocks"))
+    (is (.contains html "Largest block"))
     (is (.contains html "Inter-block edges"))
     (is (.contains html "0.1364"))))
 
