@@ -18,7 +18,6 @@
             [gordian.prioritize  :as prioritize]
             [gordian.subgraph    :as subgraph]
             [gordian.communities :as communities]
-            [gordian.glossary    :as glossary]
             [gordian.tests       :as tests]
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
@@ -49,14 +48,12 @@
    :rank                  {:desc "Diagnose ranking: severity or actionability" :coerce :keyword}
    :lens                  {:desc "Communities lens: structural | conceptual | change | combined" :coerce :keyword}
    :threshold             {:desc "Communities threshold" :coerce :double}
-   :top                   {:desc "Glossary maximum number of entries to show" :coerce :long}
-   :min-score             {:desc "Glossary minimum score required for inclusion" :coerce :double}
    :include-tests         {:desc "Include test directories in auto-discovery" :coerce :boolean}
    :exclude               {:desc "Exclude namespaces matching regex (repeatable)" :coerce [:string]}
    :help                  {:desc "Show this help message" :coerce :boolean}})
 
 (def ^:private usage-summary
-  "Usage: gordian [analyze|diagnose|compare|gate|subgraph|communities|glossary|tests|explain|explain-pair] [<dir-or-src>...] [options]
+  "Usage: gordian [analyze|diagnose|compare|gate|subgraph|communities|tests|explain|explain-pair] [<dir-or-src>...] [options]
 
 When given a project root (dir with deps.edn, bb.edn, etc.), gordian
 auto-discovers source directories. With no arguments, defaults to '.'.
@@ -68,7 +65,6 @@ Commands:
   gate         Compare current codebase against a saved baseline and fail CI on regressions
   subgraph     Family/subsystem view for a namespace prefix
   communities  Discover latent architecture communities
-  glossary     Extract a ranked project vocabulary / glossary
   tests        Analyze test architecture and test-vs-source coupling
   explain      Everything gordian knows about a namespace
   explain-pair Everything gordian knows about a pair of namespaces
@@ -89,8 +85,6 @@ Options:
   --rank <mode>                 Diagnose ranking: severity or actionability
   --lens <mode>                 Communities lens: structural | conceptual | change | combined
   --threshold <float>           Communities threshold
-  --top <n>                     Glossary maximum number of entries to show
-  --min-score <float>           Glossary minimum score required for inclusion
   --include-tests               Include test directories in auto-discovery
   --exclude <regex>             Exclude namespaces matching regex (repeatable)
   --help                        Show this help message
@@ -115,7 +109,6 @@ Examples:
   gordian diagnose . --rank actionability
   gordian subgraph gordian
   gordian communities . --lens combined
-  gordian glossary . --top 20
   gordian tests .
   gordian explain gordian.scan        drill into a namespace
   gordian explain-pair a.core b.svc   drill into a pair")
@@ -140,8 +133,7 @@ Examples:
   (let [command  ({"analyze" :analyze "diagnose" :diagnose
                    "explain" :explain "explain-pair" :explain-pair
                    "compare" :compare "gate" :gate "subgraph" :subgraph
-                   "communities" :communities "glossary" :glossary
-                   "tests" :tests}
+                   "communities" :communities "tests" :tests}
                   (first raw-args))
         raw-args (if command (rest raw-args) raw-args)
         {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})]
@@ -174,10 +166,6 @@ Examples:
 
       (= :communities command)
       (assoc opts :command :communities
-             :src-dirs (if (seq args) (vec args) ["."]))
-
-      (= :glossary command)
-      (assoc opts :command :glossary
              :src-dirs (if (seq args) (vec args) ["."]))
 
       (= :tests command)
@@ -471,27 +459,6 @@ Examples:
       markdown (run! println (output/format-communities-md data))
       :else    (output/print-communities data))))
 
-(defn glossary-cmd
-  "Run glossary with resolved opts map.
-  Auto-enables conceptual analysis and derives community evidence for ranking."
-  [{:keys [src-dirs json edn markdown conceptual change change-since exclude top min-score]
-    :as opts}]
-  (let [conceptual  (or conceptual 0.15)
-        change      (if (nil? change) true change)
-        change-dir  (when change (if (string? change) change "."))
-        change-opts (when change-dir {:change change-dir :since change-since})
-        report      (build-report src-dirs conceptual change-opts exclude)
-        comms       (communities/community-report report {:lens :conceptual :threshold conceptual})
-        data        (glossary/glossary-report {:ns->terms         (:ns->terms report)
-                                               :conceptual-pairs (:conceptual-pairs report)
-                                               :communities      (:communities comms)}
-                                              {:top top :min-score min-score})]
-    (cond
-      json     (println (report-json/generate (envelope/wrap opts data :glossary)))
-      edn      (print   (report-edn/generate  (envelope/wrap opts data :glossary)))
-      markdown (run! println (output/format-glossary-md data))
-      :else    (output/print-glossary data))))
-
 (defn tests-cmd
   "Run tests mode with resolved opts map."
   [{:keys [json edn markdown] :as opts}]
@@ -577,7 +544,6 @@ Examples:
                               :gate         (System/exit (gate-cmd opts))
                               :subgraph     (subgraph-cmd opts)
                               :communities  (communities-cmd opts)
-                              :glossary     (glossary-cmd opts)
                               :tests        (tests-cmd opts)
                               :explain      (explain-cmd opts)
                               :explain-pair (explain-pair-cmd opts)
