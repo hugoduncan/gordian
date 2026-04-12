@@ -807,3 +807,76 @@
     (is (str/includes? text "## Community 1"))
     (is (str/includes? text "`state`"))
     (is (str/includes? text "### Members"))))
+
+;;; ── tests output ─────────────────────────────────────────────────────────
+
+(def tests-data
+  {:gordian/command :tests
+   :summary {:src-count 3
+             :test-count 3
+             :test-role-counts {:executable 2 :support 1}
+             :test-style-counts {:unit-ish 1 :integration-ish 1 :support 1}
+             :pc-src 0.10
+             :pc-with-tests 0.22
+             :pc-delta 0.12
+             :src->test-edge-count 1
+             :test-support-leaked-to-src-count 1
+             :executable-tests-with-incoming-deps-count 1}
+   :invariants {:shared-test-support [{:ns 'app.test-support}]}
+   :core-coverage {:tested-core [{:ns 'app.core}]
+                   :untested-core [{:ns 'app.db}]}
+   :pc-summary {:interpretation :over-coupled}
+   :test-namespaces [{:ns 'app.core-test
+                      :test-role :executable
+                      :test-style :unit-ish
+                      :reach 0.05
+                      :ca 0
+                      :ce 2
+                      :role :isolated}
+                     {:ns 'app.integration-test
+                      :test-role :executable
+                      :test-style :integration-ish
+                      :reach 0.55
+                      :ca 0
+                      :ce 1
+                      :role :peripheral}
+                     {:ns 'app.test-support
+                      :test-role :support
+                      :test-style :support
+                      :reach 0.0
+                      :ca 1
+                      :ce 0
+                      :role :core}]
+   :findings [{:severity :high
+               :category :src-depends-on-test
+               :subject {:ns 'app.core}
+               :reason "production namespace depends on test namespace app.test-support"
+               :evidence {:src 'app.core :test 'app.test-support :test-role :support}}
+              {:severity :medium
+               :category :untested-core
+               :subject {:ns 'app.db}
+               :reason "core namespace gains no direct test dependents"
+               :evidence {:ns 'app.db :role :core :ca-src 1 :ca-with-tests 1 :ca-delta 0}}]})
+
+(deftest format-tests-test
+  (let [text (str/join "\n" (sut/format-tests tests-data))]
+    (is (str/includes? text "gordian tests"))
+    (is (str/includes? text "SUMMARY"))
+    (is (str/includes? text "INVARIANTS"))
+    (is (str/includes? text "CORE COVERAGE"))
+    (is (str/includes? text "TEST NAMESPACES"))
+    (is (str/includes? text "role=executable"))
+    (is (str/includes? text "style=integration-ish"))
+    (is (str/includes? text "FINDINGS"))
+    (is (str/includes? text "● HIGH"))))
+
+(deftest format-tests-md-test
+  (let [text (str/join "\n" (sut/format-tests-md tests-data))]
+    (is (str/includes? text "# gordian tests"))
+    (is (str/includes? text "## Summary"))
+    (is (str/includes? text "## Invariants"))
+    (is (str/includes? text "## Core Coverage"))
+    (is (str/includes? text "## Test Namespaces"))
+    (is (str/includes? text "`integration-ish`"))
+    (is (str/includes? text "## Findings"))
+    (is (str/includes? text "production namespace depends on test namespace"))))
