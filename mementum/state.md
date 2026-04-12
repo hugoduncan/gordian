@@ -403,7 +403,7 @@ be1670d  feat: actionability ranking for diagnose
 ## Session 16 commits — Phase D3 (subgraph views)
 
 ```
-(pending)  feat: subgraph views + explain prefix fallback
+a668948  feat: subgraph views + explain prefix fallback
 ```
 
 225 tests, 1509 assertions, 0 failures.
