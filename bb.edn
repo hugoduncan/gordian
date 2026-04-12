@@ -41,6 +41,7 @@
                                      'gordian.dsm-test
                                      'gordian.gate-test
                                      'gordian.discover-test
+                                     'gordian.html-test
                                      'gordian.envelope-test
                                      'gordian.explain-test
                                      'gordian.family-test
