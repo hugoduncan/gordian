@@ -1428,6 +1428,7 @@
        ""
        "Diagonal block partition"
        (str "  ordering: " (name (:strategy ordering)))
+       (str "  refined: " (if (:refined? ordering) "yes" "no"))
        (str "  alpha: " (format "%.1f" (double (:alpha ordering))))
        (str "  blocks: " block-count)
        (str "  singleton blocks: " singleton-block-count)
@@ -1460,6 +1461,7 @@
      "| Metric | Value |"
      "|---|---:|"
      (str "| Ordering | " (name (:strategy ordering)) " |")
+     (str "| Refined | " (if (:refined? ordering) "yes" "no") " |")
      (str "| Alpha | " (format "%.1f" (double (:alpha ordering))) " |")
      (str "| Blocks | " (:block-count summary) " |")
      (str "| Singleton blocks | " (:singleton-block-count summary) " |")

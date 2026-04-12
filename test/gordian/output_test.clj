@@ -245,7 +245,7 @@
 
 (def ^:private dsm-data
   {:src-dirs ["resources/fixture"]
-   :ordering {:strategy :dfs-topo :alpha 1.5 :nodes ['c 'a 'b]}
+   :ordering {:strategy :dfs-topo :refined? false :alpha 1.5 :nodes ['c 'a 'b]}
    :blocks [{:id 0 :members ['c] :size 1 :internal-edge-count 0 :density 0.0}
             {:id 1 :members ['a 'b] :size 2 :internal-edge-count 2 :density 1.0}]
    :edges [{:from 1 :to 0 :edge-count 1}]
@@ -267,7 +267,8 @@
       (is (some #(str/includes? % "blocks: 2") lines))
       (is (some #(str/includes? % "singleton blocks: 1") lines))
       (is (some #(str/includes? % "largest block: 2") lines))
-      (is (some #(str/includes? % "ordering: dfs-topo") lines)))
+      (is (some #(str/includes? % "ordering: dfs-topo") lines))
+      (is (some #(str/includes? % "alpha: 1.5") lines)))
 
     (testing "block list includes ids and members"
       (is (some #(str/includes? % "B0") lines))
@@ -282,7 +283,7 @@
 
 (deftest format-dsm-singleton-only-test
   (let [data {:src-dirs ["resources/fixture"]
-              :ordering {:strategy :dfs-topo :alpha 1.5 :nodes ['a]}
+              :ordering {:strategy :dfs-topo :refined? false :alpha 1.5 :nodes ['a]}
               :blocks [{:id 0 :members ['a] :size 1 :internal-edge-count 0 :density 0.0}]
               :edges []
               :summary {:block-count 1

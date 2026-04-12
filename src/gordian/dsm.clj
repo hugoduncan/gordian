@@ -496,19 +496,21 @@
 (defn dsm-report
   "Assemble the complete pure DSM payload from a structural graph."
   [graph]
-  (let [graph    (project-graph graph)
-        ordered  (ordered-nodes graph)
-        alpha    1.5
-        parts    (optimal-partition graph ordered alpha)
-        blocks   (->> parts
-                      (block-members ordered)
-                      index-blocks
-                      (annotate-blocks graph))
-        edges    (block-edge-counts graph blocks)
-        details  (block-details graph blocks)
-        summary  (block-summary blocks edges)]
+  (let [graph         (project-graph graph)
+        alpha         1.5
+        initial-order (ordered-nodes graph)
+        ordered       (refine-order graph initial-order alpha)
+        parts         (optimal-partition graph ordered alpha)
+        blocks        (->> parts
+                           (block-members ordered)
+                           index-blocks
+                           (annotate-blocks graph))
+        edges         (block-edge-counts graph blocks)
+        details       (block-details graph blocks)
+        summary       (block-summary blocks edges)]
     {:basis :diagonal-blocks
      :ordering {:strategy :dfs-topo
+                :refined? (not= initial-order ordered)
                 :alpha alpha
                 :nodes ordered}
      :blocks blocks

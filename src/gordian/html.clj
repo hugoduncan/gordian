@@ -264,7 +264,8 @@
                 (str (tag "h1" "Gordian DSM")
                      (tag "p" (str "Source: " (tag "code" (str/join " " src-dirs))))
                      (tag "p" (str "Ordering: " (tag "code" (name (:strategy ordering)))))
-                     (tag "p" (str "Alpha: " (tag "code" (format "%.1f" (double (:alpha ordering))))))))
+                     (tag "p" (str "Alpha: " (tag "code" (format "%.1f" (double (:alpha ordering))))))
+                     (tag "p" (str "Refined: " (tag "code" (str (boolean (:refined? ordering))))))))
            (tag "section"
                 (str (tag "h2" "Summary")
                      (summary-cards summary)))
