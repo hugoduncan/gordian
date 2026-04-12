@@ -80,3 +80,32 @@
   (testing "renders empty state"
     (let [html (sut/edge-table [])]
       (is (.contains html "(none)")))))
+
+(deftest edge-intensity-class-test
+  (is (= "empty" (sut/edge-intensity-class 0)))
+  (is (= "edge-1" (sut/edge-intensity-class 1)))
+  (is (= "edge-2" (sut/edge-intensity-class 2)))
+  (is (= "edge-3" (sut/edge-intensity-class 3)))
+  (is (= "edge-4plus" (sut/edge-intensity-class 4))))
+
+(deftest collapsed-matrix-test
+  (let [html (sut/collapsed-matrix blocks edges)]
+    (testing "includes row and column block headers"
+      (is (.contains html ">B0<"))
+      (is (.contains html ">B1<")))
+
+    (testing "diagonal cells render with diagonal class"
+      (is (.contains html "class=\"diag\"")))
+
+    (testing "empty off-diagonal cells render empty state"
+      (is (.contains html "class=\"empty\"")))
+
+    (testing "nonzero cells include edge count text"
+      (is (.contains html "class=\"edge edge-2\""))
+      (is (.contains html ">2<")))
+
+    (testing "renders deterministically"
+      (is (= html (sut/collapsed-matrix blocks edges))))
+
+    (testing "single-block input handled"
+      (is (.contains (sut/collapsed-matrix [{:id 0}] []) ">B0<")))))

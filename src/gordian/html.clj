@@ -103,3 +103,49 @@
                    (join-html (map edge-row edges))
                    (tag "tr"
                         (str (tag "td" {:colspan 3} "(none)"))))))))
+
+(defn edge-intensity-class
+  [edge-count]
+  (cond
+    (<= edge-count 0) "empty"
+    (= edge-count 1)  "edge-1"
+    (= edge-count 2)  "edge-2"
+    (= edge-count 3)  "edge-3"
+    :else             "edge-4plus"))
+
+(defn- edge-lookup
+  [edges]
+  (into {}
+        (map (fn [{:keys [from to edge-count]}]
+               [[from to] edge-count]))
+        edges))
+
+(defn collapsed-matrix
+  [blocks edges]
+  (let [ids    (mapv :id blocks)
+        lookup (edge-lookup edges)]
+    (tag "div" {:class "matrix-scroll"}
+         (tag "table" {:class "dsm-matrix"}
+              (str (tag "thead"
+                        (tag "tr"
+                             (str (tag "th" "")
+                                  (join-html (map (fn [id] (tag "th" (str "B" id))) ids)))))
+                   (tag "tbody"
+                        (join-html
+                         (map (fn [row-id]
+                                (tag "tr"
+                                     (str (tag "th" (str "B" row-id))
+                                          (join-html
+                                           (map (fn [col-id]
+                                                  (cond
+                                                    (= row-id col-id)
+                                                    (tag "td" {:class "diag"} "")
+
+                                                    :else
+                                                    (let [edge-count (get lookup [row-id col-id] 0)]
+                                                      (if (pos? edge-count)
+                                                        (tag "td" {:class (str "edge " (edge-intensity-class edge-count))}
+                                                             edge-count)
+                                                        (tag "td" {:class "empty"} "")))))
+                                                ids)))))
+                              ids))))))))
