@@ -1,0 +1,1 @@
+💡 Community detection does not need modularity optimization to be useful initially. A thresholded undirected weighted graph plus deterministic connected-components gives stable, explainable, testable architecture communities. This is a strong v1 baseline before adding label propagation or Louvain-style algorithms.
