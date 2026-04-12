@@ -282,6 +282,24 @@
     (is (= 2 (sut/interval-cross-edge-count edges 2 3 4)))
     (is (= 0 (sut/interval-cross-edge-count [] 0 0 1)))))
 
+(deftest pow-cost-test
+  (is (= 4.0 (sut/pow-cost 2 2.0)))
+  (is (= 3.0 (sut/pow-cost 3 1.0))))
+
+(deftest block-cost-test
+  (let [edges [[1 0] [2 1] [3 0]]]
+    (testing "singleton block cost is finite and deterministic"
+      (is (= 16.0 (sut/block-cost edges 4 1.5 0 0)))
+      (is (= 16.0 (sut/block-cost edges 4 1.5 0 0))))
+
+    (testing "larger block increases internal-edge cost appropriately"
+      (is (> (sut/block-cost edges 4 1.5 0 1)
+             (sut/block-cost edges 4 1.5 0 2))))
+
+    (testing "alpha increases same interval cost when size > 1"
+      (is (< (sut/block-cost edges 4 1.0 0 1)
+             (sut/block-cost edges 4 2.0 0 1))))))
+
 (deftest dsm-report-test
   (let [graph {'a #{'b}
                'b #{'a 'c}

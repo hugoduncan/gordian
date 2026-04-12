@@ -318,6 +318,21 @@
                      (not= from-in? to-in?)))
                  ordered-edges)))
 
+(defn pow-cost
+  "Return x^alpha as double for DSM block scoring."
+  [x alpha]
+  (Math/pow (double x) (double alpha)))
+
+(defn block-cost
+  "Score inclusive interval block [a,b] using Thebeau-style costs.
+  Internal marks cost |B|^alpha; crossing marks cost n^alpha."
+  [ordered-edges n alpha a b]
+  (let [block-size  (inc (- b a))
+        internal    (interval-internal-edge-count ordered-edges a b)
+        crossing    (interval-cross-edge-count ordered-edges a b n)]
+    (+ (* internal (pow-cost block-size alpha))
+       (* crossing (pow-cost n alpha)))))
+
 (defn dsm-report
   "Assemble the complete pure DSM payload from a structural graph."
   [graph]
