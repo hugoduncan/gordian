@@ -93,6 +93,25 @@
        (map scan)
        (apply merge {})))
 
+(defn scan-path
+  "Scan one typed path entry {:dir string :kind :src|:test}.
+  Returns {:graph {ns → #{deps}} :origins {ns → kind}}."
+  [{:keys [dir kind]}]
+  (let [graph (scan dir)]
+    {:graph   graph
+     :origins (into {} (map (fn [ns-sym] [ns-sym kind]) (keys graph)))}))
+
+(defn scan-paths
+  "Scan multiple typed path entries and merge results.
+  Later entries win on namespace collisions for both graph and origin."
+  [paths]
+  (->> paths
+       (map scan-path)
+       (reduce (fn [a b]
+                 {:graph   (merge (:graph a) (:graph b))
+                  :origins (merge (:origins a) (:origins b))})
+               {:graph {} :origins {}})))
+
 ;;; ── full-file term scanning ───────────────────────────────────────────────
 ;;;
 ;;; Functions in this section accept a `terms-fn` as their first argument.

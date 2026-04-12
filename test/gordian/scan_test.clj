@@ -164,6 +164,49 @@
   (testing "empty dirs list → empty graph"
     (is (= {} (sut/scan-dirs [])))))
 
+(deftest scan-path-test
+  (testing "typed src path returns graph and origins"
+    (let [result (sut/scan-path {:dir fixture-dir :kind :src})]
+      (is (= {'alpha #{}
+              'beta  '#{alpha}
+              'gamma '#{alpha beta}}
+             (:graph result)))
+      (is (= {'alpha :src
+              'beta  :src
+              'gamma :src}
+             (:origins result))))))
+
+(deftest scan-paths-test
+  (testing "typed paths merge graph and origins"
+    (let [result (sut/scan-paths [{:dir fixture-dir :kind :src}
+                                  {:dir "resources/fixture-cljc" :kind :test}])]
+      (is (= {'alpha    #{}
+              'beta     '#{alpha}
+              'gamma    '#{alpha beta}
+              'portable '#{alpha beta}}
+             (:graph result)))
+      (is (= {'alpha    :src
+              'beta     :src
+              'gamma    :src
+              'portable :test}
+             (:origins result)))))
+
+  (testing "later path wins on collisions for both graph and origin"
+    (let [result (sut/scan-paths [{:dir fixture-dir :kind :src}
+                                  {:dir fixture-dir :kind :test}])]
+      (is (= {'alpha #{}
+              'beta  '#{alpha}
+              'gamma '#{alpha beta}}
+             (:graph result)))
+      (is (= {'alpha :test
+              'beta  :test
+              'gamma :test}
+             (:origins result)))))
+
+  (testing "empty path list → empty result"
+    (is (= {:graph {} :origins {}}
+           (sut/scan-paths [])))))
+
 ;;; ── parse-file-all ───────────────────────────────────────────────────────
 
 (deftest parse-file-all-test
