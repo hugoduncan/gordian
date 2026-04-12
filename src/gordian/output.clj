@@ -1188,68 +1188,6 @@
               (str/join "\n" (map #(str "- `" % "`") members))])
            communities)))
 
-;;; ── glossary output ──────────────────────────────────────────────────────
-
-(defn format-glossary
-  "Format glossary entries as human-readable lines."
-  [{:keys [entries summary filters]}]
-  (into
-   ["gordian glossary"
-    ""
-    "SUMMARY"
-    (str "  entries: " (:entry-count summary))
-    (str "  top: " (or (:top filters) "all"))
-    (str "  min-score: " (or (:min-score filters) "none"))]
-   (if (seq entries)
-     (mapcat (fn [[idx {:keys [term score kind namespace-count pair-count community-count evidence]}]]
-               [(str "")
-                (str (inc idx) ". " term
-                     "  score=" (format "%.1f" score)
-                     "  namespaces=" namespace-count
-                     "  pairs=" pair-count
-                     "  communities=" community-count)
-                (str "   kind: " (name kind))
-                (str "   related: " (if (seq (:related-terms evidence))
-                                      (str/join ", " (:related-terms evidence))
-                                      "none"))
-                (str "   evidence: " (if (seq (:namespaces evidence))
-                                       (str/join ", " (:namespaces evidence))
-                                       "none"))])
-             (map-indexed vector entries))
-     ["" "(no glossary entries)"])))
-
-(defn format-glossary-md
-  "Format glossary entries as markdown lines."
-  [{:keys [entries summary filters]}]
-  (into
-   ["# gordian glossary"
-    ""
-    "## Summary"
-    ""
-    "| Metric | Value |"
-    "|--------|-------|"
-    (str "| Entries | " (:entry-count summary) " |")
-    (str "| Top | " (or (:top filters) "all") " |")
-    (str "| Min score | " (or (:min-score filters) "none") " |")]
-   (if (seq entries)
-     (mapcat (fn [{:keys [term score kind namespace-count pair-count community-count evidence]}]
-               [(str "")
-                (str "## " term)
-                ""
-                (str "- **Score:** " (format "%.1f" score))
-                (str "- **Kind:** `" (name kind) "`")
-                (str "- **Namespaces:** " namespace-count)
-                (str "- **Pairs:** " pair-count)
-                (str "- **Communities:** " community-count)
-                (str "- **Related:** " (if (seq (:related-terms evidence))
-                                         (str/join ", " (map #(str "`" % "`") (:related-terms evidence)))
-                                         "none"))
-                (str "- **Evidence namespaces:** " (if (seq (:namespaces evidence))
-                                                     (str/join ", " (map #(str "`" % "`") (:namespaces evidence)))
-                                                     "none"))])
-             entries)
-     ["" "_No glossary entries._"])))
-
 ;;; ── tests output ─────────────────────────────────────────────────────────
 
 (defn- format-counts-map [m]
@@ -1461,11 +1399,6 @@
   "Print a human-readable communities report to stdout."
   [data]
   (run! println (format-communities data)))
-
-(defn print-glossary
-  "Print a human-readable glossary report to stdout."
-  [data]
-  (run! println (format-glossary data)))
 
 (defn print-gate
   "Print a human-readable gate report to stdout."

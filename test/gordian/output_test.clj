@@ -808,60 +808,6 @@
     (is (str/includes? text "`state`"))
     (is (str/includes? text "### Members"))))
 
-;;; ── glossary output ──────────────────────────────────────────────────────
-
-(def glossary-data
-  {:gordian/command :glossary
-   :entries [{:term "coupling"
-              :score 8.4
-              :kind :architectural
-              :quality :strong
-              :namespace-count 3
-              :pair-count 2
-              :community-count 1
-              :evidence {:namespaces ['gordian.aggregate 'gordian.compare]
-                         :pairs [{:ns-a 'gordian.aggregate :ns-b 'gordian.close :score 0.31}]
-                         :communities [{:id 1 :size 3}]
-                         :related-terms ["change" "structural"]}}
-             {:term "baseline"
-              :score 3.2
-              :kind :domain
-              :quality :medium
-              :namespace-count 2
-              :pair-count 1
-              :community-count 1
-              :evidence {:namespaces ['gordian.gate]
-                         :pairs []
-                         :communities [{:id 2 :size 2}]
-                         :related-terms ["gate"]}}]
-   :summary {:entry-count 2 :suppressed-count 0 :source-counts {} :kind-counts {:architectural 1 :domain 1}}
-   :filters {:top 25 :min-score nil}})
-
-(deftest format-glossary-test
-  (let [text (str/join "\n" (sut/format-glossary glossary-data))]
-    (is (str/includes? text "gordian glossary"))
-    (is (str/includes? text "SUMMARY"))
-    (is (str/includes? text "1. coupling"))
-    (is (str/includes? text "kind: architectural"))
-    (is (str/includes? text "related: change, structural"))
-    (is (str/includes? text "evidence: gordian.aggregate, gordian.compare"))))
-
-(deftest format-glossary-md-test
-  (let [text (str/join "\n" (sut/format-glossary-md glossary-data))]
-    (is (str/includes? text "# gordian glossary"))
-    (is (str/includes? text "## Summary"))
-    (is (str/includes? text "## coupling"))
-    (is (str/includes? text "**Kind:** `architectural`"))
-    (is (str/includes? text "`change`"))
-    (is (str/includes? text "`gordian.aggregate`"))))
-
-(deftest format-glossary-empty-test
-  (let [text (str/join "\n" (sut/format-glossary {:entries []
-                                                  :summary {:entry-count 0}
-                                                  :filters {:top 10 :min-score nil}}))]
-    (is (str/includes? text "entries: 0"))
-    (is (str/includes? text "(no glossary entries)"))))
-
 ;;; ── tests output ─────────────────────────────────────────────────────────
 
 (def tests-data
