@@ -183,7 +183,10 @@
       (is (str/includes? out "dir-or-src"))
       (is (str/includes? out "subgraph"))
       (is (str/includes? out "communities"))
+      (is (str/includes? out "glossary"))
       (is (str/includes? out "tests"))
+      (is (str/includes? out "--top"))
+      (is (str/includes? out "--min-score"))
       (is (str/includes? out "--include-tests"))
       (is (str/includes? out "--exclude")))))
 
@@ -316,6 +319,18 @@
       (is (= :structural (:lens opts)))
       (is (= 1.0 (:threshold opts))))))
 
+(deftest parse-args-glossary-test
+  (testing "glossary -> :command :glossary"
+    (let [opts (sut/parse-args ["glossary"])]
+      (is (= :glossary (:command opts)))
+      (is (= ["."] (:src-dirs opts)))))
+
+  (testing "glossary captures --top and --min-score"
+    (let [opts (sut/parse-args ["glossary" "." "--top" "20" "--min-score" "2.5"])]
+      (is (= :glossary (:command opts)))
+      (is (= 20 (:top opts)))
+      (is (= 2.5 (:min-score opts))))))
+
 (deftest parse-args-tests-test
   (testing "tests -> :command :tests"
     (let [opts (sut/parse-args ["tests"])]
@@ -429,6 +444,29 @@
       (is (= :communities (:gordian/command parsed)))
       (is (contains? parsed :communities))
       (is (contains? parsed :summary)))))
+
+(deftest glossary-integration-test
+  (testing "glossary produces output"
+    (let [out (with-out-str
+                (sut/glossary-cmd {:src-dirs ["src/"]}))]
+      (is (str/includes? out "gordian glossary"))
+      (is (str/includes? out "SUMMARY"))))
+
+  (testing "glossary with --json returns structured map"
+    (let [out (with-out-str (sut/glossary-cmd {:src-dirs ["src/"] :json true}))
+          parsed (json/parse-string out true)]
+      (is (= "glossary" (:gordian/command parsed)))
+      (is (contains? parsed :entries))))
+
+  (testing "glossary with --edn returns structured map"
+    (let [out (with-out-str (sut/glossary-cmd {:src-dirs ["src/"] :edn true}))
+          parsed (read-string out)]
+      (is (= :glossary (:gordian/command parsed)))
+      (is (vector? (:entries parsed)))))
+
+  (testing "glossary with --markdown produces markdown"
+    (let [out (with-out-str (sut/glossary-cmd {:src-dirs ["src/"] :markdown true}))]
+      (is (str/includes? out "# gordian glossary")))))
 
 (deftest tests-integration-test
   (testing "tests produces output"
