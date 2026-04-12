@@ -300,6 +300,37 @@
       (is (< (sut/block-cost edges 4 1.0 0 1)
              (sut/block-cost edges 4 2.0 0 1))))))
 
+(deftest reconstruct-partition-test
+  (is (= [[0 1] [2 3]]
+         (sut/reconstruct-partition {1 0 3 2} 3)))
+  (is (= []
+         (sut/reconstruct-partition {} -1))))
+
+(deftest optimal-partition-test
+  (testing "empty graph yields empty partition"
+    (is (= [] (sut/optimal-partition {} [] 1.5))))
+
+  (testing "singleton graph yields one block"
+    (is (= [[0 0]]
+           (sut/optimal-partition {'a #{}} ['a] 1.5))))
+
+  (testing "simple chain yields deterministic contiguous partition"
+    (is (= [[0 2]]
+           (sut/optimal-partition {'a #{'b}
+                                   'b #{'c}
+                                   'c #{}}
+                                  ['c 'b 'a]
+                                  1.5))))
+
+  (testing "returned blocks are contiguous, non-overlapping, and cover all nodes"
+    (let [part (sut/optimal-partition {'a #{'b}
+                                       'b #{'c}
+                                       'c #{}
+                                       'd #{}}
+                                      ['c 'b 'a 'd]
+                                      1.5)]
+      (is (= [[0 2] [3 3]] part)))))
+
 (deftest dsm-report-test
   (let [graph {'a #{'b}
                'b #{'a 'c}

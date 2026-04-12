@@ -333,6 +333,55 @@
     (+ (* internal (pow-cost block-size alpha))
        (* crossing (pow-cost n alpha)))))
 
+(defn- interval-endpoints
+  [n]
+  (for [a (range n)
+        b (range a n)]
+    [a b]))
+
+(defn- block-costs
+  [ordered-edges n alpha]
+  (into {}
+        (map (fn [[a b]] [[a b] (block-cost ordered-edges n alpha a b)]))
+        (interval-endpoints n)))
+
+(defn reconstruct-partition
+  "Reconstruct inclusive intervals from backpointer map ending at end-idx."
+  [back end-idx]
+  (loop [t end-idx
+         acc []]
+    (if (neg? t)
+      (vec (reverse acc))
+      (let [a (get back t)]
+        (recur (dec a) (conj acc [a t]))))))
+
+(defn optimal-partition
+  "Return optimal contiguous inclusive interval partition for fixed order.
+  Dynamic programming over split points with deterministic leftmost tie-break."
+  [graph ordered alpha]
+  (let [ordered-edges (ordered-edges graph ordered)
+        n             (count ordered)
+        costs         (block-costs ordered-edges n alpha)]
+    (if (zero? n)
+      []
+      (loop [t 0
+             dp {}
+             back {}]
+        (if (= t n)
+          (reconstruct-partition back (dec n))
+          (let [[best-cost best-a]
+                (reduce (fn [[best-cost best-a] a]
+                          (let [prev-cost (if (zero? a) 0.0 (get dp (dec a)))
+                                total     (+ prev-cost (get costs [a t]))]
+                            (if (or (nil? best-cost) (< total best-cost))
+                              [total a]
+                              [best-cost best-a])))
+                        [nil nil]
+                        (range (inc t)))]
+            (recur (inc t)
+                   (assoc dp t best-cost)
+                   (assoc back t best-a))))))))
+
 (defn dsm-report
   "Assemble the complete pure DSM payload from a structural graph."
   [graph]
