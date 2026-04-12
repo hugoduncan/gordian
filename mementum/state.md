@@ -640,6 +640,35 @@ Potential follow-ups:
 - compare / gate integration for SCC/DSM metrics
 - drilldown on one block or one inter-block relation
 
+## Session 20 commits — DSM HTML output
+
+```
+6358e74  feat: add HTML rendering foundation
+fac9765  feat: add DSM HTML summary and tables
+085841e  feat: add collapsed DSM HTML matrix
+4334e61  feat: add DSM HTML SCC detail sections
+419b727  feat: assemble full DSM HTML page
+8456214  feat: add DSM HTML file output
+54933ad  feat: polish DSM HTML navigation and tooltips
+```
+
+298 tests, 1862 assertions, 0 failures.
+
+New module:
+- `html.clj` — self-contained HTML rendering helpers and DSM HTML report generation
+
+New output mode:
+- `gordian dsm . --html-file dsm.html`
+
+HTML report includes:
+- summary cards
+- collapsed SCC matrix with intensity classes
+- block table with anchors into cyclic SCC details
+- inter-block dependency table
+- expandable SCC detail sections using native `<details>` / `<summary>`
+- mini-matrices for internal SCC structure
+- header/cell tooltips and embedded CSS
+
 Cleanup/feature:
 - Remove zombie API `scan-terms` / `scan-terms-dirs`
 - Shared `gordian.test-fixtures` ns

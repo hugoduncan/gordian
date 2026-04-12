@@ -355,6 +355,8 @@ Implemented:
 - SCC block summaries: size, cyclic?, internal-edge-count, density
 - detail mini-matrices for non-singleton SCCs
 - text / markdown / EDN / JSON output
+- `--html-file` self-contained HTML artifact output
+- HTML collapsed matrix, block table, inter-block table, and expandable SCC details
 
 Potential follow-ups:
 - full namespace-level matrix as explicit debug/export mode
