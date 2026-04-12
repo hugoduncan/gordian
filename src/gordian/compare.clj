@@ -1,6 +1,7 @@
 (ns gordian.compare
   "Compare two gordian report snapshots and produce a diff.
-  All functions are pure — they take data and return data.")
+  All functions are pure — they take data and return data."
+  (:require [gordian.finding :as finding]))
 
 ;;; ── health comparison ────────────────────────────────────────────────────
 
@@ -96,11 +97,6 @@
 
 ;;; ── pair comparison ──────────────────────────────────────────────────────
 
-(defn- pair-key
-  "Canonical unordered pair identity."
-  [pair]
-  #{(:ns-a pair) (:ns-b pair)})
-
 (defn compare-pairs
   "Compare coupling pairs between two reports for a given lens.
   kind — :conceptual or :change (used as :kind tag in output).
@@ -112,8 +108,8 @@
                     :change     :change-pairs)
         bp        (or (get before pairs-key) [])
         ap        (or (get after pairs-key) [])
-        b-idx     (into {} (map (juxt pair-key identity)) bp)
-        a-idx     (into {} (map (juxt pair-key identity)) ap)
+        b-idx     (into {} (map (juxt finding/pair-key identity)) bp)
+        a-idx     (into {} (map (juxt finding/pair-key identity)) ap)
         b-keys    (set (keys b-idx))
         a-keys    (set (keys a-idx))
         added-ks  (remove b-keys a-keys)
@@ -136,24 +132,19 @@
 
 ;;; ── finding comparison ───────────────────────────────────────────────────
 
-(defn- finding-key
-  "Identity key for a finding — category + sorted subject."
-  [finding]
-  [(:category finding) (:subject finding)])
-
 (defn compare-findings
   "Compare findings between two diagnose reports.
   Returns {:added [finding] :removed [finding]}.
   Findings matched by [:category :subject]."
   [before after]
-  (let [bf (set (map finding-key (or (:findings before) [])))
-        af (set (map finding-key (or (:findings after) [])))
+  (let [bf (set (map finding/finding-key (or (:findings before) [])))
+        af (set (map finding/finding-key (or (:findings after) [])))
         added-ks   (remove bf af)
         removed-ks (remove af bf)
         ;; rebuild finding lookup for output
-        after-by-key  (into {} (map (juxt finding-key identity))
+        after-by-key  (into {} (map (juxt finding/finding-key identity))
                             (or (:findings after) []))
-        before-by-key (into {} (map (juxt finding-key identity))
+        before-by-key (into {} (map (juxt finding/finding-key identity))
                             (or (:findings before) []))]
     {:added   (vec (sort-by (comp str :subject) (keep after-by-key added-ks)))
      :removed (vec (sort-by (comp str :subject) (keep before-by-key removed-ks)))}))
