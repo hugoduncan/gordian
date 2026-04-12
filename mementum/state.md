@@ -397,7 +397,7 @@ afec86d  feat: diagnose finding clusters via union-find
 ## Session 15 commits — Phase D2 (actionability ranking)
 
 ```
-(pending)  feat: actionability ranking for diagnose
+be1670d  feat: actionability ranking for diagnose
 ```
 
 209 tests, 1439 assertions, 0 failures.
