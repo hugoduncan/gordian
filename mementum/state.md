@@ -517,6 +517,25 @@ Deferred (v2):
 - change window comparison
 - presets
 
+## Glossary experiment — attempted, then reverted
+
+A `gordian glossary` feature was prototyped and then removed.
+
+Why it was reverted:
+- current conceptual analysis is token-based, not phrase-based
+- on gordian itself the output was dominated by root namespace and code-shape
+  tokens like `gordian`, `node`, `pair`, `map`, `return`
+- the genuinely useful concepts were mostly multi-word phrases such as
+  "change coupling" and "propagation cost", which the current TF-IDF token
+  pipeline does not represent well
+
+Conclusion:
+- token vocabulary extraction may still be useful as a low-level signal
+- a real glossary likely needs phrase-level concepts or much stronger
+  evidence filtering before it is worth shipping
+
+Memory: `mementum/memories/token-vocabulary-is-not-a-glossary.md`
+
 ## Session 12 — user feedback analysis
 
 Real-world feedback from AI assistant using gordian on ~158-file Polylith
