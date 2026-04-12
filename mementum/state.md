@@ -391,7 +391,7 @@ afec86d  feat: diagnose finding clusters via union-find
 ## Session 14 commits — Phase D1 (gate mode)
 
 ```
-(pending)  feat: gate mode — CI / refactor ratchet
+8a30e8f  feat: gate mode — CI / refactor ratchet
 ```
 
 203 tests, 1424 assertions, 0 failures.
