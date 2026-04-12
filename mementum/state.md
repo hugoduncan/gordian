@@ -384,10 +384,8 @@ severity emoji, backtick namespaces, sections omitted when empty.
 ## Session 13 commits — Phase C (compare + clusters)
 
 ```
-(pending)  feat: compare.clj — health, node, cycle, pair, finding comparison
-(pending)  feat: cluster.clj — union-find finding clustering
-(pending)  feat: wire compare + clusters into CLI + output
-(pending)  docs: schema, PLAN, state for Phase C
+5b2234e  feat: compare mode — gordian compare before.edn after.edn
+afec86d  feat: diagnose finding clusters via union-find
 ```
 
 190 tests, 1372 assertions, 0 failures.
