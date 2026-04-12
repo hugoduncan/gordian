@@ -310,6 +310,47 @@ Subsystem/family view for namespaces matching a dotted prefix.
 
 ---
 
+## communities
+
+Command: `gordian communities [dirs...] --edn`
+
+Detect latent architecture communities from structural, conceptual, change,
+or combined signals.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `gordian/command` | keyword | `:communities` |
+| `lens` | keyword | `:structural`, `:conceptual`, `:change`, or `:combined` |
+| `threshold` | double or nil | Edge threshold used |
+| `communities` | vector of maps | Discovered communities |
+| `summary` | map | Top-line counts |
+
+### Community shape
+
+```edn
+{:id                integer
+ :members           [sym]
+ :size              integer
+ :edge-count        integer
+ :density           double
+ :internal-weight   double
+ :boundary-weight   double
+ :dominant-terms    [string]
+ :bridge-namespaces [sym]
+ :edges             [edge]}
+```
+
+### Edge shape
+
+```edn
+{:a       symbol
+ :b       symbol
+ :weight  double
+ :sources #{keyword}}
+```
+
+---
+
 ## explain
 
 Command: `gordian explain <ns> --edn`

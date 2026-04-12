@@ -767,3 +767,43 @@
     (is (str/includes? text "## Boundary"))
     (is (str/includes? text "## Internal Conceptual Pairs"))
     (is (str/includes? text "[act=8.8]"))))
+
+;;; ── communities output ──────────────────────────────────────────────────
+
+(def communities-data
+  {:gordian/command :communities
+   :lens :combined
+   :threshold 0.75
+   :communities [{:id 1
+                  :members ['a 'b 'c]
+                  :size 3
+                  :density 0.67
+                  :internal-weight 2.40
+                  :boundary-weight 0.50
+                  :dominant-terms ["state" "event"]
+                  :bridge-namespaces ['b]}
+                 {:id 2
+                  :members ['x]
+                  :size 1
+                  :density 0.0
+                  :internal-weight 0.0
+                  :boundary-weight 0.0
+                  :dominant-terms []
+                  :bridge-namespaces []}]
+   :summary {:community-count 2 :largest-size 3 :singleton-count 1}})
+
+(deftest format-communities-test
+  (let [text (str/join "\n" (sut/format-communities communities-data))]
+    (is (str/includes? text "gordian communities — combined"))
+    (is (str/includes? text "SUMMARY"))
+    (is (str/includes? text "communities: 2"))
+    (is (str/includes? text "dominant terms: state, event"))
+    (is (str/includes? text "bridges: b"))))
+
+(deftest format-communities-md-test
+  (let [text (str/join "\n" (sut/format-communities-md communities-data))]
+    (is (str/includes? text "# gordian communities — combined"))
+    (is (str/includes? text "## Summary"))
+    (is (str/includes? text "## Community 1"))
+    (is (str/includes? text "`state`"))
+    (is (str/includes? text "### Members"))))

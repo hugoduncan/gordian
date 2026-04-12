@@ -301,8 +301,20 @@ Implemented v1:
 - CI-friendly exit status
 
 ### Full cluster detection
-Community detection (label propagation or modularity) for structural
+**Status:** ✅ v1 done
+
+Community detection for structural / conceptual / change / combined
 cluster discovery beyond finding-grouping.
+
+Implemented v1:
+- `gordian communities`
+- lens modes: `structural`, `conceptual`, `change`, `combined`
+- thresholded undirected weighted graph
+- connected-components community detection
+- density, internal weight, boundary weight
+- dominant terms from conceptual shared terms
+- bridge namespace heuristic
+- text / markdown / EDN / JSON output
 
 ---
 

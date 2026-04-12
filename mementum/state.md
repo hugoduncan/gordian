@@ -406,7 +406,24 @@ be1670d  feat: actionability ranking for diagnose
 a668948  feat: subgraph views + explain prefix fallback
 ```
 
-225 tests, 1509 assertions, 0 failures.
+## Session 17 commits — Phase D4 (communities)
+
+```
+(pending)  feat: communities discovery command
+```
+
+242 tests, 1563 assertions, 0 failures.
+
+Communities (`gordian communities`):
+- new `communities.clj` pure module
+- lens modes: structural, conceptual, change, combined
+- canonical undirected weighted edge model
+- connected-components community detection (v1)
+- thresholding for non-structural lenses
+- per-community density, internal weight, boundary weight
+- dominant terms from conceptual shared terms
+- bridge namespace heuristic
+- text / markdown / EDN / JSON output
 
 Subgraph views (`gordian subgraph <prefix>`):
 - new `subgraph.clj` pure slicing module
@@ -536,7 +553,7 @@ e6d5345  step 4  feat: wire envelope into commands
 
 Phase D items:
 - CI/refactor-ratchet follow-ups: richer checks, cluster-aware checks, baseline workflows
-- Full cluster detection (community detection / label propagation)
+- Community detection follow-ups: label propagation / modularity, richer bridge metrics
 - Compare `--ref` mode (`gordian compare --ref HEAD~4 --ref HEAD`)
 
 Cleanup/feature:

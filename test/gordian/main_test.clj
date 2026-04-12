@@ -179,6 +179,7 @@
       (is (str/includes? out "--change-since"))
       (is (str/includes? out "dir-or-src"))
       (is (str/includes? out "subgraph"))
+      (is (str/includes? out "communities"))
       (is (str/includes? out "--include-tests"))
       (is (str/includes? out "--exclude")))))
 
@@ -299,6 +300,18 @@
   (testing "subgraph without prefix -> error"
     (is (contains? (sut/parse-args ["subgraph"]) :error))))
 
+(deftest parse-args-communities-test
+  (testing "communities -> :command :communities"
+    (let [opts (sut/parse-args ["communities"])]
+      (is (= :communities (:command opts)))
+      (is (= ["."] (:src-dirs opts)))))
+
+  (testing "communities . --lens structural --threshold 1.0"
+    (let [opts (sut/parse-args ["communities" "." "--lens" "structural" "--threshold" "1.0"])]
+      (is (= :communities (:command opts)))
+      (is (= :structural (:lens opts)))
+      (is (= 1.0 (:threshold opts))))))
+
 ;;; ── diagnose integration ─────────────────────────────────────────────────
 
 (deftest diagnose-integration-test
@@ -387,6 +400,20 @@
                                   :explain-ns 'gordian}))]
       (is (str/includes? out "gordian subgraph"))
       (is (str/includes? out "INTERNAL")))))
+
+(deftest communities-integration-test
+  (testing "communities produces output"
+    (let [out (with-out-str
+                (sut/communities-cmd {:src-dirs ["src/"]}))]
+      (is (str/includes? out "gordian communities"))
+      (is (str/includes? out "SUMMARY"))))
+
+  (testing "communities with --edn returns structured map"
+    (let [out (with-out-str (sut/communities-cmd {:src-dirs ["src/"] :edn true}))
+          parsed (read-string out)]
+      (is (= :communities (:gordian/command parsed)))
+      (is (contains? parsed :communities))
+      (is (contains? parsed :summary)))))
 
 ;;; ── parse-args / --markdown ────────────────────────────────────────────────
 

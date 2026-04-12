@@ -17,6 +17,7 @@
             [gordian.gate        :as gate]
             [gordian.prioritize  :as prioritize]
             [gordian.subgraph    :as subgraph]
+            [gordian.communities :as communities]
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
             [gordian.family      :as family]
@@ -44,12 +45,14 @@
    :max-new-medium-findings {:desc "Maximum newly introduced medium-severity findings" :coerce :long}
    :fail-on               {:desc "Comma-separated strict gate checks e.g. new-cycles,new-high-findings"}
    :rank                  {:desc "Diagnose ranking: severity or actionability" :coerce :keyword}
+   :lens                  {:desc "Communities lens: structural | conceptual | change | combined" :coerce :keyword}
+   :threshold             {:desc "Communities threshold" :coerce :double}
    :include-tests         {:desc "Include test directories in auto-discovery" :coerce :boolean}
    :exclude               {:desc "Exclude namespaces matching regex (repeatable)" :coerce [:string]}
    :help                  {:desc "Show this help message" :coerce :boolean}})
 
 (def ^:private usage-summary
-  "Usage: gordian [analyze|diagnose|compare|gate|subgraph|explain|explain-pair] [<dir-or-src>...] [options]
+  "Usage: gordian [analyze|diagnose|compare|gate|subgraph|communities|explain|explain-pair] [<dir-or-src>...] [options]
 
 When given a project root (dir with deps.edn, bb.edn, etc.), gordian
 auto-discovers source directories. With no arguments, defaults to '.'.
@@ -60,6 +63,7 @@ Commands:
   compare      Compare two saved EDN snapshots (before.edn after.edn)
   gate         Compare current codebase against a saved baseline and fail CI on regressions
   subgraph     Family/subsystem view for a namespace prefix
+  communities  Discover latent architecture communities
   explain      Everything gordian knows about a namespace
   explain-pair Everything gordian knows about a pair of namespaces
 
@@ -77,6 +81,8 @@ Options:
   --max-new-medium-findings <n> Maximum newly introduced medium-severity findings
   --fail-on <csv>               Comma-separated strict gate checks
   --rank <mode>                 Diagnose ranking: severity or actionability
+  --lens <mode>                 Communities lens: structural | conceptual | change | combined
+  --threshold <float>           Communities threshold
   --include-tests               Include test directories in auto-discovery
   --exclude <regex>             Exclude namespaces matching regex (repeatable)
   --help                        Show this help message
@@ -100,6 +106,7 @@ Examples:
   gordian gate . --baseline baseline.edn --max-pc-delta 0.01
   gordian diagnose . --rank actionability
   gordian subgraph gordian
+  gordian communities . --lens combined
   gordian explain gordian.scan        drill into a namespace
   gordian explain-pair a.core b.svc   drill into a pair")
 
@@ -122,7 +129,8 @@ Examples:
   [raw-args]
   (let [command  ({"analyze" :analyze "diagnose" :diagnose
                    "explain" :explain "explain-pair" :explain-pair
-                   "compare" :compare "gate" :gate "subgraph" :subgraph}
+                   "compare" :compare "gate" :gate "subgraph" :subgraph
+                   "communities" :communities}
                   (first raw-args))
         raw-args (if command (rest raw-args) raw-args)
         {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})]
@@ -152,6 +160,10 @@ Examples:
                :prefix (first args)
                :src-dirs ["."])
         {:error "subgraph requires a namespace prefix argument"})
+
+      (= :communities command)
+      (assoc opts :command :communities
+             :src-dirs (if (seq args) (vec args) ["."]))
 
       (= :explain command)
       (if (first args)
@@ -384,6 +396,22 @@ Examples:
       markdown (run! println (output/format-compare-md diff))
       :else    (output/print-compare diff))))
 
+(defn communities-cmd
+  "Run communities with resolved opts map."
+  [{:keys [src-dirs json edn markdown conceptual change change-since exclude lens threshold]
+    :as opts}]
+  (let [conceptual  (if (= lens :structural) nil (or conceptual 0.15))
+        change      (if (= lens :change) true (if (nil? change) true change))
+        change-dir  (when change (if (string? change) change "."))
+        change-opts (when change-dir {:change change-dir :since change-since})
+        report      (build-report src-dirs conceptual change-opts exclude)
+        data        (communities/community-report report {:lens lens :threshold threshold})]
+    (cond
+      json     (println (report-json/generate (envelope/wrap opts data :communities)))
+      edn      (print   (report-edn/generate  (envelope/wrap opts data :communities)))
+      markdown (run! println (output/format-communities-md data))
+      :else    (output/print-communities data))))
+
 (defn gate-cmd
   "Run gate with resolved opts map.
   Builds a current diagnose-style report, compares against baseline,
@@ -453,6 +481,7 @@ Examples:
                               :diagnose     (diagnose-cmd opts)
                               :gate         (System/exit (gate-cmd opts))
                               :subgraph     (subgraph-cmd opts)
+                              :communities  (communities-cmd opts)
                               :explain      (explain-cmd opts)
                               :explain-pair (explain-pair-cmd opts)
                               (analyze opts))))))))
