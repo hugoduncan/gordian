@@ -252,6 +252,32 @@
   (testing "compare with no args → error"
     (is (contains? (sut/parse-args ["compare"]) :error))))
 
+(deftest parse-args-gate-test
+  (testing "gate requires baseline"
+    (is (contains? (sut/parse-args ["gate" "."]) :error)))
+
+  (testing "gate with baseline and explicit dir"
+    (let [opts (sut/parse-args ["gate" "." "--baseline" "base.edn"])]
+      (is (= :gate (:command opts)))
+      (is (= ["."] (:src-dirs opts)))
+      (is (= "base.edn" (:baseline opts)))))
+
+  (testing "gate with no dir defaults to ."
+    (let [opts (sut/parse-args ["gate" "--baseline" "base.edn"])]
+      (is (= :gate (:command opts)))
+      (is (= ["."] (:src-dirs opts)))))
+
+  (testing "gate captures threshold flags"
+    (let [opts (sut/parse-args ["gate" "." "--baseline" "base.edn"
+                                "--max-pc-delta" "0.01"
+                                "--max-new-high-findings" "1"
+                                "--max-new-medium-findings" "2"
+                                "--fail-on" "new-cycles,new-high-findings"])]
+      (is (= 0.01 (:max-pc-delta opts)))
+      (is (= 1 (:max-new-high-findings opts)))
+      (is (= 2 (:max-new-medium-findings opts)))
+      (is (= "new-cycles,new-high-findings" (:fail-on opts))))))
+
 ;;; ── diagnose integration ─────────────────────────────────────────────────
 
 (deftest diagnose-integration-test

@@ -388,6 +388,27 @@ severity emoji, backtick namespaces, sections omitted when empty.
 afec86d  feat: diagnose finding clusters via union-find
 ```
 
+## Session 14 commits — Phase D1 (gate mode)
+
+```
+(pending)  feat: gate mode — CI / refactor ratchet
+```
+
+203 tests, 1424 assertions, 0 failures.
+
+Gate mode (`gordian gate --baseline base.edn`):
+- builds current diagnose-style report
+- compares against saved baseline snapshot
+- evaluates pass/fail checks
+- default checks: pc-delta, new-cycles, new-high-findings
+- optional thresholds: `--max-pc-delta`, `--max-new-high-findings`, `--max-new-medium-findings`
+- explicit selection: `--fail-on new-cycles,new-high-findings`
+- text / markdown / EDN / JSON output
+- exit code 0 on pass, 1 on fail
+
+New module:
+- `gate.clj` — pure gate checks + report assembly
+
 190 tests, 1372 assertions, 0 failures.
 
 Compare mode (`gordian compare before.edn after.edn`):
@@ -485,7 +506,7 @@ e6d5345  step 4  feat: wire envelope into commands
 Phase D items:
 - Family/subgraph views (`gordian explain <prefix>`)
 - Actionability sort (`--rank actionability`)
-- CI/refactor-ratchet (`gordian gate --baseline X --max-pc-delta 0.01`)
+- CI/refactor-ratchet follow-ups: richer checks, cluster-aware checks, baseline workflows
 - Full cluster detection (community detection / label propagation)
 - Compare `--ref` mode (`gordian compare --ref HEAD~4 --ref HEAD`)
 

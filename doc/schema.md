@@ -218,6 +218,43 @@ Compares two saved EDN snapshots and produces a diff report.
 
 ---
 
+## gate
+
+Command: `gordian gate [dirs...] --baseline <file> --edn`
+
+Evaluates CI / ratchet checks by comparing a saved baseline snapshot against
+current code.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `gordian/command` | keyword | `:gate` |
+| `baseline-file` | string | Path to baseline EDN snapshot |
+| `result` | keyword | `:pass` or `:fail` |
+| `checks` | vector of maps | Evaluated gate checks |
+| `summary` | map | `{:passed n :failed n :total n}` |
+| `warnings` | vector of maps | Non-fatal warnings |
+| `compare` | map | Embedded compare diff |
+
+### Gate check shape
+
+```edn
+{:name   keyword       ; :pc-delta, :new-cycles, :new-high-findings, ...
+ :status keyword       ; :pass or :fail
+ :limit  any
+ :actual any
+ :reason string}
+```
+
+### Warning shape
+
+```edn
+{:kind     keyword     ; e.g. :src-dirs-mismatch
+ :baseline any
+ :current  any}
+```
+
+---
+
 ## explain
 
 Command: `gordian explain <ns> --edn`

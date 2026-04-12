@@ -14,6 +14,7 @@
             [gordian.explain     :as explain]
             [gordian.compare     :as compare]
             [gordian.cluster     :as cluster]
+            [gordian.gate        :as gate]
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
             [gordian.family      :as family]
@@ -27,20 +28,25 @@
 ;;; ── CLI spec ─────────────────────────────────────────────────────────────
 
 (def ^:private cli-spec
-  {:dot           {:desc "Write Graphviz DOT graph to <file>"}
-   :json          {:desc "Output JSON to stdout (suppresses table)" :coerce :boolean}
-   :edn           {:desc "Output EDN to stdout (suppresses table)"  :coerce :boolean}
-   :markdown      {:desc "Output Markdown to stdout (suppresses table)" :coerce :boolean}
-   :conceptual    {:desc "Conceptual coupling analysis; provide similarity threshold e.g. 0.30"
-                   :coerce :double}
-   :change        {:desc "Change coupling analysis; optional repo dir (default: .)"}
-   :change-since  {:desc "Limit change coupling to commits after this date e.g. \"90 days ago\""}
-   :include-tests {:desc "Include test directories in auto-discovery" :coerce :boolean}
-   :exclude       {:desc "Exclude namespaces matching regex (repeatable)" :coerce [:string]}
-   :help          {:desc "Show this help message"                   :coerce :boolean}})
+  {:dot                   {:desc "Write Graphviz DOT graph to <file>"}
+   :json                  {:desc "Output JSON to stdout (suppresses table)" :coerce :boolean}
+   :edn                   {:desc "Output EDN to stdout (suppresses table)"  :coerce :boolean}
+   :markdown              {:desc "Output Markdown to stdout (suppresses table)" :coerce :boolean}
+   :conceptual            {:desc "Conceptual coupling analysis; provide similarity threshold e.g. 0.30"
+                           :coerce :double}
+   :change                {:desc "Change coupling analysis; optional repo dir (default: .)"}
+   :change-since          {:desc "Limit change coupling to commits after this date e.g. \"90 days ago\""}
+   :baseline              {:desc "Saved EDN snapshot used as gate baseline"}
+   :max-pc-delta          {:desc "Maximum allowed increase in propagation cost" :coerce :double}
+   :max-new-high-findings {:desc "Maximum newly introduced high-severity findings" :coerce :long}
+   :max-new-medium-findings {:desc "Maximum newly introduced medium-severity findings" :coerce :long}
+   :fail-on               {:desc "Comma-separated strict gate checks e.g. new-cycles,new-high-findings"}
+   :include-tests         {:desc "Include test directories in auto-discovery" :coerce :boolean}
+   :exclude               {:desc "Exclude namespaces matching regex (repeatable)" :coerce [:string]}
+   :help                  {:desc "Show this help message" :coerce :boolean}})
 
 (def ^:private usage-summary
-  "Usage: gordian [analyze|diagnose|compare|explain|explain-pair] [<dir-or-src>...] [options]
+  "Usage: gordian [analyze|diagnose|compare|gate|explain|explain-pair] [<dir-or-src>...] [options]
 
 When given a project root (dir with deps.edn, bb.edn, etc.), gordian
 auto-discovers source directories. With no arguments, defaults to '.'.
@@ -49,20 +55,26 @@ Commands:
   analyze      (default) Raw metrics table + optional coupling sections
   diagnose     Ranked findings with severity levels (auto-enables all lenses)
   compare      Compare two saved EDN snapshots (before.edn after.edn)
+  gate         Compare current codebase against a saved baseline and fail CI on regressions
   explain      Everything gordian knows about a namespace
   explain-pair Everything gordian knows about a pair of namespaces
 
 Options:
-  --dot  <file>         Write Graphviz DOT graph to <file>
-  --json                Output JSON to stdout (suppresses human-readable table)
-  --edn                 Output EDN to stdout (suppresses human-readable table)
-  --markdown            Output Markdown to stdout (suppresses human-readable table)
-  --conceptual <float>  Conceptual coupling analysis at given similarity threshold
-  --change [<repo-dir>] Change coupling analysis; repo dir defaults to .
-  --change-since <date> Limit to commits after <date> e.g. \"90 days ago\"
-  --include-tests       Include test directories in auto-discovery
-  --exclude <regex>     Exclude namespaces matching regex (repeatable)
-  --help                Show this help message
+  --dot  <file>                 Write Graphviz DOT graph to <file>
+  --json                        Output JSON to stdout (suppresses human-readable table)
+  --edn                         Output EDN to stdout (suppresses human-readable table)
+  --markdown                    Output Markdown to stdout (suppresses human-readable table)
+  --conceptual <float>          Conceptual coupling analysis at given similarity threshold
+  --change [<repo-dir>]         Change coupling analysis; repo dir defaults to .
+  --change-since <date>         Limit to commits after <date> e.g. \"90 days ago\"
+  --baseline <file>             Saved EDN snapshot used as gate baseline
+  --max-pc-delta <float>        Maximum allowed increase in propagation cost
+  --max-new-high-findings <n>   Maximum newly introduced high-severity findings
+  --max-new-medium-findings <n> Maximum newly introduced medium-severity findings
+  --fail-on <csv>               Comma-separated strict gate checks
+  --include-tests               Include test directories in auto-discovery
+  --exclude <regex>             Exclude namespaces matching regex (repeatable)
+  --help                        Show this help message
 
 Examples:
   gordian                             auto-discover from cwd
@@ -79,6 +91,8 @@ Examples:
   gordian diagnose . --edn            machine-readable diagnose output
   gordian compare before.edn after.edn     compare two snapshots
   gordian compare before.edn after.edn --markdown
+  gordian gate . --baseline baseline.edn
+  gordian gate . --baseline baseline.edn --max-pc-delta 0.01
   gordian explain gordian.scan        drill into a namespace
   gordian explain-pair a.core b.svc   drill into a pair")
 
@@ -101,7 +115,7 @@ Examples:
   [raw-args]
   (let [command  ({"analyze" :analyze "diagnose" :diagnose
                    "explain" :explain "explain-pair" :explain-pair
-                   "compare" :compare}
+                   "compare" :compare "gate" :gate}
                   (first raw-args))
         raw-args (if command (rest raw-args) raw-args)
         {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})]
@@ -118,6 +132,12 @@ Examples:
                :before-file (first args)
                :after-file (second args))
         {:error "compare requires two EDN file arguments: <before.edn> <after.edn>"})
+
+      (= :gate command)
+      (if (:baseline opts)
+        (assoc opts :command :gate
+               :src-dirs (if (seq args) (vec args) ["."]))
+        {:error "gate requires --baseline <file>"})
 
       (= :explain command)
       (if (first args)
@@ -315,6 +335,38 @@ Examples:
       markdown (run! println (output/format-compare-md diff))
       :else    (output/print-compare diff))))
 
+(defn gate-cmd
+  "Run gate with resolved opts map.
+  Builds a current diagnose-style report, compares against baseline,
+  evaluates checks, prints output, and returns 0 (pass) or 1 (fail)."
+  [{:keys [src-dirs baseline json edn markdown conceptual change change-since exclude]
+    :as opts}]
+  (let [conceptual  (or conceptual 0.15)
+        change      (if (nil? change) true change)
+        change-dir  (when change (if (string? change) change "."))
+        change-opts (when change-dir {:change change-dir :since change-since})
+        baseline    (edn/read-string (slurp baseline))
+        report      (build-report src-dirs conceptual change-opts exclude)
+        health      (diagnose/health report)
+        findings    (diagnose/diagnose report)
+        clusters    (cluster/cluster-findings findings)
+        current     (envelope/wrap opts
+                                   (assoc report
+                                          :findings findings
+                                          :health health
+                                          :clusters (:clusters clusters)
+                                          :unclustered (:unclustered clusters))
+                                   :diagnose)
+        diff        (compare/compare-reports baseline current)
+        checks      (gate/resolve-checks opts diff)
+        result      (gate/gate-report (:baseline opts) baseline current diff checks)]
+    (cond
+      json     (println (report-json/generate result))
+      edn      (print   (report-edn/generate result))
+      markdown (run! println (output/format-gate-md result))
+      :else    (output/print-gate result))
+    (if (= :pass (:result result)) 0 1)))
+
 (defn explain-pair-cmd
   "Run explain-pair with resolved opts map."
   [{:keys [src-dirs json edn markdown conceptual change change-since exclude
@@ -350,6 +402,7 @@ Examples:
                                 (System/exit 1))
                             (case (:command opts)
                               :diagnose     (diagnose-cmd opts)
+                              :gate         (System/exit (gate-cmd opts))
                               :explain      (explain-cmd opts)
                               :explain-pair (explain-pair-cmd opts)
                               (analyze opts))))))))

@@ -267,9 +267,19 @@ Subgraph extraction + internal coupling density + boundary surface.
 family-noise, façade detection, lens overlap.
 
 ### CI/refactor-ratchet mode
+**Status:** in progress
+
 `gordian gate --baseline gordian.edn --max-pc-delta 0.01`
 Fail on PC rise, new cycles, new high-severity findings.
 Depends on: compare mode + stable schema.
+
+Implemented v1:
+- `gordian gate --baseline <file>`
+- default checks: pc-delta, new-cycles, new-high-findings
+- optional thresholds: `--max-pc-delta`, `--max-new-high-findings`, `--max-new-medium-findings`
+- explicit check selection: `--fail-on`
+- text / markdown / EDN / JSON output
+- CI-friendly exit status
 
 ### Full cluster detection
 Community detection (label propagation or modularity) for structural

@@ -671,3 +671,34 @@
       (is (not (str/includes? text "CYCLES")))
       (is (not (str/includes? text "CONCEPTUAL PAIRS")))
       (is (not (str/includes? text "FINDINGS"))))))
+
+;;; ── gate output ─────────────────────────────────────────────────────────
+
+(def gate-result-data
+  {:gordian/command :gate
+   :baseline-file "baseline.edn"
+   :result :fail
+   :src-dirs ["src/"]
+   :checks [{:name :pc-delta :status :pass :actual 0.004 :limit 0.01}
+            {:name :new-cycles :status :fail :actual 1 :limit 0}
+            {:name :new-high-findings :status :pass :actual 0 :limit 0}]
+   :summary {:passed 2 :failed 1 :total 3}
+   :warnings [{:kind :src-dirs-mismatch :baseline ["src/"] :current ["src/" "test/"]}]})
+
+(deftest format-gate-test
+  (let [text (str/join "\n" (sut/format-gate gate-result-data))]
+    (is (str/includes? text "gordian gate — FAIL"))
+    (is (str/includes? text "baseline.edn"))
+    (is (str/includes? text "CHECKS"))
+    (is (str/includes? text "pc-delta"))
+    (is (str/includes? text "new-cycles"))
+    (is (str/includes? text "WARNINGS"))
+    (is (str/includes? text "SUMMARY"))))
+
+(deftest format-gate-md-test
+  (let [text (str/join "\n" (sut/format-gate-md gate-result-data))]
+    (is (str/includes? text "# gordian gate — FAIL"))
+    (is (str/includes? text "| Check | Status | Actual | Limit |"))
+    (is (str/includes? text "baseline.edn"))
+    (is (str/includes? text "## Warnings"))
+    (is (str/includes? text "## Summary"))))
