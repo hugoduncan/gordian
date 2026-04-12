@@ -305,9 +305,8 @@ Examples:
                        (let [keep? (set (keys direct))]
                          (into {} (filter (fn [[k _]] (keep? k))) ns->terms))
                        ns->terms))
-         report (cond-> (assoc (structural-report-from-graph direct)
-                               :src-dirs src-dirs)
-                  ns->terms (assoc :ns->terms ns->terms))
+         report (assoc (structural-report-from-graph direct)
+                       :src-dirs src-dirs)
          report (if conceptual-threshold
                   (let [tfidf  (conceptual/build-tfidf ns->terms)
                         result (conceptual/conceptual-pairs tfidf direct conceptual-threshold 3)

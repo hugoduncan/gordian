@@ -37,7 +37,7 @@
   "Keys stripped from the report before embedding in the envelope.
   These are either internal implementation details or migrated to the
   envelope's :lenses section."
-  [:graph :ns->terms :conceptual-threshold :change-threshold
+  [:graph :conceptual-threshold :change-threshold
    :conceptual-candidate-count :change-candidate-count])
 
 (defn wrap
