@@ -1399,41 +1399,41 @@
 
 (defn format-dsm
   "Return a vector of lines for DSM output."
-  [{:keys [src-dirs collapsed scc-details]}]
-  (let [{:keys [summary blocks edges]} collapsed
-        {:keys [block-count cyclic-block-count largest-block-size
+  [{:keys [src-dirs summary blocks edges details ordering]}]
+  (let [{:keys [block-count singleton-block-count largest-block-size
                 inter-block-edge-count density]} summary
-        block-lines (map (fn [{:keys [id size cyclic? density members]}]
+        block-lines (map (fn [{:keys [id size density members]}]
                            (str "  B" id
                                 "  size " size
-                                "  cyclic " (if cyclic? "yes" "no")
                                 "  density " (format "%.2f" (double density))
                                 "  members: " (format-block-members members)))
                          blocks)
         edge-lines  (if (seq edges)
                       (map format-collapsed-edge-line edges)
                       ["  (none)"])
-        detail-lines (when (seq scc-details)
+        detail-lines (when (seq details)
                        (mapcat (fn [{:keys [id size members internal-edge-count density internal-edges]}]
-                                 [(str "Cyclic SCC B" id)
+                                 [(str "Block B" id)
                                   (str "  size: " size)
                                   (str "  members: " (format-block-members members))
                                   (str "  internal edges: " internal-edge-count)
                                   (str "  density: " (format "%.2f" (double density)))
                                   (str "  mini-matrix edges: " (pr-str internal-edges))
                                   ""])
-                               scc-details))]
+                               details))]
     (vec
      (concat
       ["gordian dsm"
        (str "src: " (str/join " " src-dirs))
        ""
-       "SCC decomposition"
+       "Diagonal block partition"
+       (str "  ordering: " (name (:strategy ordering)))
+       (str "  alpha: " (format "%.1f" (double (:alpha ordering))))
        (str "  blocks: " block-count)
-       (str "  cyclic blocks: " cyclic-block-count)
+       (str "  singleton blocks: " singleton-block-count)
        (str "  largest block: " largest-block-size)
        ""
-       "Collapsed SCC DSM"
+       "Block DSM"
        (str "  inter-block edges: " inter-block-edge-count)
        (str "  density: " (format "%.4f" (double density)))
        ""
@@ -1441,57 +1441,62 @@
       block-lines
       ["" "Inter-block edges"]
       edge-lines
-      (when (seq detail-lines)
-        (concat ["" "Cyclic SCC details" ""] detail-lines))))))
+      (concat ["" "Block details" ""]
+              (if (seq detail-lines)
+                detail-lines
+                ["No multi-namespace blocks."]))))))
 
 (defn format-dsm-md
   "Return markdown lines for DSM output."
-  [{:keys [src-dirs collapsed scc-details]}]
-  (let [{:keys [summary blocks edges]} collapsed]
-    (vec
-     (concat
-      ["# Gordian DSM"
-       ""
-       (str "Source: `" (str/join " " src-dirs) "`")
-       ""
-       "## Summary"
-       ""
-       "| Metric | Value |"
-       "|---|---:|"
-       (str "| SCC blocks | " (:block-count summary) " |")
-       (str "| Cyclic SCCs | " (:cyclic-block-count summary) " |")
-       (str "| Largest SCC | " (:largest-block-size summary) " |")
-       (str "| Inter-block edges | " (:inter-block-edge-count summary) " |")
-       (str "| Density | " (format "%.4f" (double (:density summary))) " |")
-       ""
-       "## Blocks"
-       ""
-       "| Block | Size | Cyclic | Density | Members |"
-       "|---|---:|---|---:|---|"]
-      (map (fn [{:keys [id size cyclic? density members]}]
-             (str "| B" id " | " size " | " (if cyclic? "yes" "no")
-                  " | " (format "%.2f" (double density))
-                  " | `" (str/join "`, `" (map str members)) "` |"))
-           blocks)
-      ["" "## Inter-block edges" ""
-       "| From | To | Edge count |"
-       "|---|---|---:|"]
-      (if (seq edges)
-        (map (fn [{:keys [from to edge-count]}]
-               (str "| B" from " | B" to " | " edge-count " |"))
-             edges)
-        ["| (none) |  | 0 |"])
-      (when (seq scc-details)
-        (mapcat (fn [{:keys [id size members internal-edge-count density internal-edges]}]
-                  [""
-                   (str "## Cyclic SCC B" id)
-                   ""
-                   (str "- Size: " size)
-                   (str "- Members: `" (str/join "`, `" (map str members)) "`")
-                   (str "- Internal edges: " internal-edge-count)
-                   (str "- Density: " (format "%.2f" (double density)))
-                   (str "- Mini-matrix edges: `" (pr-str internal-edges) "`")])
-                scc-details))))))
+  [{:keys [src-dirs summary blocks edges details ordering]}]
+  (vec
+   (concat
+    ["# Gordian DSM"
+     ""
+     (str "Source: `" (str/join " " src-dirs) "`")
+     ""
+     "## Summary"
+     ""
+     "| Metric | Value |"
+     "|---|---:|"
+     (str "| Ordering | " (name (:strategy ordering)) " |")
+     (str "| Alpha | " (format "%.1f" (double (:alpha ordering))) " |")
+     (str "| Blocks | " (:block-count summary) " |")
+     (str "| Singleton blocks | " (:singleton-block-count summary) " |")
+     (str "| Largest block | " (:largest-block-size summary) " |")
+     (str "| Inter-block edges | " (:inter-block-edge-count summary) " |")
+     (str "| Density | " (format "%.4f" (double (:density summary))) " |")
+     ""
+     "## Blocks"
+     ""
+     "| Block | Size | Density | Members |"
+     "|---|---:|---:|---|"]
+    (map (fn [{:keys [id size density members]}]
+           (str "| B" id " | " size
+                " | " (format "%.2f" (double density))
+                " | `" (str/join "`, `" (map str members)) "` |"))
+         blocks)
+    ["" "## Inter-block edges" ""
+     "| From | To | Edge count |"
+     "|---|---|---:|"]
+    (if (seq edges)
+      (map (fn [{:keys [from to edge-count]}]
+             (str "| B" from " | B" to " | " edge-count " |"))
+           edges)
+      ["| (none) |  | 0 |"])
+    ["" "## Block details" ""]
+    (if (seq details)
+      (mapcat (fn [{:keys [id size members internal-edge-count density internal-edges]}]
+                [""
+                 (str "## Block B" id)
+                 ""
+                 (str "- Size: " size)
+                 (str "- Members: `" (str/join "`, `" (map str members)) "`")
+                 (str "- Internal edges: " internal-edge-count)
+                 (str "- Density: " (format "%.2f" (double density)))
+                 (str "- Mini-matrix edges: `" (pr-str internal-edges) "`")])
+              details)
+      ["No multi-namespace blocks."]))))
 
 (defn print-subgraph
   "Print a human-readable subgraph report to stdout."
