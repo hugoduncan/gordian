@@ -72,16 +72,15 @@
     (str "B" id " · " (first members) " +" (dec size))))
 
 (defn- block-row
-  [{:keys [id size cyclic? density members] :as block}]
+  [{:keys [id size density members] :as block}]
   (tag "tr"
        (str (tag "td"
-                 (if cyclic?
+                 (if (< 1 size)
                    (tag "a" {:href (str "#" (block-anchor-id id))
-                             :title (str "Jump to Cyclic SCC B" id)}
+                             :title (str "Jump to Block B" id)}
                         (block-label block))
                    (block-label block)))
             (tag "td" size)
-            (tag "td" (if cyclic? "yes" "no"))
             (tag "td" (format "%.2f" (double density)))
             (tag "td" (str/join ", " (map str members))))))
 
@@ -140,10 +139,9 @@
         block-by-id (into {} (map (juxt :id identity) blocks))
         lookup      (edge-lookup edges)
         header-cell (fn [id]
-                      (let [{:keys [size cyclic? members] :as block} (get block-by-id id)]
+                      (let [{:keys [size members] :as block} (get block-by-id id)]
                         (tag "th"
                              {:title (str "B" id ": size=" size
-                                          ", cyclic=" (if cyclic? "yes" "no")
                                           ", members=" (str/join ", " (map str members)))}
                              (block-label block))))
         body-cell   (fn [row-id col-id]
@@ -168,11 +166,10 @@
                (tag "tbody"
                     (join-html
                      (map (fn [row-id]
-                            (let [{:keys [size cyclic? members] :as block} (get block-by-id row-id)]
+                            (let [{:keys [size members] :as block} (get block-by-id row-id)]
                               (tag "tr"
                                    (str (tag "th"
                                              {:title (str "B" row-id ": size=" size
-                                                          ", cyclic=" (if cyclic? "yes" "no")
                                                           ", members=" (str/join ", " (map str members)))}
                                              (block-label block))
                                         (join-html (map (fn [col-id] (body-cell row-id col-id)) ids))))))
@@ -204,20 +201,20 @@
                                        idxs)))))
                      idxs)))))))
 
-(defn scc-detail-section
+(defn block-detail-section
   [{:keys [id size members internal-edge-count density] :as detail}]
   (tag "details" {:class "scc-detail"
                   :id (block-anchor-id id)}
        (str
         (tag "summary"
-             (str "Cyclic SCC B" id " — " size " members, density "
+             (str "Block B" id " — " size " namespaces, density "
                   (format "%.2f" (double density))))
         (tag "div" {:class "scc-body"}
              (str (tag "p" (str "Members: " (str/join ", " (map str members))))
                   (tag "p" (str "Internal edges: " internal-edge-count))
                   (mini-matrix detail))))))
 
-(declare scc-details-section)
+(declare block-details-section)
 
 (def css
   "Embedded CSS for self-contained DSM HTML reports."
@@ -246,12 +243,12 @@
    "code{background:#f3f4f6;padding:2px 4px;border-radius:4px;}"))
 
 (defn dsm-html
-  [{:keys [src-dirs collapsed scc-details]}]
-  (let [details-section (if (seq scc-details)
-                          (scc-details-section scc-details)
+  [{:keys [src-dirs summary blocks edges details ordering]}]
+  (let [details-section (if (seq details)
+                          (block-details-section details)
                           (tag "section" {:class "scc-details-empty"}
-                               (str (tag "h2" "Cyclic SCC Details")
-                                    (tag "p" "No non-singleton SCCs detected; all blocks are single namespaces."))))]
+                               (str (tag "h2" "Block Details")
+                                    (tag "p" "No multi-namespace blocks."))))]
     (page
      "Gordian DSM"
      (tag "main" {:class "page"}
@@ -260,24 +257,25 @@
            (tag "header" {:class "page-header"}
                 (str (tag "h1" "Gordian DSM")
                      (tag "p" (str "Source: " (tag "code" (str/join " " src-dirs))))
-                     (tag "p" (str "Basis: " (tag "code" "SCC")))))
+                     (tag "p" (str "Ordering: " (tag "code" (name (:strategy ordering)))))
+                     (tag "p" (str "Alpha: " (tag "code" (format "%.1f" (double (:alpha ordering))))))))
            (tag "section"
                 (str (tag "h2" "Summary")
-                     (summary-cards (:summary collapsed))))
+                     (summary-cards summary)))
            (tag "section"
-                (str (tag "h2" "Collapsed SCC Matrix")
-                     (collapsed-matrix (:blocks collapsed) (:edges collapsed))))
+                (str (tag "h2" "Block DSM")
+                     (collapsed-matrix blocks edges)))
            (tag "section"
                 (str (tag "h2" "Blocks")
-                     (block-table (:blocks collapsed))))
+                     (block-table blocks)))
            (tag "section"
                 (str (tag "h2" "Inter-block Dependencies")
-                     (edge-table (:edges collapsed))))
+                     (edge-table edges)))
            details-section)))))
 
-(defn scc-details-section
+(defn block-details-section
   [details]
   (when (seq details)
     (tag "section" {:class "scc-details"}
-         (str (tag "h2" "Cyclic SCC Details")
-              (join-html (map scc-detail-section details))))))
+         (str (tag "h2" "Block Details")
+              (join-html (map block-detail-section details))))))
