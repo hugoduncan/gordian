@@ -214,3 +214,42 @@
     (is (= {:pc-src 0.10 :pc-with-tests 0.14 :pc-delta 0.04000000000000001 :interpretation :targeted}
            (sut/pc-summary {:propagation-cost 0.10}
                            {:propagation-cost 0.14})))))
+
+(deftest tests-findings-test
+  (let [profiles [{:ns 'app.core-test
+                   :test-role :executable
+                   :test-style :integration-ish
+                   :integration-cue? false
+                   :reach 0.35 :ce 5 :role :peripheral}
+                  {:ns 'app.integration-test
+                   :test-role :executable
+                   :test-style :integration-ish
+                   :integration-cue? true
+                   :reach 0.60 :ce 9 :role :peripheral}]
+        invariants {:src->test-edges [{:src 'app.core :test 'app.test-support :test-role :support}]
+                    :support-leaked-to-src [{:ns 'app.test-support :ca 2 :incoming-src ['app.core]}]
+                    :executable-tests-with-incoming-deps [{:ns 'app.core-test
+                                                           :ca 1
+                                                           :incoming-src []
+                                                           :incoming-test ['app.other-test]
+                                                           :from-support []
+                                                           :from-executable ['app.other-test]}]
+                    :mixed-cycles [{:members ['app.core 'app.test-support]
+                                    :src-members ['app.core]
+                                    :test-members ['app.test-support]}]}
+        coverage {:untested-core [{:ns 'app.db :role :core :ca-src 1 :ca-with-tests 1 :ca-delta 0}]}
+        pc {:pc-src 0.10 :pc-with-tests 0.25 :pc-delta 0.15 :interpretation :over-coupled}
+        findings (sut/tests-findings {} {} {} {} profiles invariants coverage pc)
+        categories (set (map :category findings))
+        severities (map :severity findings)]
+    (is (= #{:src-depends-on-test
+             :test-support-leaked-to-src
+             :mixed-cycle
+             :test-executable-has-incoming-deps
+             :unit-test-too-broad
+             :untested-core
+             :over-coupled-tests
+             :integration-test-very-broad}
+           categories))
+    (is (= [:high :high :high :medium :medium :medium :medium :low]
+           severities))))

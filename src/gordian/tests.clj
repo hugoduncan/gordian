@@ -1,6 +1,7 @@
 (ns gordian.tests
   "Pure helpers for test-architecture analysis."
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [gordian.finding :as finding]))
 
 (def ^:private support-fragments
   ["support" "helper" "helpers" "fixture" "fixtures"
@@ -235,9 +236,9 @@
     large delta   -> tests over-coupled
     near-zero     -> tests may miss integration pressure"
   [src-report full-report]
-  (let [pc-src        (double (or (:propagation-cost src-report) 0.0))
-        pc-with-tests (double (or (:propagation-cost full-report) 0.0))
-        pc-delta      (- pc-with-tests pc-src)
+  (let [pc-src         (double (or (:propagation-cost src-report) 0.0))
+        pc-with-tests  (double (or (:propagation-cost full-report) 0.0))
+        pc-delta       (- pc-with-tests pc-src)
         interpretation (cond
                          (>= pc-delta 0.10) :over-coupled
                          (<= pc-delta 0.01) :no-integration-pressure
@@ -246,3 +247,136 @@
      :pc-with-tests pc-with-tests
      :pc-delta pc-delta
      :interpretation interpretation}))
+
+(defn- severity-rank [s]
+  (case s :high 0 :medium 1 :low 2 3))
+
+(defn- finding-sort-key [f]
+  [(severity-rank (:severity f))
+   (- (finding/finding-magnitude f))])
+
+(defn find-src-depends-on-test
+  [edges]
+  (mapv (fn [{:keys [src test test-role]}]
+          {:severity :high
+           :category :src-depends-on-test
+           :subject  {:ns src}
+           :reason   (str "production namespace depends on test namespace " test)
+           :evidence {:src src :test test :test-role test-role}})
+        edges))
+
+(defn find-test-support-leaked-to-src
+  [rows]
+  (mapv (fn [{:keys [ns incoming-src ca]}]
+          {:severity :high
+           :category :test-support-leaked-to-src
+           :subject  {:ns ns}
+           :reason   (str "test support namespace is depended on by source namespaces")
+           :evidence {:ns ns :ca ca :incoming-src incoming-src}})
+        rows))
+
+(defn find-test-executable-has-incoming-deps
+  [rows]
+  (mapv (fn [{:keys [ns ca incoming-src incoming-test from-executable from-support]}]
+          {:severity (if (seq incoming-src) :high :medium)
+           :category :test-executable-has-incoming-deps
+           :subject  {:ns ns}
+           :reason   (if (seq incoming-src)
+                       (str "executable test has incoming source deps")
+                       (str "executable test is reused by other tests"))
+           :evidence {:ns ns
+                      :ca ca
+                      :incoming-src incoming-src
+                      :incoming-test incoming-test
+                      :from-executable from-executable
+                      :from-support from-support}})
+        rows))
+
+(defn find-mixed-cycles
+  [rows]
+  (mapv (fn [{:keys [members src-members test-members]}]
+          {:severity :high
+           :category :mixed-cycle
+           :subject  {:members members}
+           :reason   (str "cycle spans production and test namespaces")
+           :evidence {:members members
+                      :src-members src-members
+                      :test-members test-members
+                      :size (count members)}})
+        rows))
+
+(defn find-unit-test-too-broad
+  [profiles]
+  (->> profiles
+       (filter #(and (= :executable (:test-role %))
+                     (= :integration-ish (:test-style %))
+                     (not (:integration-cue? %))))
+       (mapv (fn [{:keys [ns reach ce role]}]
+               {:severity :medium
+                :category :unit-test-too-broad
+                :subject  {:ns ns}
+                :reason   (str "test looks broader than a focused unit test")
+                :evidence {:ns ns :reach reach :ce ce :role role}}))))
+
+(defn find-integration-test-very-broad
+  [profiles]
+  (->> profiles
+       (filter #(and (= :executable (:test-role %))
+                     (= :integration-ish (:test-style %))
+                     (:integration-cue? %)
+                     (or (>= (or (:reach %) 0.0) 0.50)
+                         (>= (or (:ce %) 0) 8))))
+       (mapv (fn [{:keys [ns reach ce role]}]
+               {:severity :low
+                :category :integration-test-very-broad
+                :subject  {:ns ns}
+                :reason   (str "integration-style test pulls in a very broad slice of the system")
+                :evidence {:ns ns :reach reach :ce ce :role role}}))))
+
+(defn find-untested-core
+  [coverage]
+  (mapv (fn [{:keys [ns ca-src ca-with-tests ca-delta role]}]
+          {:severity :medium
+           :category :untested-core
+           :subject  {:ns ns}
+           :reason   (str "core namespace gains no direct test dependents")
+           :evidence {:ns ns
+                      :role role
+                      :ca-src ca-src
+                      :ca-with-tests ca-with-tests
+                      :ca-delta ca-delta}})
+        (:untested-core coverage)))
+
+(defn find-suite-coupling-findings
+  [pc]
+  (case (:interpretation pc)
+    :over-coupled
+    [{:severity :medium
+      :category :over-coupled-tests
+      :subject  {:suite :tests}
+      :reason   (str "adding tests substantially increases propagation cost")
+      :evidence pc}]
+
+    :no-integration-pressure
+    [{:severity :low
+      :category :tests-miss-coupling-core
+      :subject  {:suite :tests}
+      :reason   (str "adding tests barely changes propagation cost")
+      :evidence pc}]
+
+    []))
+
+(defn tests-findings
+  "Generate ranked findings for test mode."
+  [_graph _origins _src-report _full-report profiles invariants coverage pc]
+  (->> (concat
+        (find-src-depends-on-test (:src->test-edges invariants))
+        (find-test-support-leaked-to-src (:support-leaked-to-src invariants))
+        (find-test-executable-has-incoming-deps (:executable-tests-with-incoming-deps invariants))
+        (find-mixed-cycles (:mixed-cycles invariants))
+        (find-unit-test-too-broad profiles)
+        (find-integration-test-very-broad profiles)
+        (find-untested-core coverage)
+        (find-suite-coupling-findings pc))
+       (sort-by finding-sort-key)
+       vec))
