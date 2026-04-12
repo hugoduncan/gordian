@@ -126,26 +126,69 @@
         lookup (edge-lookup edges)]
     (tag "div" {:class "matrix-scroll"}
          (tag "table" {:class "dsm-matrix"}
-              (str (tag "thead"
-                        (tag "tr"
-                             (str (tag "th" "")
-                                  (join-html (map (fn [id] (tag "th" (str "B" id))) ids)))))
-                   (tag "tbody"
-                        (join-html
-                         (map (fn [row-id]
-                                (tag "tr"
-                                     (str (tag "th" (str "B" row-id))
-                                          (join-html
-                                           (map (fn [col-id]
-                                                  (cond
-                                                    (= row-id col-id)
-                                                    (tag "td" {:class "diag"} "")
+              (str
+               (tag "thead"
+                    (tag "tr"
+                         (str (tag "th" "")
+                              (join-html (map (fn [id] (tag "th" (str "B" id))) ids)))))
+               (tag "tbody"
+                    (join-html
+                     (map (fn [row-id]
+                            (tag "tr"
+                                 (str (tag "th" (str "B" row-id))
+                                      (join-html
+                                       (map (fn [col-id]
+                                              (if (= row-id col-id)
+                                                (tag "td" {:class "diag"} "")
+                                                (let [edge-count (get lookup [row-id col-id] 0)]
+                                                  (if (pos? edge-count)
+                                                    (tag "td" {:class (str "edge " (edge-intensity-class edge-count))}
+                                                         edge-count)
+                                                    (tag "td" {:class "empty"} "")))))
+                                            ids)))))
+                          ids))))))))
 
-                                                    :else
-                                                    (let [edge-count (get lookup [row-id col-id] 0)]
-                                                      (if (pos? edge-count)
-                                                        (tag "td" {:class (str "edge " (edge-intensity-class edge-count))}
-                                                             edge-count)
-                                                        (tag "td" {:class "empty"} "")))))
-                                                ids)))))
-                              ids))))))))
+(defn mini-matrix
+  [{:keys [members internal-edges]}]
+  (let [size     (count members)
+        edge-set (set internal-edges)
+        idxs     (range size)]
+    (tag "table" {:class "mini-matrix"}
+         (str
+          (tag "thead"
+               (tag "tr"
+                    (str (tag "th" "")
+                         (join-html (map (fn [i] (tag "th" i)) idxs)))))
+          (tag "tbody"
+               (join-html
+                (map (fn [row]
+                       (tag "tr"
+                            (str (tag "th" row)
+                                 (join-html
+                                  (map (fn [col]
+                                         (cond
+                                           (= row col) (tag "td" {:class "diag"} "")
+                                           (contains? edge-set [row col])
+                                           (tag "td" {:class "edge edge-1"} "X")
+                                           :else (tag "td" {:class "empty"} "")))
+                                       idxs)))))
+                     idxs)))))))
+
+(defn scc-detail-section
+  [{:keys [id size members internal-edge-count density] :as detail}]
+  (tag "details" {:class "scc-detail"}
+       (str
+        (tag "summary"
+             (str "Cyclic SCC B" id " — " size " members, density "
+                  (format "%.2f" (double density))))
+        (tag "div" {:class "scc-body"}
+             (str (tag "p" (str "Members: " (str/join ", " (map str members))))
+                  (tag "p" (str "Internal edges: " internal-edge-count))
+                  (mini-matrix detail))))))
+
+(defn scc-details-section
+  [details]
+  (when (seq details)
+    (tag "section" {:class "scc-details"}
+         (str (tag "h2" "Cyclic SCC Details")
+              (join-html (map scc-detail-section details))))))

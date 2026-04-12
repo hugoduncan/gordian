@@ -51,6 +51,14 @@
 (def edges
   [{:from 1 :to 0 :edge-count 2}])
 
+(def details
+  [{:id 1
+    :members ['foo.a 'foo.b 'foo.c]
+    :size 3
+    :internal-edges [[0 1] [1 2] [2 0]]
+    :internal-edge-count 3
+    :density 0.5}])
+
 (deftest summary-cards-test
   (let [html (sut/summary-cards summary)]
     (is (.contains html "SCC Blocks"))
@@ -109,3 +117,31 @@
 
     (testing "single-block input handled"
       (is (.contains (sut/collapsed-matrix [{:id 0}] []) ">B0<")))))
+
+(deftest mini-matrix-test
+  (let [html (sut/mini-matrix (first details))]
+    (is (.contains html "<table"))
+    (is (.contains html ">0<"))
+    (is (.contains html ">1<"))
+    (is (.contains html ">2<"))
+    (is (.contains html ">X<"))))
+
+(deftest scc-detail-section-test
+  (let [html (sut/scc-detail-section (first details))]
+    (is (.contains html "<details"))
+    (is (.contains html "<summary>"))
+    (is (.contains html "Cyclic SCC B1"))
+    (is (.contains html "foo.a, foo.b, foo.c"))
+    (is (.contains html "Internal edges: 3"))))
+
+(deftest scc-details-section-test
+  (testing "omits empty detail section"
+    (is (nil? (sut/scc-details-section []))))
+
+  (testing "multiple details preserve order"
+    (let [html (sut/scc-details-section (conj details
+                                              {:id 3 :members ['z.a 'z.b] :size 2
+                                               :internal-edges [[0 1] [1 0]]
+                                               :internal-edge-count 2 :density 1.0}))]
+      (is (< (.indexOf html "Cyclic SCC B1")
+             (.indexOf html "Cyclic SCC B3"))))))
