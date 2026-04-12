@@ -313,6 +313,22 @@
       (is (= :structural (:lens opts)))
       (is (= 1.0 (:threshold opts))))))
 
+(deftest parse-args-dsm-test
+  (testing "dsm -> :command :dsm"
+    (let [opts (sut/parse-args ["dsm"])]
+      (is (= :dsm (:command opts)))
+      (is (= ["."] (:src-dirs opts)))))
+
+  (testing "dsm . --exclude foo\\..*"
+    (let [opts (sut/parse-args ["dsm" "." "--exclude" "foo\\..*"])]
+      (is (= :dsm (:command opts)))
+      (is (= ["foo\\..*"] (:exclude opts)))))
+
+  (testing "dsm --include-tests"
+    (let [opts (sut/parse-args ["dsm" "--include-tests"])]
+      (is (= :dsm (:command opts)))
+      (is (true? (:include-tests opts))))))
+
 (deftest parse-args-tests-test
   (testing "tests -> :command :tests"
     (let [opts (sut/parse-args ["tests"])]
@@ -426,6 +442,21 @@
       (is (= :communities (:gordian/command parsed)))
       (is (contains? parsed :communities))
       (is (contains? parsed :summary)))))
+
+(deftest dsm-integration-test
+  (testing "dsm with --edn returns structured map"
+    (let [out (with-out-str (sut/dsm-cmd {:src-dirs ["resources/fixture"] :edn true}))
+          parsed (read-string out)]
+      (is (= :dsm (:gordian/command parsed)))
+      (is (contains? parsed :collapsed))
+      (is (contains? parsed :scc-details))))
+
+  (testing "dsm with --json returns structured map"
+    (let [out (with-out-str (sut/dsm-cmd {:src-dirs ["resources/fixture"] :json true}))
+          parsed (json/parse-string out true)]
+      (is (= "dsm" (name (:gordian/command parsed))))
+      (is (contains? parsed :collapsed))
+      (is (contains? parsed :scc-details)))))
 
 (deftest tests-integration-test
   (testing "tests produces output"

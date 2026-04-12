@@ -241,6 +241,72 @@
       (is (some #(str/includes? % "change coupling") lines))
       (is (some #(str/includes? % "gordian.main") lines)))))
 
+;;; ── dsm output ───────────────────────────────────────────────────────────
+
+(def ^:private dsm-data
+  {:src-dirs ["resources/fixture"]
+   :collapsed {:blocks [{:id 0 :members ['c] :size 1 :cyclic? false :internal-edge-count 0 :density 0.0}
+                        {:id 1 :members ['a 'b] :size 2 :cyclic? true :internal-edge-count 2 :density 1.0}]
+               :edges [{:from 1 :to 0 :edge-count 1}]
+               :summary {:block-count 2
+                         :singleton-block-count 1
+                         :cyclic-block-count 1
+                         :largest-block-size 2
+                         :inter-block-edge-count 1
+                         :density 0.5}}
+   :scc-details [{:id 1
+                  :members ['a 'b]
+                  :size 2
+                  :internal-edges [[0 1] [1 0]]
+                  :internal-edge-count 2
+                  :density 1.0}]})
+
+(deftest format-dsm-test
+  (let [lines (sut/format-dsm dsm-data)]
+    (testing "shows summary counts"
+      (is (some #(str/includes? % "blocks: 2") lines))
+      (is (some #(str/includes? % "cyclic blocks: 1") lines))
+      (is (some #(str/includes? % "largest block: 2") lines)))
+
+    (testing "block list includes ids and members"
+      (is (some #(str/includes? % "B0") lines))
+      (is (some #(str/includes? % "a, b") lines)))
+
+    (testing "collapsed edge section shows counted relations"
+      (is (some #(str/includes? % "B1 -> B0") lines)))
+
+    (testing "non-singleton SCC detail appears"
+      (is (some #(str/includes? % "Cyclic SCC B1") lines))
+      (is (some #(str/includes? % "mini-matrix edges") lines)))))
+
+(deftest format-dsm-singleton-only-test
+  (let [data {:src-dirs ["resources/fixture"]
+              :collapsed {:blocks [{:id 0 :members ['a] :size 1 :cyclic? false :internal-edge-count 0 :density 0.0}]
+                          :edges []
+                          :summary {:block-count 1
+                                    :singleton-block-count 1
+                                    :cyclic-block-count 0
+                                    :largest-block-size 1
+                                    :inter-block-edge-count 0
+                                    :density 0.0}}
+              :scc-details []}
+        lines (sut/format-dsm data)]
+    (is (not (some #(str/includes? % "Cyclic SCC details") lines)))))
+
+(deftest format-dsm-md-test
+  (let [lines (sut/format-dsm-md dsm-data)]
+    (testing "includes markdown summary table headers"
+      (is (some #(str/includes? % "| Metric | Value |") lines)))
+
+    (testing "includes blocks table columns"
+      (is (some #(str/includes? % "| Block | Size | Cyclic | Density | Members |") lines)))
+
+    (testing "includes inter-block table columns"
+      (is (some #(str/includes? % "| From | To | Edge count |") lines)))
+
+    (testing "renders cyclic SCC detail heading"
+      (is (some #(str/includes? % "## Cyclic SCC B1") lines)))))
+
 ;;; ── format-diagnose ──────────────────────────────────────────────────────
 
 (def ^:private diagnose-health

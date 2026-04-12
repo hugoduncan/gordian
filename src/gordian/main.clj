@@ -18,6 +18,7 @@
             [gordian.prioritize  :as prioritize]
             [gordian.subgraph    :as subgraph]
             [gordian.communities :as communities]
+            [gordian.dsm         :as dsm]
             [gordian.tests       :as tests]
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
@@ -33,6 +34,7 @@
 
 (def ^:private cli-spec
   {:dot                   {:desc "Write Graphviz DOT graph to <file>"}
+   :full                  {:desc "Reserved for future detailed/full output modes" :coerce :boolean}
    :json                  {:desc "Output JSON to stdout (suppresses table)" :coerce :boolean}
    :edn                   {:desc "Output EDN to stdout (suppresses table)"  :coerce :boolean}
    :markdown              {:desc "Output Markdown to stdout (suppresses table)" :coerce :boolean}
@@ -53,7 +55,7 @@
    :help                  {:desc "Show this help message" :coerce :boolean}})
 
 (def ^:private usage-summary
-  "Usage: gordian [analyze|diagnose|compare|gate|subgraph|communities|tests|explain|explain-pair] [<dir-or-src>...] [options]
+  "Usage: gordian [analyze|diagnose|compare|gate|subgraph|communities|dsm|tests|explain|explain-pair] [<dir-or-src>...] [options]
 
 When given a project root (dir with deps.edn, bb.edn, etc.), gordian
 auto-discovers source directories. With no arguments, defaults to '.'.
@@ -65,6 +67,7 @@ Commands:
   gate         Compare current codebase against a saved baseline and fail CI on regressions
   subgraph     Family/subsystem view for a namespace prefix
   communities  Discover latent architecture communities
+  dsm          Dependency Structure Matrix view over SCC blocks
   tests        Analyze test architecture and test-vs-source coupling
   explain      Everything gordian knows about a namespace
   explain-pair Everything gordian knows about a pair of namespaces
@@ -109,6 +112,7 @@ Examples:
   gordian diagnose . --rank actionability
   gordian subgraph gordian
   gordian communities . --lens combined
+  gordian dsm .
   gordian tests .
   gordian explain gordian.scan        drill into a namespace
   gordian explain-pair a.core b.svc   drill into a pair")
@@ -133,7 +137,7 @@ Examples:
   (let [command  ({"analyze" :analyze "diagnose" :diagnose
                    "explain" :explain "explain-pair" :explain-pair
                    "compare" :compare "gate" :gate "subgraph" :subgraph
-                   "communities" :communities "tests" :tests}
+                   "communities" :communities "dsm" :dsm "tests" :tests}
                   (first raw-args))
         raw-args (if command (rest raw-args) raw-args)
         {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})]
@@ -166,6 +170,10 @@ Examples:
 
       (= :communities command)
       (assoc opts :command :communities
+             :src-dirs (if (seq args) (vec args) ["."]))
+
+      (= :dsm command)
+      (assoc opts :command :dsm
              :src-dirs (if (seq args) (vec args) ["."]))
 
       (= :tests command)
@@ -458,6 +466,20 @@ Examples:
       markdown (run! println (output/format-communities-md data))
       :else    (output/print-communities data))))
 
+(defn dsm-cmd
+  "Run DSM with resolved opts map."
+  [{:keys [src-dirs json edn markdown exclude]
+    :as opts}]
+  (let [direct (-> (scan/scan-dirs src-dirs)
+                   (gfilter/filter-graph exclude))
+        data   (assoc (dsm/dsm-report direct)
+                      :src-dirs src-dirs)]
+    (cond
+      json     (println (report-json/generate (envelope/wrap opts data :dsm)))
+      edn      (print   (report-edn/generate  (envelope/wrap opts data :dsm)))
+      markdown (run! println (output/format-dsm-md data))
+      :else    (output/print-dsm data))))
+
 (defn tests-cmd
   "Run tests mode with resolved opts map."
   [{:keys [json edn markdown] :as opts}]
@@ -543,6 +565,7 @@ Examples:
                               :gate         (System/exit (gate-cmd opts))
                               :subgraph     (subgraph-cmd opts)
                               :communities  (communities-cmd opts)
+                              :dsm          (dsm-cmd opts)
                               :tests        (tests-cmd opts)
                               :explain      (explain-cmd opts)
                               :explain-pair (explain-pair-cmd opts)
