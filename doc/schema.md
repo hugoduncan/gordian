@@ -355,22 +355,25 @@ or combined signals.
 
 Command: `gordian dsm [dirs...] --edn`
 
-Dependency Structure Matrix view over SCC blocks.
+Dependency Structure Matrix view using dependency-respecting ordering and
+contiguous diagonal block partitioning.
 
 | Key | Type | Description |
 |-----|------|-------------|
 | `gordian/command` | keyword | `:dsm` |
-| `basis` | keyword | `:scc` in v1 |
-| `collapsed` | map | Collapsed SCC matrix over the condensation graph |
-| `scc-details` | vector of maps | Mini-matrix detail for each non-singleton SCC |
+| `basis` | keyword | `:diagonal-blocks` |
+| `ordering` | map | Ordering strategy and ordered namespace basis |
+| `blocks` | vector of maps | Contiguous diagonal blocks |
+| `edges` | vector of maps | Inter-block edge counts |
+| `summary` | map | Top-line block metrics |
+| `details` | vector of maps | Block detail mini-matrices |
 
-### Collapsed shape
+### Ordering shape
 
 ```edn
-{:block-count integer
- :blocks      [block]
- :edges       [collapsed-edge]
- :summary     collapsed-summary}
+{:strategy keyword    ; e.g. :dfs-topo
+ :alpha    double     ; block cost exponent
+ :nodes    [sym]}
 ```
 
 ### Block shape
@@ -379,12 +382,11 @@ Dependency Structure Matrix view over SCC blocks.
 {:id                  integer
  :members             [sym]
  :size                integer
- :cyclic?             boolean
  :internal-edge-count integer
  :density             double}
 ```
 
-### Collapsed edge shape
+### Edge shape
 
 ```edn
 {:from       integer
@@ -395,18 +397,17 @@ Dependency Structure Matrix view over SCC blocks.
 `edge-count` is the number of namespace-level structural edges crossing from
 block `:from` to block `:to`.
 
-### Collapsed summary shape
+### Summary shape
 
 ```edn
 {:block-count            integer
  :singleton-block-count  integer
- :cyclic-block-count     integer
  :largest-block-size     integer
  :inter-block-edge-count integer
  :density                double}
 ```
 
-### SCC detail shape
+### Detail shape
 
 ```edn
 {:id                  integer
@@ -419,6 +420,11 @@ block `:from` to block `:to`.
 
 `internal-edges` are local mini-matrix coordinates relative to the ordered
 `:members` vector.
+
+### Compatibility note
+Current output may still include compatibility keys from the earlier SCC-based
+DSM implementation while renderers migrate, but the primary semantics are the
+partitioned fields above.
 
 ---
 

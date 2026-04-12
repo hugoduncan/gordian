@@ -607,7 +607,7 @@ Phase D items:
 - Community detection follow-ups: label propagation / modularity, richer bridge metrics
 - Compare `--ref` mode (`gordian compare --ref HEAD~4 --ref HEAD`)
 
-## Session 19 commits — DSM / SCC matrix view
+## Session 19 commits — DSM initial implementation
 
 ```
 44e239f  feat: add DSM SCC ordering foundation
@@ -622,7 +622,7 @@ aa06636  feat: wire DSM command and output
 New command:
 - `gordian dsm`
 
-Design implemented:
+Initial design implemented:
 - collapsed SCC matrix over the condensation graph
 - deterministic dependees-first SCC ordering
 - counted inter-block structural edges
@@ -633,11 +633,35 @@ Design implemented:
 New module:
 - `dsm.clj` — pure SCC/DSM shaping and report assembly
 
+## Session 21 commits — DSM redesign to diagonal block partitions
+
+```
+b84decb  refactor: add DSM ordering foundations for block partitioning
+e0f84a3  feat: add DSM interval statistics
+5a33a40  feat: add DSM block cost scoring
+afde96f  feat: add DSM dynamic partitioning
+d2784e3  refactor: assemble partitioned DSM report shape
+5cd43ca  refactor: migrate DSM text and markdown output to block partitions
+55a97a8  refactor: migrate DSM HTML to block partition semantics
+```
+
+315 tests, 1924 assertions, 0 failures.
+
+Revised design:
+- project-only namespace basis (external deps removed from matrix basis)
+- deterministic dependency-respecting order via `:dfs-topo`
+- contiguous diagonal block partitioning via dynamic programming
+- Thebeau-style block cost with `alpha=1.5`
+- partitioned block summaries and inter-block edge counts
+- block detail mini-matrices replacing SCC-specific detail semantics
+- text / markdown / EDN / JSON / HTML updated toward block-partition terminology
+
 Potential follow-ups:
-- full namespace-level matrix as explicit debug/export mode
-- community-blocked DSM mode
-- richer collapsed-matrix rendering for small graphs
-- compare / gate integration for SCC/DSM metrics
+- local adjacent-swap refinement of ordering
+- expose ordering / alpha options in CLI if needed
+- co-usage-informed ordering seeds
+- richer small-matrix rendering
+- compare / gate integration for DSM block metrics
 - drilldown on one block or one inter-block relation
 
 ## Session 20 commits — DSM HTML output

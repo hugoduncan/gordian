@@ -349,20 +349,23 @@ Potential upgrades:
 
 Implemented:
 - `gordian dsm`
-- collapsed SCC matrix over the condensation graph
-- deterministic dependees-first SCC ordering
-- counted inter-block structural edges
-- SCC block summaries: size, cyclic?, internal-edge-count, density
-- detail mini-matrices for non-singleton SCCs
+- project-only namespace basis
+- deterministic dependency-respecting ordering (`:dfs-topo`)
+- diagonal block partitioning with dynamic programming
+- Thebeau-style block cost scoring (`alpha=1.5`)
+- partitioned block summaries: size, internal-edge-count, density
+- inter-block structural edge counts
+- block detail mini-matrices
 - text / markdown / EDN / JSON output
 - `--html-file` self-contained HTML artifact output
-- HTML collapsed matrix, block table, inter-block table, and expandable SCC details
+- HTML block matrix, block table, inter-block table, and expandable block details
 
 Potential follow-ups:
-- full namespace-level matrix as explicit debug/export mode
-- community-blocked DSM mode
-- richer matrix rendering for small collapsed graphs
-- compare / gate support for SCC/DSM metrics
+- local adjacent-swap refinement of ordering
+- expose ordering / alpha options in CLI if needed
+- community- or co-usage-informed ordering seeds
+- richer matrix rendering for small block graphs
+- compare / gate support for DSM block metrics
 - drilldown on selected block or inter-block edge
 
 ### compnent/base/projects

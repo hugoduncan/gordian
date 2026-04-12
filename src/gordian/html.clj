@@ -91,7 +91,6 @@
                  (tag "tr"
                       (str (tag "th" "Block")
                            (tag "th" "Size")
-                           (tag "th" "Cyclic")
                            (tag "th" "Density")
                            (tag "th" "Members"))))
             (tag "tbody" (join-html (map block-row blocks))))))

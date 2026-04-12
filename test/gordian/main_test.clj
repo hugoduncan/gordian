@@ -453,17 +453,25 @@
     (let [out (with-out-str (sut/dsm-cmd {:src-dirs ["resources/fixture"] :edn true}))
           parsed (read-string out)]
       (is (= :dsm (:gordian/command parsed)))
-      (is (contains? parsed :collapsed))
-      (is (contains? parsed :scc-details))
+      (is (= :diagonal-blocks (:basis parsed)))
+      (is (contains? parsed :ordering))
+      (is (contains? parsed :blocks))
+      (is (contains? parsed :edges))
+      (is (contains? parsed :summary))
+      (is (contains? parsed :details))
       (is (= #{'alpha 'beta 'gamma}
-             (set (mapcat :members (get-in parsed [:collapsed :blocks])))))))
+             (set (mapcat :members (:blocks parsed)))))))
 
   (testing "dsm with --json returns structured map"
     (let [out (with-out-str (sut/dsm-cmd {:src-dirs ["resources/fixture"] :json true}))
           parsed (json/parse-string out true)]
       (is (= "dsm" (name (:gordian/command parsed))))
-      (is (contains? parsed :collapsed))
-      (is (contains? parsed :scc-details))))
+      (is (= "diagonal-blocks" (:basis parsed)))
+      (is (contains? parsed :ordering))
+      (is (contains? parsed :blocks))
+      (is (contains? parsed :edges))
+      (is (contains? parsed :summary))
+      (is (contains? parsed :details))))
 
   (testing "dsm writes html file when requested"
     (let [tmp (str (java.io.File/createTempFile "gordian-dsm" ".html"))]
