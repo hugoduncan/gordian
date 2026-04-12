@@ -16,6 +16,7 @@
             [gordian.cluster     :as cluster]
             [gordian.gate        :as gate]
             [gordian.prioritize  :as prioritize]
+            [gordian.subgraph    :as subgraph]
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
             [gordian.family      :as family]
@@ -48,7 +49,7 @@
    :help                  {:desc "Show this help message" :coerce :boolean}})
 
 (def ^:private usage-summary
-  "Usage: gordian [analyze|diagnose|compare|gate|explain|explain-pair] [<dir-or-src>...] [options]
+  "Usage: gordian [analyze|diagnose|compare|gate|subgraph|explain|explain-pair] [<dir-or-src>...] [options]
 
 When given a project root (dir with deps.edn, bb.edn, etc.), gordian
 auto-discovers source directories. With no arguments, defaults to '.'.
@@ -58,6 +59,7 @@ Commands:
   diagnose     Ranked findings with severity levels (auto-enables all lenses)
   compare      Compare two saved EDN snapshots (before.edn after.edn)
   gate         Compare current codebase against a saved baseline and fail CI on regressions
+  subgraph     Family/subsystem view for a namespace prefix
   explain      Everything gordian knows about a namespace
   explain-pair Everything gordian knows about a pair of namespaces
 
@@ -97,6 +99,7 @@ Examples:
   gordian gate . --baseline baseline.edn
   gordian gate . --baseline baseline.edn --max-pc-delta 0.01
   gordian diagnose . --rank actionability
+  gordian subgraph gordian
   gordian explain gordian.scan        drill into a namespace
   gordian explain-pair a.core b.svc   drill into a pair")
 
@@ -119,7 +122,7 @@ Examples:
   [raw-args]
   (let [command  ({"analyze" :analyze "diagnose" :diagnose
                    "explain" :explain "explain-pair" :explain-pair
-                   "compare" :compare "gate" :gate}
+                   "compare" :compare "gate" :gate "subgraph" :subgraph}
                   (first raw-args))
         raw-args (if command (rest raw-args) raw-args)
         {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})]
@@ -142,6 +145,13 @@ Examples:
         (assoc opts :command :gate
                :src-dirs (if (seq args) (vec args) ["."]))
         {:error "gate requires --baseline <file>"})
+
+      (= :subgraph command)
+      (if (first args)
+        (assoc opts :command :subgraph
+               :prefix (first args)
+               :src-dirs ["."])
+        {:error "subgraph requires a namespace prefix argument"})
 
       (= :explain command)
       (if (first args)
@@ -313,9 +323,35 @@ Examples:
       markdown (run! println (output/format-diagnose-md report health findings clusters rank))
       :else    (output/print-diagnose report health findings clusters rank))))
 
+(defn subgraph-cmd
+  "Run subgraph with resolved opts map.
+  Builds a current diagnose-style report, then slices it to a family/prefix view."
+  [{:keys [src-dirs json edn markdown conceptual change change-since exclude rank prefix]
+    :as opts}]
+  (let [conceptual  (or conceptual 0.15)
+        change      (if (nil? change) true change)
+        change-dir  (when change (if (string? change) change "."))
+        change-opts (when change-dir {:change change-dir :since change-since})
+        rank        (or rank :severity)
+        report      (build-report src-dirs conceptual change-opts exclude)
+        health      (diagnose/health report)
+        findings0   (diagnose/diagnose report)
+        clusters0   (cluster/cluster-findings findings0)
+        context     (prioritize/cluster-context (:clusters clusters0)
+                                                (:unclustered clusters0))
+        findings    (prioritize/rank-findings findings0 rank context)
+        enriched    (assoc report :findings findings :health health :rank-by rank)
+        data        (subgraph/subgraph-summary enriched prefix)]
+    (cond
+      json     (println (report-json/generate (envelope/wrap opts data :subgraph)))
+      edn      (print   (report-edn/generate  (envelope/wrap opts data :subgraph)))
+      markdown (run! println (output/format-subgraph-md data))
+      :else    (output/print-subgraph data))))
+
 (defn explain-cmd
   "Run explain with resolved opts map.
-  Auto-enables conceptual (0.15) and change (.) like diagnose."
+  Auto-enables conceptual (0.15) and change (.) like diagnose.
+  Falls back to subgraph view when no exact namespace exists but prefix matches members."
   [{:keys [src-dirs json edn markdown conceptual change change-since exclude explain-ns]
     :as opts}]
   (let [conceptual  (or conceptual 0.15)
@@ -324,11 +360,14 @@ Examples:
         change-opts (when change-dir {:change change-dir :since change-since})
         report      (build-report src-dirs conceptual change-opts exclude)
         data        (explain/explain-ns report explain-ns)]
-    (cond
-      json     (println (report-json/generate (envelope/wrap opts data :explain)))
-      edn      (print   (report-edn/generate  (envelope/wrap opts data :explain)))
-      markdown (run! println (output/format-explain-ns-md data))
-      :else    (output/print-explain-ns data))))
+    (if-not (:error data)
+      (cond
+        json     (println (report-json/generate (envelope/wrap opts data :explain)))
+        edn      (print   (report-edn/generate  (envelope/wrap opts data :explain)))
+        markdown (run! println (output/format-explain-ns-md data))
+        :else    (output/print-explain-ns data))
+      ;; fallback to subgraph on prefix match
+      (subgraph-cmd (assoc opts :command :subgraph :prefix (str explain-ns))))))
 
 (defn compare-cmd
   "Run compare with parsed opts map.
@@ -413,6 +452,7 @@ Examples:
                             (case (:command opts)
                               :diagnose     (diagnose-cmd opts)
                               :gate         (System/exit (gate-cmd opts))
+                              :subgraph     (subgraph-cmd opts)
                               :explain      (explain-cmd opts)
                               :explain-pair (explain-pair-cmd opts)
                               (analyze opts))))))))

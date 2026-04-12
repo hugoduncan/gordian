@@ -178,6 +178,7 @@
       (is (str/includes? out "--change"))
       (is (str/includes? out "--change-since"))
       (is (str/includes? out "dir-or-src"))
+      (is (str/includes? out "subgraph"))
       (is (str/includes? out "--include-tests"))
       (is (str/includes? out "--exclude")))))
 
@@ -283,6 +284,21 @@
       (is (= 2 (:max-new-medium-findings opts)))
       (is (= "new-cycles,new-high-findings" (:fail-on opts))))))
 
+(deftest parse-args-subgraph-test
+  (testing "subgraph <prefix> -> :command :subgraph"
+    (let [opts (sut/parse-args ["subgraph" "gordian"])]
+      (is (= :subgraph (:command opts)))
+      (is (= "gordian" (:prefix opts)))
+      (is (= ["."] (:src-dirs opts)))))
+
+  (testing "subgraph with --markdown"
+    (let [opts (sut/parse-args ["subgraph" "gordian" "--markdown"])]
+      (is (= :subgraph (:command opts)))
+      (is (true? (:markdown opts)))))
+
+  (testing "subgraph without prefix -> error"
+    (is (contains? (sut/parse-args ["subgraph"]) :error))))
+
 ;;; ── diagnose integration ─────────────────────────────────────────────────
 
 (deftest diagnose-integration-test
@@ -343,6 +359,34 @@
       (is (= 'gordian.aggregate (:ns-a parsed)))
       (is (= 'gordian.close (:ns-b parsed)))
       (is (contains? parsed :structural)))))
+
+(deftest subgraph-integration-test
+  (testing "subgraph produces output"
+    (let [out (with-out-str
+                (sut/subgraph-cmd {:src-dirs ["src/"]
+                                   :prefix "gordian"}))]
+      (is (str/includes? out "gordian subgraph"))
+      (is (str/includes? out "INTERNAL"))
+      (is (str/includes? out "BOUNDARY"))))
+
+  (testing "subgraph with --edn returns structured map"
+    (let [out (with-out-str
+                (sut/subgraph-cmd {:src-dirs ["src/"]
+                                   :prefix "gordian"
+                                   :edn true}))
+          parsed (read-string out)]
+      (is (= :subgraph (:gordian/command parsed)))
+      (is (= "gordian" (:prefix parsed)))
+      (is (contains? parsed :members))
+      (is (contains? parsed :internal)))))
+
+(deftest explain-prefix-fallback-test
+  (testing "explain falls back to subgraph when no exact namespace exists"
+    (let [out (with-out-str
+                (sut/explain-cmd {:src-dirs ["src/"]
+                                  :explain-ns 'gordian}))]
+      (is (str/includes? out "gordian subgraph"))
+      (is (str/includes? out "INTERNAL")))))
 
 ;;; ── parse-args / --markdown ────────────────────────────────────────────────
 

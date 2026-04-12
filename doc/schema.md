@@ -257,6 +257,59 @@ current code.
 
 ---
 
+## subgraph
+
+Command: `gordian subgraph <prefix> --edn`
+
+Subsystem/family view for namespaces matching a dotted prefix.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `gordian/command` | keyword | `:subgraph` |
+| `prefix` | string | Requested namespace family prefix |
+| `members` | vector of symbols | Matching namespaces |
+| `rank-by` | keyword | `:severity` or `:actionability` |
+| `internal` | map | Induced subgraph metrics |
+| `boundary` | map | Incoming/outgoing boundary edges and summaries |
+| `pairs` | map | Conceptual/change pairs sliced into `:internal` and `:touching` |
+| `findings` | vector | Findings touching the family |
+| `clusters` | vector | Reclusered local clusters from touching findings |
+| `unclustered` | vector | Touching findings not in any local cluster |
+| `summary` | map | Aggregate counts |
+
+### Internal shape
+
+```edn
+{:node-count        integer
+ :edge-count        integer
+ :density           double
+ :propagation-cost  double
+ :cycles            [set]
+ :nodes             [node]}
+```
+
+### Boundary shape
+
+```edn
+{:incoming        [{:from sym :to sym}]
+ :outgoing        [{:from sym :to sym}]
+ :incoming-count  integer
+ :outgoing-count  integer
+ :external-deps   [sym]
+ :dependents      [sym]}
+```
+
+### Pair slice shape
+
+```edn
+{:conceptual {:internal [pair]
+              :touching [pair]}
+ :change     {:internal [pair]
+              :touching [pair]}}
+```
+
+---
+
 ## explain
 
 Command: `gordian explain <ns> --edn`

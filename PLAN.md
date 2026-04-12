@@ -259,8 +259,19 @@ Post-process findings: group pairs sharing members into clusters.
 Builds on everything above. Ongoing.
 
 ### Family/subgraph views
+**Status:** ✅ done
+
 `gordian explain <prefix>` — when arg matches multiple ns, show family view.
 Subgraph extraction + internal coupling density + boundary surface.
+
+Implemented:
+- `gordian subgraph <prefix>`
+- `gordian explain <prefix>` fallback when no exact namespace exists
+- induced graph metrics: nodes, edges, density, propagation cost, cycles
+- boundary metrics: incoming/outgoing edges, dependents, external deps
+- internal/touching conceptual and change pairs
+- touching findings and local reclustered findings
+- text / markdown / EDN / JSON output
 
 ### Actionability sort
 **Status:** ✅ done

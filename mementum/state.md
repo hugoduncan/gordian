@@ -400,7 +400,23 @@ afec86d  feat: diagnose finding clusters via union-find
 be1670d  feat: actionability ranking for diagnose
 ```
 
-209 tests, 1439 assertions, 0 failures.
+## Session 16 commits — Phase D3 (subgraph views)
+
+```
+(pending)  feat: subgraph views + explain prefix fallback
+```
+
+225 tests, 1509 assertions, 0 failures.
+
+Subgraph views (`gordian subgraph <prefix>`):
+- new `subgraph.clj` pure slicing module
+- prefix matching + member selection
+- induced graph metrics: nodes, edges, density, propagation cost, cycles
+- boundary metrics: incoming/outgoing edges, dependents, external deps
+- pairs sliced into `:internal` and `:touching`
+- touching findings + local reclustering
+- `gordian explain <prefix>` falls back to subgraph when no exact ns exists
+- text / markdown / EDN / JSON output
 
 Actionability ranking (`gordian diagnose --rank actionability`):
 - new `prioritize.clj` pure ranking module
@@ -519,7 +535,6 @@ e6d5345  step 4  feat: wire envelope into commands
 ## Potential next work (backlog)
 
 Phase D items:
-- Family/subgraph views (`gordian explain <prefix>`)
 - CI/refactor-ratchet follow-ups: richer checks, cluster-aware checks, baseline workflows
 - Full cluster detection (community detection / label propagation)
 - Compare `--ref` mode (`gordian compare --ref HEAD~4 --ref HEAD`)

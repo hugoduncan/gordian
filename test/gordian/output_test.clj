@@ -722,3 +722,48 @@
     (is (str/includes? text "[act=7.8]"))
     (is (str/includes? md "**Rank:** `actionability`"))
     (is (str/includes? md "[act=7.8]"))))
+
+;;; ── subgraph output ─────────────────────────────────────────────────────
+
+(def subgraph-data
+  {:gordian/command :subgraph
+   :prefix "gordian"
+   :rank-by :actionability
+   :members ['gordian.close 'gordian.main 'gordian.scan]
+   :internal {:node-count 3
+              :edge-count 3
+              :density 0.5
+              :propagation-cost 0.33
+              :cycles []}
+   :boundary {:incoming-count 1
+              :outgoing-count 2
+              :dependents ['other.ns]
+              :external-deps ['app.main 'clojure.set]}
+   :pairs {:conceptual {:internal [{:ns-a 'gordian.scan :ns-b 'gordian.close
+                                    :score 0.40 :actionability-score 8.8}]}
+           :change {:internal []}}
+   :findings [{:severity :medium
+               :category :hidden-conceptual
+               :subject {:ns-a 'gordian.scan :ns-b 'gordian.close}
+               :reason "hidden conceptual coupling"
+               :actionability-score 8.8
+               :evidence {:score 0.40 :same-family? false}}]
+   :clusters []})
+
+(deftest format-subgraph-test
+  (let [text (str/join "\n" (sut/format-subgraph subgraph-data))]
+    (is (str/includes? text "gordian subgraph — gordian"))
+    (is (str/includes? text "MEMBERS"))
+    (is (str/includes? text "INTERNAL"))
+    (is (str/includes? text "BOUNDARY"))
+    (is (str/includes? text "INTERNAL CONCEPTUAL PAIRS"))
+    (is (str/includes? text "[act=8.8]"))))
+
+(deftest format-subgraph-md-test
+  (let [text (str/join "\n" (sut/format-subgraph-md subgraph-data))]
+    (is (str/includes? text "# gordian subgraph — gordian"))
+    (is (str/includes? text "## Members"))
+    (is (str/includes? text "## Internal"))
+    (is (str/includes? text "## Boundary"))
+    (is (str/includes? text "## Internal Conceptual Pairs"))
+    (is (str/includes? text "[act=8.8]"))))

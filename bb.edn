@@ -45,6 +45,7 @@
                                      'gordian.filter-test
                                      'gordian.main-test
                                      'gordian.scan-test
+                                     'gordian.subgraph-test
                                      'gordian.close-test
                                      'gordian.aggregate-test
                                      'gordian.output-test
