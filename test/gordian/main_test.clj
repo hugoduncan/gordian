@@ -459,6 +459,8 @@
       (is (contains? parsed :edges))
       (is (contains? parsed :summary))
       (is (contains? parsed :details))
+      (is (not (contains? parsed :collapsed)))
+      (is (not (contains? parsed :scc-details)))
       (is (= #{'alpha 'beta 'gamma}
              (set (mapcat :members (:blocks parsed)))))))
 
@@ -471,7 +473,9 @@
       (is (contains? parsed :blocks))
       (is (contains? parsed :edges))
       (is (contains? parsed :summary))
-      (is (contains? parsed :details))))
+      (is (contains? parsed :details))
+      (is (not (contains? parsed :collapsed)))
+      (is (not (contains? parsed :scc-details)))))
 
   (testing "dsm writes html file when requested"
     (let [tmp (str (java.io.File/createTempFile "gordian-dsm" ".html"))]

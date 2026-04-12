@@ -516,10 +516,4 @@
      :blocks blocks
      :edges edges
      :summary summary
-     :details details
-     ;; compatibility during renderer migration
-     :collapsed {:block-count (count blocks)
-                 :blocks blocks
-                 :edges edges
-                 :summary summary}
-     :scc-details details}))
+     :details details}))

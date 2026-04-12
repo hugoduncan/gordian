@@ -69,7 +69,7 @@ Commands:
   gate         Compare current codebase against a saved baseline and fail CI on regressions
   subgraph     Family/subsystem view for a namespace prefix
   communities  Discover latent architecture communities
-  dsm          Dependency Structure Matrix view over SCC blocks
+  dsm          Dependency Structure Matrix view with diagonal block partitions
   tests        Analyze test architecture and test-vs-source coupling
   explain      Everything gordian knows about a namespace
   explain-pair Everything gordian knows about a pair of namespaces
