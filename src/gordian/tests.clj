@@ -202,3 +202,47 @@
    :support-leaked-to-src               (support-leaked-to-src (:graph full-report) origins profiles)
    :shared-test-support                 (shared-test-support (:graph full-report) origins profiles)
    :mixed-cycles                        (mixed-cycles (:cycles full-report) origins)})
+
+(defn core-coverage
+  "Compare source-only vs src+test Ca for core source namespaces.
+  Returns {:tested-core [...] :untested-core [...]}, where tested means
+  the namespace gained incoming direct dependents when tests were included."
+  [src-report full-report origins]
+  (let [src-origins (set (keep (fn [[ns-sym kind]] (when (= :src kind) ns-sym)) origins))
+        src-by-ns   (into {} (map (juxt :ns identity)) (:nodes src-report))
+        full-by-ns  (into {} (map (juxt :ns identity)) (:nodes full-report))
+        rows        (->> src-by-ns
+                         (keep (fn [[ns-sym src-node]]
+                                 (let [full-node (get full-by-ns ns-sym)]
+                                   (when (and (contains? src-origins ns-sym)
+                                              (= :core (:role src-node))
+                                              full-node)
+                                     {:ns ns-sym
+                                      :role :core
+                                      :ca-src (or (:ca src-node) 0)
+                                      :ca-with-tests (or (:ca full-node) 0)
+                                      :ca-delta (- (or (:ca full-node) 0)
+                                                   (or (:ca src-node) 0))}))))
+                         (sort-by (juxt (comp - :ca-delta) :ns))
+                         vec)]
+    {:tested-core   (vec (filter #(pos? (:ca-delta %)) rows))
+     :untested-core (vec (filter #(zero? (:ca-delta %)) rows))}))
+
+(defn pc-summary
+  "Compare propagation cost of src-only vs src+test views.
+  Interpretation follows the practical-guide / skill guidance:
+    small delta   -> targeted tests
+    large delta   -> tests over-coupled
+    near-zero     -> tests may miss integration pressure"
+  [src-report full-report]
+  (let [pc-src        (double (or (:propagation-cost src-report) 0.0))
+        pc-with-tests (double (or (:propagation-cost full-report) 0.0))
+        pc-delta      (- pc-with-tests pc-src)
+        interpretation (cond
+                         (>= pc-delta 0.10) :over-coupled
+                         (<= pc-delta 0.01) :no-integration-pressure
+                         :else              :targeted)]
+    {:pc-src pc-src
+     :pc-with-tests pc-with-tests
+     :pc-delta pc-delta
+     :interpretation interpretation}))

@@ -180,3 +180,37 @@
              :ca 2
              :incoming-test ['app.api-test 'app.core-test]}]
            (sut/shared-test-support graph origins profiles)))))
+
+(deftest core-coverage-test
+  (let [src-report {:nodes [{:ns 'app.core :role :core :ca 2}
+                            {:ns 'app.db :role :core :ca 1}
+                            {:ns 'app.main :role :peripheral :ca 0}]}
+        full-report {:nodes [{:ns 'app.core :role :core :ca 4}
+                             {:ns 'app.db :role :core :ca 1}
+                             {:ns 'app.main :role :peripheral :ca 0}
+                             {:ns 'app.core-test :role :isolated :ca 0}]}
+        origins {'app.core :src
+                 'app.db :src
+                 'app.main :src
+                 'app.core-test :test}
+        coverage (sut/core-coverage src-report full-report origins)]
+    (is (= [{:ns 'app.core :role :core :ca-src 2 :ca-with-tests 4 :ca-delta 2}]
+           (:tested-core coverage)))
+    (is (= [{:ns 'app.db :role :core :ca-src 1 :ca-with-tests 1 :ca-delta 0}]
+           (:untested-core coverage)))))
+
+(deftest pc-summary-test
+  (testing "large delta => :over-coupled"
+    (is (= {:pc-src 0.10 :pc-with-tests 0.25 :pc-delta 0.15 :interpretation :over-coupled}
+           (sut/pc-summary {:propagation-cost 0.10}
+                           {:propagation-cost 0.25}))))
+
+  (testing "near-zero delta => :no-integration-pressure"
+    (is (= {:pc-src 0.10 :pc-with-tests 0.11 :pc-delta 0.009999999999999995 :interpretation :no-integration-pressure}
+           (sut/pc-summary {:propagation-cost 0.10}
+                           {:propagation-cost 0.11}))))
+
+  (testing "middle delta => :targeted"
+    (is (= {:pc-src 0.10 :pc-with-tests 0.14 :pc-delta 0.04000000000000001 :interpretation :targeted}
+           (sut/pc-summary {:propagation-cost 0.10}
+                           {:propagation-cost 0.14})))))
