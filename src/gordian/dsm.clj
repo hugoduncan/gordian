@@ -195,10 +195,21 @@
      :inter-block-edge-count inter-block-edge-count
      :density density}))
 
+(defn project-graph
+  "Restrict graph to project-internal nodes only.
+  Drops dependency targets not present as graph keys."
+  [graph]
+  (let [project-ns (set (keys graph))]
+    (into {}
+          (map (fn [[ns deps]]
+                 [ns (into #{} (filter project-ns) deps)]))
+          graph)))
+
 (defn dsm-report
   "Assemble the complete pure DSM payload from a structural graph."
   [graph]
-  (let [blocks  (->> graph
+  (let [graph   (project-graph graph)
+        blocks  (->> graph
                      ordered-sccs
                      index-blocks
                      (annotate-blocks graph))

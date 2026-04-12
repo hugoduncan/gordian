@@ -194,17 +194,31 @@
     (is (= 0.0 (:density (sut/collapsed-summary [] []))))
     (is (= 0.0 (:density (sut/collapsed-summary [{:id 0 :size 1 :cyclic? false}] []))))))
 
+(deftest project-graph-test
+  (let [graph {'a #{'b 'ext.lib}
+               'b #{'a}
+               'c #{'ext.lib}}
+        result (sut/project-graph graph)]
+    (is (= {'a #{'b}
+            'b #{'a}
+            'c #{}}
+           result))))
+
 (deftest dsm-report-test
   (let [graph {'a #{'b}
                'b #{'a 'c}
-               'c #{}}
+               'c #{'ext.lib}}
         report (sut/dsm-report graph)]
     (testing "returns both collapsed and scc-details"
       (is (contains? report :collapsed))
       (is (contains? report :scc-details)))
 
-    (testing "includes all SCCs in collapsed blocks"
+    (testing "includes all project SCCs in collapsed blocks"
       (is (= 2 (count (get-in report [:collapsed :blocks])))))
+
+    (testing "excludes external-only dependency nodes from blocks"
+      (is (= #{'a 'b 'c}
+             (set (mapcat :members (get-in report [:collapsed :blocks]))))))
 
     (testing "includes only non-singleton SCCs in scc-details"
       (is (= [1] (mapv :id (:scc-details report)))))

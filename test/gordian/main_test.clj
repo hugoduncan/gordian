@@ -449,12 +449,14 @@
       (is (contains? parsed :summary)))))
 
 (deftest dsm-integration-test
-  (testing "dsm with --edn returns structured map"
+  (testing "dsm with --edn returns project-internal structured map"
     (let [out (with-out-str (sut/dsm-cmd {:src-dirs ["resources/fixture"] :edn true}))
           parsed (read-string out)]
       (is (= :dsm (:gordian/command parsed)))
       (is (contains? parsed :collapsed))
-      (is (contains? parsed :scc-details))))
+      (is (contains? parsed :scc-details))
+      (is (= #{'alpha 'beta 'gamma}
+             (set (mapcat :members (get-in parsed [:collapsed :blocks])))))))
 
   (testing "dsm with --json returns structured map"
     (let [out (with-out-str (sut/dsm-cmd {:src-dirs ["resources/fixture"] :json true}))

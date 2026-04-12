@@ -71,7 +71,8 @@
 (deftest block-table-test
   (let [html (sut/block-table blocks)]
     (is (.contains html "<th>Block</th>"))
-    (is (.contains html "B0"))
+    (is (.contains html "B0 · gordian.aggregate"))
+    (is (.contains html "B1 · foo.a +2"))
     (is (.contains html "foo.a, foo.b, foo.c"))
     (is (.contains html "yes"))
     (is (.contains html "href=\"#block-B1\""))
@@ -100,9 +101,9 @@
 
 (deftest collapsed-matrix-test
   (let [html (sut/collapsed-matrix blocks edges)]
-    (testing "includes row and column block headers"
-      (is (.contains html ">B0<"))
-      (is (.contains html ">B1<")))
+    (testing "includes row and column block headers with namespace labels"
+      (is (.contains html ">B0 · gordian.aggregate<"))
+      (is (.contains html ">B1 · foo.a +2<")))
 
     (testing "header cells include tooltips"
       (is (.contains html "title=\"B1: size=3, cyclic=yes, members=foo.a, foo.b, foo.c\"")))
@@ -122,7 +123,7 @@
       (is (= html (sut/collapsed-matrix blocks edges))))
 
     (testing "single-block input handled"
-      (is (.contains (sut/collapsed-matrix [{:id 0 :size 1 :cyclic? false :members ['a]}] []) ">B0<")))))
+      (is (.contains (sut/collapsed-matrix [{:id 0 :size 1 :cyclic? false :members ['a]}] []) ">B0 · a<")))))
 
 (deftest mini-matrix-test
   (let [html (sut/mini-matrix (first details))]
@@ -177,4 +178,5 @@
                           :edges []}
               :scc-details []}
         html (sut/dsm-html data)]
-    (is (not (.contains html "Cyclic SCC Details")))))
+    (is (.contains html "Cyclic SCC Details"))
+    (is (.contains html "No non-singleton SCCs detected; all blocks are single namespaces."))))

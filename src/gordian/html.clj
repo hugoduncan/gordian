@@ -65,15 +65,21 @@
 (defn- block-anchor-id [id]
   (str "block-B" id))
 
+(defn- block-label
+  [{:keys [id size members]}]
+  (if (= size 1)
+    (str "B" id " · " (first members))
+    (str "B" id " · " (first members) " +" (dec size))))
+
 (defn- block-row
-  [{:keys [id size cyclic? density members]}]
+  [{:keys [id size cyclic? density members] :as block}]
   (tag "tr"
        (str (tag "td"
                  (if cyclic?
                    (tag "a" {:href (str "#" (block-anchor-id id))
                              :title (str "Jump to Cyclic SCC B" id)}
-                        (str "B" id))
-                   (str "B" id)))
+                        (block-label block))
+                   (block-label block)))
             (tag "td" size)
             (tag "td" (if cyclic? "yes" "no"))
             (tag "td" (format "%.2f" (double density)))
@@ -130,44 +136,46 @@
 
 (defn collapsed-matrix
   [blocks edges]
-  (let [ids    (mapv :id blocks)
+  (let [ids         (mapv :id blocks)
         block-by-id (into {} (map (juxt :id identity) blocks))
-        lookup (edge-lookup edges)]
+        lookup      (edge-lookup edges)
+        header-cell (fn [id]
+                      (let [{:keys [size cyclic? members] :as block} (get block-by-id id)]
+                        (tag "th"
+                             {:title (str "B" id ": size=" size
+                                          ", cyclic=" (if cyclic? "yes" "no")
+                                          ", members=" (str/join ", " (map str members)))}
+                             (block-label block))))
+        body-cell   (fn [row-id col-id]
+                      (if (= row-id col-id)
+                        (tag "td" {:class "diag"} "")
+                        (let [edge-count (get lookup [row-id col-id] 0)]
+                          (if (pos? edge-count)
+                            (tag "td"
+                                 {:class (str "edge " (edge-intensity-class edge-count))
+                                  :title (str "B" row-id " -> B" col-id
+                                              ": " edge-count " edge"
+                                              (when (not= 1 edge-count) "s"))}
+                                 edge-count)
+                            (tag "td" {:class "empty"} "")))))]
     (tag "div" {:class "matrix-scroll"}
          (tag "table" {:class "dsm-matrix"}
               (str
                (tag "thead"
                     (tag "tr"
                          (str (tag "th" "")
-                              (join-html (map (fn [id]
-                                                (let [{:keys [size cyclic? members]} (get block-by-id id)]
-                                                  (tag "th" {:title (str "B" id ": size=" size
-                                                                         ", cyclic=" (if cyclic? "yes" "no")
-                                                                         ", members=" (str/join ", " (map str members)))}
-                                                       (str "B" id))))
-                                              ids)))))
+                              (join-html (map header-cell ids)))))
                (tag "tbody"
                     (join-html
                      (map (fn [row-id]
-                            (tag "tr"
-                                 (str (let [{:keys [size cyclic? members]} (get block-by-id row-id)]
-                                        (tag "th" {:title (str "B" row-id ": size=" size
-                                                               ", cyclic=" (if cyclic? "yes" "no")
-                                                               ", members=" (str/join ", " (map str members)))}
-                                             (str "B" row-id)))
-                                      (join-html
-                                       (map (fn [col-id]
-                                              (if (= row-id col-id)
-                                                (tag "td" {:class "diag"} "")
-                                                (let [edge-count (get lookup [row-id col-id] 0)]
-                                                  (if (pos? edge-count)
-                                                    (tag "td" {:class (str "edge " (edge-intensity-class edge-count))
-                                                               :title (str "B" row-id " -> B" col-id
-                                                                           ": " edge-count " edge"
-                                                                           (when (not= 1 edge-count) "s"))}
-                                                         edge-count)
-                                                    (tag "td" {:class "empty"} "")))))
-                                            ids)))))
+                            (let [{:keys [size cyclic? members] :as block} (get block-by-id row-id)]
+                              (tag "tr"
+                                   (str (tag "th"
+                                             {:title (str "B" row-id ": size=" size
+                                                          ", cyclic=" (if cyclic? "yes" "no")
+                                                          ", members=" (str/join ", " (map str members)))}
+                                             (block-label block))
+                                        (join-html (map (fn [col-id] (body-cell row-id col-id)) ids))))))
                           ids))))))))
 
 (defn mini-matrix
@@ -233,33 +241,39 @@
    ".edge-4plus{background:#2563eb;color:#ffffff;}"
    ".block-table,.edge-table,.dsm-matrix,.mini-matrix{margin:12px 0;}"
    ".scc-detail{margin:12px 0;border:1px solid #d1d5db;border-radius:8px;padding:8px;background:#f9fafb;}"
+   ".scc-details-empty{margin:12px 0;padding:12px;border:1px dashed #d1d5db;border-radius:8px;background:#fafafa;color:#4b5563;}"
    ".scc-body{margin-top:8px;}"
    "code{background:#f3f4f6;padding:2px 4px;border-radius:4px;}"))
 
 (defn dsm-html
   [{:keys [src-dirs collapsed scc-details]}]
-  (page
-   "Gordian DSM"
-   (tag "main" {:class "page"}
-        (str
-         (tag "style" css)
-         (tag "header" {:class "page-header"}
-              (str (tag "h1" "Gordian DSM")
-                   (tag "p" (str "Source: " (tag "code" (str/join " " src-dirs))))
-                   (tag "p" (str "Basis: " (tag "code" "SCC")))))
-         (tag "section"
-              (str (tag "h2" "Summary")
-                   (summary-cards (:summary collapsed))))
-         (tag "section"
-              (str (tag "h2" "Collapsed SCC Matrix")
-                   (collapsed-matrix (:blocks collapsed) (:edges collapsed))))
-         (tag "section"
-              (str (tag "h2" "Blocks")
-                   (block-table (:blocks collapsed))))
-         (tag "section"
-              (str (tag "h2" "Inter-block Dependencies")
-                   (edge-table (:edges collapsed))))
-         (or (scc-details-section scc-details) "")))))
+  (let [details-section (if (seq scc-details)
+                          (scc-details-section scc-details)
+                          (tag "section" {:class "scc-details-empty"}
+                               (str (tag "h2" "Cyclic SCC Details")
+                                    (tag "p" "No non-singleton SCCs detected; all blocks are single namespaces."))))]
+    (page
+     "Gordian DSM"
+     (tag "main" {:class "page"}
+          (str
+           (tag "style" css)
+           (tag "header" {:class "page-header"}
+                (str (tag "h1" "Gordian DSM")
+                     (tag "p" (str "Source: " (tag "code" (str/join " " src-dirs))))
+                     (tag "p" (str "Basis: " (tag "code" "SCC")))))
+           (tag "section"
+                (str (tag "h2" "Summary")
+                     (summary-cards (:summary collapsed))))
+           (tag "section"
+                (str (tag "h2" "Collapsed SCC Matrix")
+                     (collapsed-matrix (:blocks collapsed) (:edges collapsed))))
+           (tag "section"
+                (str (tag "h2" "Blocks")
+                     (block-table (:blocks collapsed))))
+           (tag "section"
+                (str (tag "h2" "Inter-block Dependencies")
+                     (edge-table (:edges collapsed))))
+           details-section)))))
 
 (defn scc-details-section
   [details]
