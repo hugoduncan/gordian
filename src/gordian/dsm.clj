@@ -80,3 +80,60 @@
            :size (count members)})
         (range)
         ordered-sccs))
+
+(defn ns->block-id
+  "Return a map from namespace symbol to containing block id."
+  [blocks]
+  (reduce (fn [m {:keys [id members]}]
+            (reduce (fn [m' ns] (assoc m' ns id)) m members))
+          {}
+          blocks))
+
+(defn collapsed-edges
+  "Return counted inter-block edges induced by namespace-level graph edges."
+  [graph blocks]
+  (let [ns->bid (ns->block-id blocks)]
+    (->> graph
+         (reduce-kv (fn [acc from deps]
+                      (let [from-id (get ns->bid from)]
+                        (reduce (fn [acc' to]
+                                  (let [to-id (get ns->bid to)]
+                                    (if (and from-id to-id (not= from-id to-id))
+                                      (update acc' [from-id to-id] (fnil inc 0))
+                                      acc')))
+                                acc
+                                deps)))
+                    {})
+         (sort-by key)
+         (mapv (fn [[[from to] edge-count]]
+                 {:from from :to to :edge-count edge-count})))))
+
+(defn internal-edge-count
+  "Count namespace-level edges whose endpoints both lie within members."
+  [graph members]
+  (let [member-set (set members)]
+    (reduce (fn [n from]
+              (+ n (count (filter member-set (get graph from #{})))))
+            0
+            members)))
+
+(defn block-density
+  "Directed internal density for a block, excluding self-edges."
+  [graph members]
+  (let [n (count members)]
+    (if (<= n 1)
+      0.0
+      (double (/ (internal-edge-count graph members)
+                 (* n (dec n)))))))
+
+(defn annotate-blocks
+  "Add derived metrics to indexed blocks."
+  [graph blocks]
+  (mapv (fn [{:keys [members size] :as block}]
+          (let [edge-count (internal-edge-count graph members)]
+            (assoc block
+                   :size size
+                   :cyclic? (> size 1)
+                   :internal-edge-count edge-count
+                   :density (block-density graph members))))
+        blocks))
