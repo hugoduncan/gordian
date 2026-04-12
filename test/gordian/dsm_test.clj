@@ -262,6 +262,26 @@
                              'c #{}}
                             ['c 'b 'a]))))
 
+(deftest interval-test
+  (is (true? (sut/interval? 1 3 1)))
+  (is (true? (sut/interval? 1 3 2)))
+  (is (true? (sut/interval? 1 3 3)))
+  (is (false? (sut/interval? 1 3 0)))
+  (is (false? (sut/interval? 1 3 4))))
+
+(deftest interval-internal-edge-count-test
+  (let [edges [[1 0] [2 1] [3 0]]]
+    (is (= 2 (sut/interval-internal-edge-count edges 0 2)))
+    (is (= 1 (sut/interval-internal-edge-count edges 0 1)))
+    (is (= 0 (sut/interval-internal-edge-count edges 2 3)))))
+
+(deftest interval-cross-edge-count-test
+  (let [edges [[1 0] [2 1] [3 0]]]
+    (is (= 2 (sut/interval-cross-edge-count edges 0 1 4)))
+    (is (= 1 (sut/interval-cross-edge-count edges 0 2 4)))
+    (is (= 2 (sut/interval-cross-edge-count edges 2 3 4)))
+    (is (= 0 (sut/interval-cross-edge-count [] 0 0 1)))))
+
 (deftest dsm-report-test
   (let [graph {'a #{'b}
                'b #{'a 'c}

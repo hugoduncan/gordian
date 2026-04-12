@@ -296,6 +296,28 @@
                      [(idx from) (idx to)])))
          vec)))
 
+(defn interval?
+  "True when index i lies within inclusive interval [a,b]."
+  [a b i]
+  (<= a i b))
+
+(defn interval-internal-edge-count
+  "Count ordered edges whose endpoints both lie within inclusive interval [a,b]."
+  [ordered-edges a b]
+  (count (filter (fn [[from to]]
+                   (and (interval? a b from)
+                        (interval? a b to)))
+                 ordered-edges)))
+
+(defn interval-cross-edge-count
+  "Count ordered edges with exactly one endpoint inside inclusive interval [a,b]."
+  [ordered-edges a b _n]
+  (count (filter (fn [[from to]]
+                   (let [from-in? (interval? a b from)
+                         to-in?   (interval? a b to)]
+                     (not= from-in? to-in?)))
+                 ordered-edges)))
+
 (defn dsm-report
   "Assemble the complete pure DSM payload from a structural graph."
   [graph]
