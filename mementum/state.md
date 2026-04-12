@@ -409,7 +409,7 @@ a668948  feat: subgraph views + explain prefix fallback
 ## Session 17 commits — Phase D4 (communities)
 
 ```
-(pending)  feat: communities discovery command
+77a8e1b  feat: communities discovery command
 ```
 
 242 tests, 1563 assertions, 0 failures.
