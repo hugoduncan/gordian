@@ -1188,6 +1188,11 @@
 
 ;;; ── tests output ─────────────────────────────────────────────────────────
 
+(defn- format-counts-map [m]
+  (if (seq m)
+    (str "{" (str/join ", " (map (fn [[k v]] (str (name k) "=" v)) m)) "}")
+    "{}"))
+
 (defn format-tests
   "Format the tests command report as human-readable lines."
   [{:keys [summary test-namespaces invariants core-coverage pc-summary findings]}]
@@ -1197,8 +1202,8 @@
     "SUMMARY"
     (str "  src namespaces: " (:src-count summary))
     (str "  test namespaces: " (:test-count summary))
-    (str "  roles: " (or (seq (:test-role-counts summary)) {}))
-    (str "  styles: " (or (seq (:test-style-counts summary)) {}))
+    (str "  roles: " (format-counts-map (:test-role-counts summary)))
+    (str "  styles: " (format-counts-map (:test-style-counts summary)))
     (str "  propagation cost src: " (format "%.1f%%" (* 100.0 (:pc-src summary))))
     (str "  propagation cost src+test: " (format "%.1f%%" (* 100.0 (:pc-with-tests summary))))
     (str "  propagation cost delta: " (format "%.1f%%" (* 100.0 (:pc-delta summary))))

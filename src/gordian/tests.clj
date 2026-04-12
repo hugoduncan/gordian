@@ -310,12 +310,14 @@
   (->> profiles
        (filter #(and (= :executable (:test-role %))
                      (= :integration-ish (:test-style %))
-                     (not (:integration-cue? %))))
+                     (not (:integration-cue? %))
+                     (or (>= (or (:reach %) 0.0) 0.30)
+                         (>= (or (:ce %) 0) 3))))
        (mapv (fn [{:keys [ns reach ce role]}]
                {:severity :medium
                 :category :unit-test-too-broad
                 :subject  {:ns ns}
-                :reason   (str "test looks broader than a focused unit test")
+                :reason   (str "test may be broader than a focused unit test")
                 :evidence {:ns ns :reach reach :ce ce :role role}}))))
 
 (defn find-integration-test-very-broad
@@ -361,7 +363,7 @@
     [{:severity :low
       :category :tests-miss-coupling-core
       :subject  {:suite :tests}
-      :reason   (str "adding tests barely changes propagation cost")
+      :reason   (str "adding tests barely changes propagation cost; suite may miss broader integration pressure")
       :evidence pc}]
 
     []))
