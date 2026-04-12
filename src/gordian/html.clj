@@ -186,6 +186,58 @@
                   (tag "p" (str "Internal edges: " internal-edge-count))
                   (mini-matrix detail))))))
 
+(declare scc-details-section)
+
+(def css
+  "Embedded CSS for self-contained DSM HTML reports."
+  (str
+   "body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;margin:24px;color:#1f2937;}"
+   ".page{max-width:1200px;margin:0 auto;}"
+   ".summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:20px 0;}"
+   ".card{border:1px solid #d1d5db;border-radius:8px;padding:12px;background:#f9fafb;}"
+   ".label{font-size:12px;color:#6b7280;text-transform:uppercase;}"
+   ".value{font-size:24px;font-weight:700;margin-top:4px;}"
+   ".matrix-scroll{overflow-x:auto;margin:16px 0;}"
+   "table{border-collapse:collapse;}"
+   "th,td{border:1px solid #d1d5db;padding:6px 8px;text-align:center;}"
+   "th{background:#f3f4f6;}"
+   ".diag{background:#e5e7eb;}"
+   ".empty{background:#ffffff;}"
+   ".edge{color:#111827;font-weight:600;}"
+   ".edge-1{background:#dbeafe;}"
+   ".edge-2{background:#93c5fd;}"
+   ".edge-3{background:#60a5fa;}"
+   ".edge-4plus{background:#2563eb;color:#ffffff;}"
+   ".block-table,.edge-table,.dsm-matrix,.mini-matrix{margin:12px 0;}"
+   ".scc-detail{margin:12px 0;border:1px solid #d1d5db;border-radius:8px;padding:8px;background:#f9fafb;}"
+   ".scc-body{margin-top:8px;}"
+   "code{background:#f3f4f6;padding:2px 4px;border-radius:4px;}"))
+
+(defn dsm-html
+  [{:keys [src-dirs collapsed scc-details]}]
+  (page
+   "Gordian DSM"
+   (tag "main" {:class "page"}
+        (str
+         (tag "style" css)
+         (tag "header" {:class "page-header"}
+              (str (tag "h1" "Gordian DSM")
+                   (tag "p" (str "Source: " (tag "code" (str/join " " src-dirs))))
+                   (tag "p" (str "Basis: " (tag "code" "SCC")))))
+         (tag "section"
+              (str (tag "h2" "Summary")
+                   (summary-cards (:summary collapsed))))
+         (tag "section"
+              (str (tag "h2" "Collapsed SCC Matrix")
+                   (collapsed-matrix (:blocks collapsed) (:edges collapsed))))
+         (tag "section"
+              (str (tag "h2" "Blocks")
+                   (block-table (:blocks collapsed))))
+         (tag "section"
+              (str (tag "h2" "Inter-block Dependencies")
+                   (edge-table (:edges collapsed))))
+         (or (scc-details-section scc-details) "")))))
+
 (defn scc-details-section
   [details]
   (when (seq details)

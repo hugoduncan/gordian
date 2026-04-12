@@ -145,3 +145,29 @@
                                                :internal-edge-count 2 :density 1.0}))]
       (is (< (.indexOf html "Cyclic SCC B1")
              (.indexOf html "Cyclic SCC B3"))))))
+
+(deftest dsm-html-test
+  (let [data {:src-dirs ["resources/fixture"]
+              :collapsed {:summary summary
+                          :blocks blocks
+                          :edges edges}
+              :scc-details details}
+        html (sut/dsm-html data)]
+    (is (.startsWith html "<!DOCTYPE html>"))
+    (is (.contains html "<title>Gordian DSM</title>"))
+    (is (.contains html "Source: <code>resources/fixture</code>"))
+    (is (.contains html "<h2>Summary</h2>"))
+    (is (.contains html "<h2>Collapsed SCC Matrix</h2>"))
+    (is (.contains html "<h2>Blocks</h2>"))
+    (is (.contains html "<h2>Inter-block Dependencies</h2>"))
+    (is (.contains html "Cyclic SCC Details"))
+    (is (.contains html "<style>"))))
+
+(deftest dsm-html-no-details-test
+  (let [data {:src-dirs ["resources/fixture"]
+              :collapsed {:summary (assoc summary :cyclic-block-count 0)
+                          :blocks [{:id 0 :size 1 :cyclic? false :density 0.0 :members ['a]}]
+                          :edges []}
+              :scc-details []}
+        html (sut/dsm-html data)]
+    (is (not (.contains html "Cyclic SCC Details")))))
