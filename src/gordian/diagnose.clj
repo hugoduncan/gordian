@@ -1,14 +1,16 @@
 (ns gordian.diagnose
   "Generate ranked findings from a gordian report.
   All functions are pure — they take data and return data."
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set]
+            [gordian.finding :as finding]))
 
-;;; ── utilities ────────────────────────────────────────────────────────────
+;;; ── compatibility helpers ───────────────────────────────────────────────
 
 (defn pair-key
-  "Canonical pair identity — unordered set of two namespace symbols."
+  "Canonical pair identity — unordered set of two namespace symbols.
+  Delegates to gordian.finding/pair-key."
   [pair]
-  #{(:ns-a pair) (:ns-b pair)})
+  (finding/pair-key pair))
 
 ;;; ── health assessment ────────────────────────────────────────────────────
 
@@ -125,7 +127,7 @@
   Returns {#{ns-a ns-b} → pair-map}."
   [pairs]
   (into {} (comp (remove :structural-edge?)
-                 (map (juxt pair-key identity)))
+                 (map (juxt finding/pair-key identity)))
         pairs))
 
 (defn find-cross-lens-hidden
@@ -163,8 +165,7 @@
   Same-family pairs with no independent terms (pure naming noise) → :low.
   All other pairs: score ≥ 0.20 → :medium, score < 0.20 → :low."
   [pair]
-  (if (and (:same-family? pair)
-           (empty? (:independent-terms pair)))
+  (if (finding/family-noise? pair)
     :low
     (if (>= (:score pair) 0.20) :medium :low)))
 
@@ -176,10 +177,9 @@
   (into []
         (keep (fn [p]
                 (when (and (not (:structural-edge? p))
-                           (not (contains? cross-keys (pair-key p))))
+                           (not (contains? cross-keys (finding/pair-key p))))
                   (let [sev          (conceptual-severity p)
-                        family-noise (and (:same-family? p)
-                                          (empty? (:independent-terms p)))]
+                        family-noise (finding/family-noise? p)]
                     {:severity sev
                      :category :hidden-conceptual
                      :subject  {:ns-a (:ns-a p) :ns-b (:ns-b p)}
@@ -204,7 +204,7 @@
   (into []
         (keep (fn [p]
                 (when (and (not (:structural-edge? p))
-                           (not (contains? cross-keys (pair-key p))))
+                           (not (contains? cross-keys (finding/pair-key p))))
                   {:severity :medium
                    :category :hidden-change
                    :subject  {:ns-a (:ns-a p) :ns-b (:ns-b p)}
@@ -246,12 +246,7 @@
   "Sort key: severity first (high→low), then highest score within severity."
   [f]
   [(severity-rank (:severity f))
-   (- (or (get-in f [:evidence :score])
-          (get-in f [:evidence :conceptual-score])
-          (get-in f [:evidence :reach])
-          (get-in f [:evidence :size])
-          (get-in f [:evidence :instability])
-          0))])
+   (- (finding/finding-magnitude f))])
 
 (defn diagnose
   "Generate all findings from a complete report map.

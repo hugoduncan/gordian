@@ -1,7 +1,8 @@
 (ns gordian.explain
   "Drill-down query functions for namespace and pair investigation.
   All functions are pure — they query report data structures."
-  (:require [gordian.diagnose :as diagnose]))
+  (:require [gordian.diagnose :as diagnose]
+            [gordian.finding :as finding]))
 
 ;;; ── graph queries ────────────────────────────────────────────────────────
 
@@ -144,9 +145,9 @@
             path-ab     (shortest-path graph ns-a ns-b)
             path-ba     (shortest-path graph ns-b ns-a)
             path        (or path-ab path-ba)
-            c-pair      (first (filter #(= pk (diagnose/pair-key %))
+            c-pair      (first (filter #(= pk (finding/pair-key %))
                                        (or conceptual-pairs [])))
-            x-pair      (first (filter #(= pk (diagnose/pair-key %))
+            x-pair      (first (filter #(= pk (finding/pair-key %))
                                        (or change-pairs [])))
             ;; derive finding if hidden
             finding     (when (and (or c-pair x-pair)
