@@ -160,7 +160,9 @@
     :cycle          (str/join " → " (sort (map str (:members subject))))
     (:cross-lens-hidden :hidden-conceptual :hidden-change)
     (str (:ns-a subject) " ↔ " (:ns-b subject))
-    (str (:ns subject))))
+    (or (some-> (:ns subject) str)
+        (some-> (:suite subject) name)
+        "")))
 
 (defn- severity-marker [severity]
   (case severity
