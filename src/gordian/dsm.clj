@@ -175,3 +175,37 @@
   (->> blocks
        (filter #(< 1 (:size %)))
        (mapv (partial scc-detail graph))))
+
+(defn collapsed-summary
+  "Return top-level summary metrics for the collapsed SCC matrix."
+  [blocks edges]
+  (let [block-count          (count blocks)
+        singleton-block-count (count (filter #(= 1 (:size %)) blocks))
+        cyclic-block-count   (count (filter :cyclic? blocks))
+        largest-block-size   (apply max 0 (map :size blocks))
+        inter-block-edge-count (reduce + 0 (map :edge-count edges))
+        density              (if (<= block-count 1)
+                               0.0
+                               (double (/ inter-block-edge-count
+                                          (* block-count (dec block-count)))))]
+    {:block-count block-count
+     :singleton-block-count singleton-block-count
+     :cyclic-block-count cyclic-block-count
+     :largest-block-size largest-block-size
+     :inter-block-edge-count inter-block-edge-count
+     :density density}))
+
+(defn dsm-report
+  "Assemble the complete pure DSM payload from a structural graph."
+  [graph]
+  (let [blocks  (->> graph
+                     ordered-sccs
+                     index-blocks
+                     (annotate-blocks graph))
+        edges   (collapsed-edges graph blocks)]
+    {:basis :scc
+     :collapsed {:block-count (count blocks)
+                 :blocks blocks
+                 :edges edges
+                 :summary (collapsed-summary blocks edges)}
+     :scc-details (scc-details graph blocks)}))

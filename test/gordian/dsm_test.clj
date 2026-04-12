@@ -174,3 +174,40 @@
 
     (testing "includes multiple cyclic SCCs in block-id order"
       (is (= [1 2] (mapv :id details))))))
+
+(deftest collapsed-summary-test
+  (testing "reports block and singleton/cyclic counts"
+    (let [blocks [{:id 0 :size 1 :cyclic? false}
+                  {:id 1 :size 2 :cyclic? true}
+                  {:id 2 :size 1 :cyclic? false}]
+          edges [{:from 2 :to 1 :edge-count 1}
+                 {:from 1 :to 0 :edge-count 1}]
+          summary (sut/collapsed-summary blocks edges)]
+      (is (= 3 (:block-count summary)))
+      (is (= 2 (:singleton-block-count summary)))
+      (is (= 1 (:cyclic-block-count summary)))
+      (is (= 2 (:largest-block-size summary)))
+      (is (= 2 (:inter-block-edge-count summary)))
+      (is (= (/ 2.0 6.0) (:density summary)))))
+
+  (testing "density is 0.0 for zero or one block"
+    (is (= 0.0 (:density (sut/collapsed-summary [] []))))
+    (is (= 0.0 (:density (sut/collapsed-summary [{:id 0 :size 1 :cyclic? false}] []))))))
+
+(deftest dsm-report-test
+  (let [graph {'a #{'b}
+               'b #{'a 'c}
+               'c #{}}
+        report (sut/dsm-report graph)]
+    (testing "returns both collapsed and scc-details"
+      (is (contains? report :collapsed))
+      (is (contains? report :scc-details)))
+
+    (testing "includes all SCCs in collapsed blocks"
+      (is (= 2 (count (get-in report [:collapsed :blocks])))))
+
+    (testing "includes only non-singleton SCCs in scc-details"
+      (is (= [1] (mapv :id (:scc-details report)))))
+
+    (testing "is deterministic for same input graph"
+      (is (= report (sut/dsm-report graph))))))
