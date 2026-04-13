@@ -384,19 +384,37 @@
     {:internal internal
      :crossing crossing}))
 
+(def ^:private weak-cohesion-target-density
+  0.10)
+
+(defn- weak-cohesion-penalty
+  "Penalty for multi-namespace blocks that are too sparse to justify their size.
+  Measures how far internal edge count falls below a modest target density.
+  Zero-internal blocks still receive the stronger global cohesion penalty."
+  [block-size internal alpha]
+  (if (<= block-size 1)
+    0.0
+    (let [possible-edges      (* block-size (dec block-size))
+          target-internal     (* weak-cohesion-target-density possible-edges)
+          missing-internal    (max 0.0 (- target-internal internal))]
+      (* missing-internal (pow-cost block-size alpha)))))
+
 (defn block-cost
   "Score inclusive interval block [a,b] using Thebeau-style costs.
   Internal marks cost |B|^alpha; crossing marks cost n^alpha.
-  Multi-namespace blocks with zero internal edges incur an extra cohesion penalty."
+  Multi-namespace blocks with zero internal edges incur an extra cohesion penalty.
+  Weakly cohesive multi-namespace blocks also incur a size-scaled sparsity penalty."
   [ordered-edges n alpha a b]
   (let [{:keys [internal crossing]} (interval-stats (ordered-edge-stats ordered-edges n) a b)
         block-size                  (inc (- b a))
         cohesion-penalty            (if (and (> block-size 1) (zero? internal))
                                       (pow-cost n alpha)
-                                      0.0)]
+                                      0.0)
+        weak-penalty                (weak-cohesion-penalty block-size internal alpha)]
     (+ (* internal (pow-cost block-size alpha))
        (* crossing (pow-cost n alpha))
-       cohesion-penalty)))
+       cohesion-penalty
+       weak-penalty)))
 
 (defn- interval-endpoints
   [n]
@@ -415,11 +433,13 @@
                        block-size                  (inc (- b a))
                        cohesion-penalty            (if (and (> block-size 1) (zero? internal))
                                                      n-alpha
-                                                     0.0)]
+                                                     0.0)
+                       weak-penalty                (weak-cohesion-penalty block-size internal alpha)]
                    [[a b]
                     (+ (* internal (get size-cost-cache block-size))
                        (* crossing n-alpha)
-                       cohesion-penalty)])))
+                       cohesion-penalty
+                       weak-penalty)])))
           (interval-endpoints n))))
 
 (defn reconstruct-partition

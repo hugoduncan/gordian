@@ -298,7 +298,13 @@
 
     (testing "zero-internal multi-namespace blocks incur cohesion penalty"
       (let [no-internal [[3 0]]]
-        (is (= 16.0 (sut/block-cost no-internal 4 1.5 0 1)))))
+        (is (= 16.565685424949237 (sut/block-cost no-internal 4 1.5 0 1)))))
+
+    (testing "weakly cohesive sparse blocks pay more than denser ones of same size"
+      (let [sparse [[3 0]]
+            dense  [[0 1] [1 0] [3 0]]]
+        (is (> (sut/block-cost sparse 4 1.5 0 1)
+               (sut/block-cost dense 4 1.5 0 1)))))
 
     (testing "alpha increases same interval cost when size > 1"
       (is (< (sut/block-cost edges 4 1.0 0 1)
@@ -334,6 +340,25 @@
                                    'b #{'c}
                                    'c #{}}
                                   ['c 'b 'a]
+                                  1.5))))
+
+  (testing "sparse residual block can split when cohesion is too weak"
+    (is (= [[0 3] [4 11] [12 12] [13 13]]
+           (sut/optimal-partition {'n8 #{'n0}
+                                   'n9 #{'n1}
+                                   'n10 #{'n2}
+                                   'n11 #{'n3}
+                                   'n12 #{'n4}
+                                   'n13 #{'n5}
+                                   'n0 #{'n1}
+                                   'n1 #{'n2}
+                                   'n2 #{'n3}
+                                   'n3 #{'n4}
+                                   'n4 #{'n5}
+                                   'n5 #{'n6}
+                                   'n6 #{'n7}
+                                   'n7 #{}}
+                                  ['n7 'n6 'n5 'n4 'n3 'n2 'n1 'n0 'n11 'n10 'n9 'n8 'n13 'n12]
                                   1.5))))
 
   (testing "returned blocks are contiguous, non-overlapping, and cover all nodes"

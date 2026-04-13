@@ -666,6 +666,34 @@ Potential follow-ups:
 - compare / gate integration for DSM block metrics
 - drilldown on one block or one inter-block relation
 
+## Session 22 — DSM quality tuning
+
+Current DSM quality investigation focused on the recurring
+"singletons + giant residual block" shape.
+
+Findings from repo + smoke tests:
+- on `gordian src/`, the previous objective produced 3 singleton blocks plus one
+  29-namespace residual block
+- this was not mainly an ordering failure: the fixed-order split costs still
+  strongly preferred the giant residual block over plausible splits
+- the primary cause was objective bias: cross-block penalties dominated, and the
+  cohesion penalty only fired for zero-internal-edge blocks
+- graph shape still matters: `gordian.main` pulls many leaves together, and
+  large projects like `psi/refactor` still retain some very large residual
+  blocks even after tuning
+
+Quality change implemented:
+- add a mild weak-cohesion penalty for multi-namespace blocks whose internal
+  edge count falls below a modest target density
+- preserve the stronger existing penalty for zero-internal-edge blocks
+- keep ordering and refinement behavior otherwise unchanged
+
+Observed effect:
+- `gordian src/` improved from `3 singletons + giant blob` to 11 blocks with a
+  5-namespace block and an 18-namespace residual block
+- `psi/refactor` also fragmented substantially more, though it still contains
+  a large 102-node block, indicating graph shape remains an important factor
+
 ## Session 20 commits — DSM HTML output
 
 ```
