@@ -44,7 +44,7 @@
    :inter-block-edge-count 9
    :density 0.1364})
 
-(def ordering {:strategy :dfs-topo :refined? false :alpha 2.0 :beta 0.1 :nodes ['gordian.aggregate 'foo.a 'foo.b 'foo.c]})
+(def ordering {:strategy :dfs-topo :refined? false :alpha 2.0 :beta 0.05 :nodes ['gordian.aggregate 'foo.a 'foo.b 'foo.c]})
 
 (def blocks
   [{:id 0 :size 1 :density 0.0 :members ['gordian.aggregate]}

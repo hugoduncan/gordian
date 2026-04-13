@@ -245,7 +245,7 @@
 
 (def ^:private dsm-data
   {:src-dirs ["resources/fixture"]
-   :ordering {:strategy :dfs-topo :refined? false :alpha 2.0 :beta 0.1 :nodes ['c 'a 'b]}
+   :ordering {:strategy :dfs-topo :refined? false :alpha 2.0 :beta 0.05 :nodes ['c 'a 'b]}
    :blocks [{:id 0 :members ['c] :size 1 :internal-edge-count 0 :density 0.0}
             {:id 1 :members ['a 'b] :size 2 :internal-edge-count 2 :density 1.0}]
    :edges [{:from 1 :to 0 :edge-count 1}]
@@ -283,7 +283,7 @@
 
 (deftest format-dsm-singleton-only-test
   (let [data {:src-dirs ["resources/fixture"]
-              :ordering {:strategy :dfs-topo :refined? false :alpha 2.0 :beta 0.1 :nodes ['a]}
+              :ordering {:strategy :dfs-topo :refined? false :alpha 2.0 :beta 0.05 :nodes ['a]}
               :blocks [{:id 0 :members ['a] :size 1 :internal-edge-count 0 :density 0.0}]
               :edges []
               :summary {:block-count 1

@@ -171,6 +171,9 @@ This balances:
 Let:
 - `β > 0` = quadratic block-size penalty coefficient
 
+Current default:
+- `β = 0.05`
+
 ### Practical scoring model
 The current implementation uses a simple O(1)-per-interval block objective:
 - boundary-crossing count for the interval

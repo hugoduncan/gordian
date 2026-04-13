@@ -421,7 +421,7 @@
   0.10)
 
 (def ^:private default-size-penalty-beta
-  0.1)
+  0.05)
 
 (defn- weak-cohesion-penalty
   "Penalty for multi-namespace blocks that are too sparse to justify their size.

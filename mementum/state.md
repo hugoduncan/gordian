@@ -721,12 +721,13 @@ Performance investigation:
 Scoring redesign:
 - replaced the Thebeau-style exponent-weighted objective with a prefix-sum
   friendly block cost: `crossings + β·size² + weak-cohesion-penalty`
-- default `β` set to `0.1`
-- this preserves O(n²) interval DP while still discouraging giant residual
-  blocks
-- observed on `gordian src/`: 18 blocks, largest block 10
-- observed on `psi/refactor`: runtime improved and largest block dropped to 17,
-  but partitioning became much finer-grained overall
+- tuning sweep across `β ∈ {0.02,0.03,0.05,0.07,0.1,0.15,0.2}` on `gordian src/`
+  and `β ∈ {0.02,0.03,0.05,0.07,0.1}` on `psi/refactor`
+- default `β` set to `0.05` as a compromise:
+  - gordian: 17 blocks, largest block 11
+  - psi/refactor: 147 blocks, largest block 28
+- lower beta (`0.02`/`0.03`) left large residual blocks mostly intact
+- higher beta (`0.07+`) fragmented too aggressively
 
 ## Session 20 commits — DSM HTML output
 
