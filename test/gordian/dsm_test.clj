@@ -304,6 +304,16 @@
       (is (< (sut/block-cost edges 4 1.0 0 1)
              (sut/block-cost edges 4 2.0 0 1))))))
 
+(deftest ordered-edge-stats-test
+  (let [edges [[1 0] [2 1] [3 0]]
+        stats (#'gordian.dsm/ordered-edge-stats edges 4)]
+    (testing "interval stats match counted helper behavior"
+      (doseq [[a b] [[0 0] [0 1] [0 2] [2 3]]]
+        (is (= (sut/interval-internal-edge-count edges a b)
+               (:internal (#'gordian.dsm/interval-stats stats a b))))
+        (is (= (sut/interval-cross-edge-count edges a b 4)
+               (:crossing (#'gordian.dsm/interval-stats stats a b))))))))
+
 (deftest reconstruct-partition-test
   (is (= [[0 1] [2 3]]
          (sut/reconstruct-partition {1 0 3 2} 3)))

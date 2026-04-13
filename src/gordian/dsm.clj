@@ -325,17 +325,75 @@
   [x alpha]
   (Math/pow (double x) (double alpha)))
 
+(defn- prefix-sums
+  [xs]
+  (let [arr (long-array (inc (count xs)))]
+    (loop [i 0
+           acc 0]
+      (if (= i (count xs))
+        arr
+        (let [acc' (+ acc (long (nth xs i)))]
+          (aset-long arr (inc i) acc')
+          (recur (inc i) acc'))))))
+
+(defn- prefix-range-sum
+  [prefix a b]
+  (- (aget prefix (inc b))
+     (aget prefix a)))
+
+(defn- matrix-prefix-sums
+  [ordered-edges n]
+  (let [prefix (make-array Long/TYPE (inc n) (inc n))]
+    (doseq [[from to] ordered-edges]
+      (aset-long prefix (inc from) (inc to)
+                 (inc (aget prefix (inc from) (inc to)))))
+    (doseq [i (range 1 (inc n))
+            j (range 1 (inc n))]
+      (aset-long prefix i j
+                 (+ (aget prefix i j)
+                    (aget prefix (dec i) j)
+                    (aget prefix i (dec j))
+                    (- (aget prefix (dec i) (dec j))))))
+    prefix))
+
+(defn- matrix-range-sum
+  [prefix row-a row-b col-a col-b]
+  (- (+ (aget prefix (inc row-b) (inc col-b))
+        (aget prefix row-a col-a))
+     (aget prefix row-a (inc col-b))
+     (aget prefix (inc row-b) col-a)))
+
+(defn- ordered-edge-stats
+  [ordered-edges n]
+  (let [row-totals (long-array n)
+        col-totals (long-array n)]
+    (doseq [[from to] ordered-edges]
+      (aset-long row-totals from (inc (aget row-totals from)))
+      (aset-long col-totals to (inc (aget col-totals to))))
+    {:n n
+     :row-prefix (prefix-sums (vec row-totals))
+     :col-prefix (prefix-sums (vec col-totals))
+     :matrix-prefix (matrix-prefix-sums ordered-edges n)}))
+
+(defn- interval-stats
+  [{:keys [row-prefix col-prefix matrix-prefix]} a b]
+  (let [internal (matrix-range-sum matrix-prefix a b a b)
+        outgoing (prefix-range-sum row-prefix a b)
+        incoming (prefix-range-sum col-prefix a b)
+        crossing (- (+ outgoing incoming) (* 2 internal))]
+    {:internal internal
+     :crossing crossing}))
+
 (defn block-cost
   "Score inclusive interval block [a,b] using Thebeau-style costs.
   Internal marks cost |B|^alpha; crossing marks cost n^alpha.
   Multi-namespace blocks with zero internal edges incur an extra cohesion penalty."
   [ordered-edges n alpha a b]
-  (let [block-size        (inc (- b a))
-        internal          (interval-internal-edge-count ordered-edges a b)
-        crossing          (interval-cross-edge-count ordered-edges a b n)
-        cohesion-penalty  (if (and (> block-size 1) (zero? internal))
-                            (pow-cost n alpha)
-                            0.0)]
+  (let [{:keys [internal crossing]} (interval-stats (ordered-edge-stats ordered-edges n) a b)
+        block-size                  (inc (- b a))
+        cohesion-penalty            (if (and (> block-size 1) (zero? internal))
+                                      (pow-cost n alpha)
+                                      0.0)]
     (+ (* internal (pow-cost block-size alpha))
        (* crossing (pow-cost n alpha))
        cohesion-penalty)))
@@ -348,9 +406,21 @@
 
 (defn- block-costs
   [ordered-edges n alpha]
-  (into {}
-        (map (fn [[a b]] [[a b] (block-cost ordered-edges n alpha a b)]))
-        (interval-endpoints n)))
+  (let [stats           (ordered-edge-stats ordered-edges n)
+        n-alpha         (pow-cost n alpha)
+        size-cost-cache (into {} (map (fn [size] [size (pow-cost size alpha)])) (range 1 (inc n)))]
+    (into {}
+          (map (fn [[a b]]
+                 (let [{:keys [internal crossing]} (interval-stats stats a b)
+                       block-size                  (inc (- b a))
+                       cohesion-penalty            (if (and (> block-size 1) (zero? internal))
+                                                     n-alpha
+                                                     0.0)]
+                   [[a b]
+                    (+ (* internal (get size-cost-cache block-size))
+                       (* crossing n-alpha)
+                       cohesion-penalty)])))
+          (interval-endpoints n))))
 
 (defn reconstruct-partition
   "Reconstruct inclusive intervals from backpointer map ending at end-idx."
