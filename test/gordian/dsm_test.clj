@@ -421,6 +421,13 @@
       (is (<= (sut/partition-cost graph refined 1.5)
               (sut/partition-cost graph ordered 1.5))))))
 
+(deftest should-refine-order-test
+  (testing "small graphs are refined"
+    (is (true? (sut/should-refine-order? (vec (range 120))))))
+
+  (testing "larger graphs skip refinement for performance"
+    (is (false? (sut/should-refine-order? (vec (range 121)))))))
+
 (deftest dsm-report-test
   (let [graph {'a #{'b}
                'b #{'a 'c}

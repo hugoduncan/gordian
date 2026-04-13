@@ -581,13 +581,26 @@
           (recur candidate)
           ordered)))))
 
+(def ^:private max-refinement-nodes
+  120)
+
+(defn should-refine-order?
+  "Return true when local adjacent-swap refinement should run.
+  Refinement is intentionally skipped for larger graphs because it scales
+  poorly and can dominate end-to-end DSM runtime without improving the
+  canonical partitioning pipeline itself."
+  [ordered]
+  (<= (count ordered) max-refinement-nodes))
+
 (defn dsm-report
   "Assemble the complete pure DSM payload from a structural graph."
   [graph]
   (let [graph         (project-graph graph)
         alpha         1.5
         initial-order (ordered-nodes graph)
-        ordered       (refine-order graph initial-order alpha)
+        ordered       (if (should-refine-order? initial-order)
+                        (refine-order graph initial-order alpha)
+                        initial-order)
         parts         (optimal-partition graph ordered alpha)
         blocks        (->> parts
                            (block-members ordered)
