@@ -53,6 +53,38 @@
 (declare block-label)
 (declare dsm-report*)
 
+(def ^:dynamic *profile*
+  nil)
+
+(defn- now-nanos []
+  (System/nanoTime))
+
+(defn- record-profile!
+  [k elapsed-nanos]
+  (when *profile*
+    (swap! *profile*
+           (fn [m]
+             (-> m
+                 (update-in [k :count] (fnil inc 0))
+                 (update-in [k :nanos] (fnil + 0) elapsed-nanos))))))
+
+(defn- profiled
+  [k f]
+  (let [start (now-nanos)
+        ret   (f)
+        end   (now-nanos)]
+    (record-profile! k (- end start))
+    ret))
+
+(defn profile-summary
+  [profile]
+  (into {}
+        (map (fn [[k {:keys [count nanos]}]]
+               [k {:count count
+                   :nanos nanos
+                   :millis (/ nanos 1000000.0)}]))
+        profile))
+
 (defn ordered-sccs
   "Return SCCs in deterministic topological order of the condensation graph.
   Includes singleton SCCs.
@@ -455,11 +487,13 @@
 
 (defn- ordering-costs
   [graph ordered alpha]
-  (let [edges (ordered-edges graph ordered)
-        n     (count ordered)]
-    {:edges edges
-     :n n
-     :costs (block-costs edges n alpha)}))
+  (profiled :ordering-costs
+            (fn []
+              (let [edges (ordered-edges graph ordered)
+                    n     (count ordered)]
+                {:edges edges
+                 :n n
+                 :costs (block-costs edges n alpha)}))))
 
 (defn- optimal-partition-from-costs
   [{:keys [n costs]}]
@@ -487,7 +521,9 @@
   "Return optimal contiguous inclusive interval partition for fixed order.
   Dynamic programming over split points with deterministic leftmost tie-break."
   [graph ordered alpha]
-  (optimal-partition-from-costs (ordering-costs graph ordered alpha)))
+  (profiled :optimal-partition
+            (fn []
+              (optimal-partition-from-costs (ordering-costs graph ordered alpha)))))
 
 (defn transitive-consumers
   "Return {ns -> #{project namespaces that transitively depend on ns}}."
@@ -585,12 +621,14 @@
 (defn partition-cost
   "Return total cost of the optimal partition for ordered namespaces."
   [graph ordered alpha]
-  (let [{:keys [costs] :as cost-data} (ordering-costs graph ordered alpha)
-        parts                         (optimal-partition-from-costs cost-data)]
-    (reduce (fn [acc [a b]]
-              (+ acc (get costs [a b])))
-            0.0
-            parts)))
+  (profiled :partition-cost
+            (fn []
+              (let [{:keys [costs] :as cost-data} (ordering-costs graph ordered alpha)
+                    parts                         (optimal-partition-from-costs cost-data)]
+                (reduce (fn [acc [a b]]
+                          (+ acc (get costs [a b])))
+                        0.0
+                        parts)))))
 
 (defn valid-adjacent-swap?
   "True when adjacent nodes at idx and idx+1 are incomparable in the dependency graph."
@@ -616,33 +654,37 @@
 
 (defn- refine-order-by-node-swaps
   [project closed ordered alpha]
-  (loop [ordered (vec ordered)]
-    (let [base-cost (partition-cost project ordered alpha)
-          candidate (first (for [idx (range (dec (count ordered)))
-                                 :when (valid-adjacent-swap? project closed ordered idx)
-                                 :let [swapped (swap-adjacent ordered idx)
-                                       cost    (partition-cost project swapped alpha)]
-                                 :when (< cost base-cost)]
-                             swapped))]
-      (if candidate
-        (recur candidate)
-        ordered))))
+  (profiled :refine-node
+            (fn []
+              (loop [ordered (vec ordered)]
+                (let [base-cost (partition-cost project ordered alpha)
+                      candidate (first (for [idx (range (dec (count ordered)))
+                                             :when (valid-adjacent-swap? project closed ordered idx)
+                                             :let [swapped (swap-adjacent ordered idx)
+                                                   cost    (partition-cost project swapped alpha)]
+                                             :when (< cost base-cost)]
+                                         swapped))]
+                  (if candidate
+                    (recur candidate)
+                    ordered))))))
 
 (defn- refine-order-by-block-swaps
   [project closed ordered alpha]
-  (loop [ordered (vec ordered)]
-    (let [base-cost (partition-cost project ordered alpha)
-          blocks    (block-members ordered (optimal-partition project ordered alpha))
-          candidate (first (for [idx (range (dec (count blocks)))
-                                 :when (block-swap-valid? project closed blocks idx)
-                                 :let [swapped-blocks (swap-adjacent-blocks (vec blocks) idx)
-                                       swapped-order  (vec (mapcat identity swapped-blocks))
-                                       cost           (partition-cost project swapped-order alpha)]
-                                 :when (< cost base-cost)]
-                             swapped-order))]
-      (if candidate
-        (recur candidate)
-        ordered))))
+  (profiled :refine-block
+            (fn []
+              (loop [ordered (vec ordered)]
+                (let [base-cost (partition-cost project ordered alpha)
+                      blocks    (block-members ordered (optimal-partition project ordered alpha))
+                      candidate (first (for [idx (range (dec (count blocks)))
+                                             :when (block-swap-valid? project closed blocks idx)
+                                             :let [swapped-blocks (swap-adjacent-blocks (vec blocks) idx)
+                                                   swapped-order  (vec (mapcat identity swapped-blocks))
+                                                   cost           (partition-cost project swapped-order alpha)]
+                                             :when (< cost base-cost)]
+                                         swapped-order))]
+                  (if candidate
+                    (recur candidate)
+                    ordered))))))
 
 (defn refine-order
   "Deterministically improve order by accepting cost-lowering valid adjacent swaps.
@@ -672,15 +714,17 @@
 
 (defn- recursive-subdsm
   [graph {:keys [members size]} depth]
-  (when (and (< depth max-recursive-depth)
-             (>= size recursive-min-block-size))
-    (let [subgraph (induced-subgraph graph members)
-          report   (dsm-report* subgraph (inc depth))
-          child-count (count (:blocks report))
-          largest-child (apply max 0 (map :size (:blocks report)))]
-      (when (and (> child-count 1)
-                 (< largest-child size))
-        report))))
+  (profiled :recursive-subdsm
+            (fn []
+              (when (and (< depth max-recursive-depth)
+                         (>= size recursive-min-block-size))
+                (let [subgraph (induced-subgraph graph members)
+                      report   (dsm-report* subgraph (inc depth))
+                      child-count (count (:blocks report))
+                      largest-child (apply max 0 (map :size (:blocks report)))]
+                  (when (and (> child-count 1)
+                             (< largest-child size))
+                    report))))))
 
 (defn- attach-recursive-subdsms
   [graph depth blocks]
@@ -692,32 +736,46 @@
   "Assemble the complete pure DSM payload from a structural graph.
   Internal helper supports bounded recursive decomposition for large blocks."
   [graph depth]
-  (let [graph         (project-graph graph)
-        alpha         1.5
-        initial-order (ordered-nodes graph)
-        ordered       (if (should-refine-order? initial-order)
-                        (refine-order graph initial-order alpha)
-                        initial-order)
-        parts         (optimal-partition graph ordered alpha)
-        blocks        (->> parts
-                           (block-members ordered)
-                           index-blocks
-                           (annotate-blocks graph)
-                           (attach-recursive-subdsms graph depth))
-        edges         (block-edge-counts graph blocks)
-        details       (block-details graph blocks)
-        summary       (block-summary blocks edges)]
-    {:basis :diagonal-blocks
-     :ordering {:strategy :dfs-topo
-                :refined? (not= initial-order ordered)
-                :alpha alpha
-                :nodes ordered}
-     :blocks blocks
-     :edges edges
-     :summary summary
-     :details details}))
+  (profiled :dsm-report
+            (fn []
+              (let [graph         (project-graph graph)
+                    alpha         1.5
+                    initial-order (profiled :ordered-nodes #(ordered-nodes graph))
+                    refine?       (and (zero? depth)
+                                       (should-refine-order? initial-order))
+                    ordered       (if refine?
+                                    (refine-order graph initial-order alpha)
+                                    initial-order)
+                    parts         (optimal-partition graph ordered alpha)
+                    blocks        (->> parts
+                                       (block-members ordered)
+                                       index-blocks
+                                       (annotate-blocks graph)
+                                       (attach-recursive-subdsms graph depth))
+                    edges         (profiled :block-edge-counts #(block-edge-counts graph blocks))
+                    details       (profiled :block-details #(block-details graph blocks))
+                    summary       (profiled :block-summary #(block-summary blocks edges))]
+                {:basis :diagonal-blocks
+                 :ordering {:strategy :dfs-topo
+                            :refined? (not= initial-order ordered)
+                            :alpha alpha
+                            :nodes ordered}
+                 :blocks blocks
+                 :edges edges
+                 :summary summary
+                 :details details}))))
 
 (defn dsm-report
   "Assemble the complete pure DSM payload from a structural graph."
   [graph]
   (dsm-report* graph 0))
+
+(defn profiled-dsm-report
+  "Return DSM payload plus phase timing summary.
+  Intended for complexity/runtime investigation, not canonical output wiring."
+  [graph]
+  (let [profile (atom {})
+        report  (binding [*profile* profile]
+                  (dsm-report graph))]
+    {:report report
+     :profile (profile-summary @profile)}))

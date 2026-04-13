@@ -537,14 +537,43 @@
                'e #{'a}
                'f #{}
                'g #{}}
+        initial ['a 'b 'c 'd 'e]
+        refined (sut/refine-order (select-keys graph initial) initial 1.5)
         report (sut/dsm-report graph)
         top-block (first (:blocks report))]
-    (testing "large top-level block can expose recursive subdsm"
+    (testing "test fixture still demonstrates refinement-sensitive substructure"
+      (is (= ['a 'b 'd 'e 'c] refined)))
+
+    (testing "without recursive refinement, top-level block no longer exposes subdsm"
       (is (= ['a 'b 'c 'd 'e] (:members top-block)))
-      (is (map? (:subdsm top-block)))
-      (is (= [['a 'b 'd 'e] ['c]]
-             (mapv :members (get-in top-block [:subdsm :blocks])))))
+      (is (nil? (:subdsm top-block))))
 
     (testing "small blocks do not recurse further"
       (is (nil? (:subdsm (second (:blocks report)))))
       (is (nil? (:subdsm (nth (:blocks report) 2)))))))
+
+(deftest profiled-dsm-report-test
+  (let [graph {'a #{'b}
+               'b #{'c}
+               'c #{}}
+        {:keys [report profile]} (sut/profiled-dsm-report graph)]
+    (is (= :diagonal-blocks (:basis report)))
+    (is (map? profile))
+    (is (contains? profile :dsm-report))
+    (is (contains? profile :ordered-nodes))
+    (is (contains? profile :optimal-partition))
+    (is (contains? profile :ordering-costs))
+    (is (every? #(contains? (val %) :millis) profile))))
+
+(deftest recursive-levels-skip-refinement-test
+  (let [graph {'a #{}
+               'b #{'a}
+               'c #{'a 'b}
+               'd #{'a}
+               'e #{'a}
+               'f #{}
+               'g #{}}
+        report (sut/dsm-report graph)
+        recursive-block (first (filter :subdsm (:blocks report)))]
+    (is (map? (:subdsm recursive-block)))
+    (is (false? (get-in recursive-block [:subdsm :ordering :refined?])))))
