@@ -261,11 +261,19 @@ Assemble the complete pure DSM payload in its revised block-partition form.
  :ordering {:strategy :dfs-topo
             :alpha    1.5
             :nodes    [...]}
- :blocks   [{:id ... :members ... :size ... :density ... :internal-edge-count ...}]
+ :blocks   [{:id ...
+             :members ...
+             :size ...
+             :density ...
+             :internal-edge-count ...
+             :subdsm ...}]
  :edges    [{:from ... :to ... :edge-count ...}]
  :summary  {:block-count ... :largest-block-size ... :inter-block-edge-count ... :density ...}
  :details  [{:id ... :members ... :internal-edges ...}]}
 ```
+
+Where `:subdsm` is either `nil` or another DSM payload for the induced subgraph
+of that block.
 
 ### Tests
 Add tests for:

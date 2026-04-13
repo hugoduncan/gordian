@@ -51,6 +51,7 @@
         order))))
 
 (declare block-label)
+(declare dsm-report*)
 
 (defn ordered-sccs
   "Return SCCs in deterministic topological order of the condensation graph.
@@ -538,6 +539,16 @@
   [graph blocks]
   (collapsed-edges graph blocks))
 
+(defn induced-subgraph
+  "Return the project-induced subgraph over members, preserving member order as keys.
+  Dependency targets outside members are removed."
+  [graph members]
+  (let [member-set (set members)]
+    (into {}
+          (map (fn [ns]
+                 [ns (into #{} (filter member-set) (get graph ns #{}))]))
+          members)))
+
 (defn block-detail
   "Return one detail record for a block."
   [graph {:keys [id members] :as _block}]
@@ -645,6 +656,12 @@
 (def ^:private max-refinement-nodes
   120)
 
+(def ^:private recursive-min-block-size
+  5)
+
+(def ^:private max-recursive-depth
+  3)
+
 (defn should-refine-order?
   "Return true when local adjacent-swap refinement should run.
   Refinement is intentionally skipped for larger graphs because it scales
@@ -653,9 +670,28 @@
   [ordered]
   (<= (count ordered) max-refinement-nodes))
 
-(defn dsm-report
-  "Assemble the complete pure DSM payload from a structural graph."
-  [graph]
+(defn- recursive-subdsm
+  [graph {:keys [members size]} depth]
+  (when (and (< depth max-recursive-depth)
+             (>= size recursive-min-block-size))
+    (let [subgraph (induced-subgraph graph members)
+          report   (dsm-report* subgraph (inc depth))
+          child-count (count (:blocks report))
+          largest-child (apply max 0 (map :size (:blocks report)))]
+      (when (and (> child-count 1)
+                 (< largest-child size))
+        report))))
+
+(defn- attach-recursive-subdsms
+  [graph depth blocks]
+  (mapv (fn [block]
+          (assoc block :subdsm (recursive-subdsm graph block depth)))
+        blocks))
+
+(defn dsm-report*
+  "Assemble the complete pure DSM payload from a structural graph.
+  Internal helper supports bounded recursive decomposition for large blocks."
+  [graph depth]
   (let [graph         (project-graph graph)
         alpha         1.5
         initial-order (ordered-nodes graph)
@@ -666,7 +702,8 @@
         blocks        (->> parts
                            (block-members ordered)
                            index-blocks
-                           (annotate-blocks graph))
+                           (annotate-blocks graph)
+                           (attach-recursive-subdsms graph depth))
         edges         (block-edge-counts graph blocks)
         details       (block-details graph blocks)
         summary       (block-summary blocks edges)]
@@ -679,3 +716,8 @@
      :edges edges
      :summary summary
      :details details}))
+
+(defn dsm-report
+  "Assemble the complete pure DSM payload from a structural graph."
+  [graph]
+  (dsm-report* graph 0))

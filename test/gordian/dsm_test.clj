@@ -374,6 +374,16 @@
   (is (= [['c 'b] ['a]]
          (sut/block-members ['c 'b 'a] [[0 1] [2 2]]))))
 
+(deftest induced-subgraph-test
+  (let [graph {'a #{'b 'x}
+               'b #{'c}
+               'c #{}
+               'x #{'a}}]
+    (is (= {'a #{'b}
+            'b #{'c}
+            'c #{}}
+           (sut/induced-subgraph graph ['a 'b 'c])))))
+
 (deftest block-edge-counts-test
   (let [graph {'a #{'b}
                'b #{'c}
@@ -513,5 +523,28 @@
       (is (= (mapv :id (:blocks report))
              (mapv :id (:details report)))))
 
+    (testing "each block exposes optional recursive decomposition slot"
+      (is (every? #(contains? % :subdsm) (:blocks report))))
+
     (testing "is deterministic for same input graph"
       (is (= report (sut/dsm-report graph))))))
+
+(deftest dsm-report-recursive-test
+  (let [graph {'a #{}
+               'b #{'a}
+               'c #{}
+               'd #{'a}
+               'e #{'a}
+               'f #{}
+               'g #{}}
+        report (sut/dsm-report graph)
+        top-block (first (:blocks report))]
+    (testing "large top-level block can expose recursive subdsm"
+      (is (= ['a 'b 'c 'd 'e] (:members top-block)))
+      (is (map? (:subdsm top-block)))
+      (is (= [['a 'b 'd 'e] ['c]]
+             (mapv :members (get-in top-block [:subdsm :blocks])))))
+
+    (testing "small blocks do not recurse further"
+      (is (nil? (:subdsm (second (:blocks report)))))
+      (is (nil? (:subdsm (nth (:blocks report) 2)))))))

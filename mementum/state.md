@@ -702,6 +702,17 @@ Refinement follow-up:
 - on current `gordian src/` and `psi/refactor` snapshots this did not further
   change the resulting partition, but it closes a real refinement blind spot
 
+Recursive DSM follow-up:
+- large residual blocks may be globally correct at top level yet still hide
+  internal structure
+- implemented recursive decomposition via `:subdsm` on blocks
+- recursion runs on the induced subgraph of a block
+- bounded by max depth and minimum block size
+- retained only when the recursive result is non-trivial (more than one child
+  block, and largest child smaller than parent)
+- on `gordian src/`, the 5-node block and 18-node block now both expose nested
+  structure in EDN output instead of stopping at the coarse top-level view
+
 ## Session 20 commits — DSM HTML output
 
 ```

@@ -459,6 +459,7 @@
       (is (contains? parsed :edges))
       (is (contains? parsed :summary))
       (is (contains? parsed :details))
+      (is (every? #(contains? % :subdsm) (:blocks parsed)))
       (is (not (contains? parsed :collapsed)))
       (is (not (contains? parsed :scc-details)))
       (is (= #{'alpha 'beta 'gamma}

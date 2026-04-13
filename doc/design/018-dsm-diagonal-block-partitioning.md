@@ -491,6 +491,11 @@ structural marks.
 ### Hierarchical partitioning
 Allow recursive partitioning within large blocks.
 
+This is now the preferred explanation strategy for large residual blocks:
+- keep the top-level partition as the coarse global answer
+- recursively decompose sufficiently large blocks on their induced subgraphs
+- retain recursion only when it yields a non-trivial child partition
+
 ### Compare / gate integration
 Diff block partitions and enforce ratchets on block cohesion / boundary leakage.
 
