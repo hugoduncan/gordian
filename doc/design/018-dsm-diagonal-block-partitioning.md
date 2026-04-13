@@ -158,64 +158,50 @@ first representation for a matrix-centric tool.
 We need a cost model that rewards cohesive blocks and penalizes boundary
 crossings.
 
-### Thebeau-style intuition
-For each dependency mark in the matrix:
-- if the mark stays within a block, the cost should be relatively cheap
-- if the mark crosses block boundaries, the cost should be relatively expensive
+### Boundary + size intuition
+For each candidate block:
+- boundary crossings should be expensive
+- oversized blocks should also be expensive, even if they eliminate crossings
 
 This balances:
-- large blocks, which absorb more internal edges but become less cohesive
+- large blocks, which absorb more edges but can become too coarse
 - small blocks, which increase cross-block leakage
 
 ### Parameters
 Let:
-- `k` = total matrix size
-- `|B|` = size of the block containing an internal mark
-- `α ≥ 1` be a tuning parameter, typically `1.0–2.0`
+- `β > 0` = quadratic block-size penalty coefficient
 
-### Practical cohesion guard
-In practice, a pure Thebeau-style objective can still over-absorb a sparse
-residual tail into one large block whenever that avoids enough expensive
-cross-block edges.
+### Practical scoring model
+The current implementation uses a simple O(1)-per-interval block objective:
+- boundary-crossing count for the interval
+- quadratic size penalty `β · |B|²`
+- a mild weak-cohesion penalty when internal edge count falls below a modest
+  target internal density
 
-To counter that failure mode, the implementation may add a mild cohesion guard
-for multi-namespace blocks that are too sparse for their size, not only for the
-special case of zero internal edges.
-
-The current implementation uses:
-- a strong extra penalty for multi-namespace blocks with zero internal edges
-- a weaker size-scaled sparsity penalty when internal edge count falls below a
-  modest target internal density
-
-This keeps the objective explainable while reducing the common
-"small peel-offs + giant residual block" outcome on real namespace graphs.
-
-### Edge-wise cost
-For dependency mark `(i,j)`:
-
-- if `i` and `j` lie in the same block `B`:
-\[
-cost(i,j)=|B|^\alpha
-\]
-
-- if `i` and `j` lie in different blocks:
-\[
-cost(i,j)=k^\alpha
-\]
+This preserves O(n²) dynamic programming while preventing the degenerate
+single-giant-block solution that would arise from boundary-crossing count alone.
 
 ### Total partition cost
-For ordered matrix `M` with edge set `E_π` under the chosen order:
+For block interval `B=[i,j]`, let:
+- `cross(B)` = number of marks with exactly one endpoint in `B`
+- `|B|` = block size
+
+The block score is:
 
 \[
-Cost(P)=\sum_{(i,j)\in E_\pi} cost(i,j)
+Cost(B)=cross(B)+\beta \cdot |B|^2 + weakCohesion(B)
 \]
 
-Where `P` is the contiguous partition.
+and partition score is:
+
+\[
+Cost(P)=\sum_{B\in P} Cost(B)
+\]
 
 ### Interpretation
-- large internal blocks are allowed, but they become increasingly expensive
-- cross-block marks are heavily penalized
-- the optimum balances internal cohesion against boundary leakage
+- boundary crossings are penalized directly
+- giant blocks are discouraged by the quadratic size term
+- sparse multi-namespace blocks are discouraged by the weak-cohesion term
 
 ---
 

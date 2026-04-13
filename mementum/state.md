@@ -710,8 +710,23 @@ Recursive DSM follow-up:
 - bounded by max depth and minimum block size
 - retained only when the recursive result is non-trivial (more than one child
   block, and largest child smaller than parent)
-- on `gordian src/`, the 5-node block and 18-node block now both expose nested
-  structure in EDN output instead of stopping at the coarse top-level view
+
+Performance investigation:
+- added phase profiling for DSM
+- confirmed main runtime hotspot was repeated `partition-cost` recomputation in
+  top-level refinement, not the O(n²) DP itself
+- recursive refinement was cheap to disable, but top-level refinement remained
+  the dominant cost center
+
+Scoring redesign:
+- replaced the Thebeau-style exponent-weighted objective with a prefix-sum
+  friendly block cost: `crossings + β·size² + weak-cohesion-penalty`
+- default `β` set to `0.1`
+- this preserves O(n²) interval DP while still discouraging giant residual
+  blocks
+- observed on `gordian src/`: 18 blocks, largest block 10
+- observed on `psi/refactor`: runtime improved and largest block dropped to 17,
+  but partitioning became much finer-grained overall
 
 ## Session 20 commits — DSM HTML output
 

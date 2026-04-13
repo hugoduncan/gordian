@@ -44,7 +44,7 @@
    :inter-block-edge-count 9
    :density 0.1364})
 
-(def ordering {:strategy :dfs-topo :refined? false :alpha 1.5 :nodes ['gordian.aggregate 'foo.a 'foo.b 'foo.c]})
+(def ordering {:strategy :dfs-topo :refined? false :alpha 2.0 :beta 0.1 :nodes ['gordian.aggregate 'foo.a 'foo.b 'foo.c]})
 
 (def blocks
   [{:id 0 :size 1 :density 0.0 :members ['gordian.aggregate]}
@@ -167,7 +167,7 @@
     (is (.contains html "<title>Gordian DSM</title>"))
     (is (.contains html "Source: <code>resources/fixture</code>"))
     (is (.contains html "Ordering: <code>dfs-topo</code>"))
-    (is (.contains html "Alpha: <code>1.5</code>"))
+    (is (.contains html "Alpha: <code>2.0</code>"))
     (is (.contains html "Refined: <code>false</code>"))
     (is (.contains html "<h2>Summary</h2>"))
     (is (.contains html "<h2>Block DSM</h2>"))

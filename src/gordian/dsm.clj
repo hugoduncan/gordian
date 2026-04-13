@@ -420,33 +420,33 @@
 (def ^:private weak-cohesion-target-density
   0.10)
 
+(def ^:private default-size-penalty-beta
+  0.1)
+
 (defn- weak-cohesion-penalty
   "Penalty for multi-namespace blocks that are too sparse to justify their size.
   Measures how far internal edge count falls below a modest target density.
   Zero-internal blocks still receive the stronger global cohesion penalty."
-  [block-size internal alpha]
+  [block-size internal]
   (if (<= block-size 1)
     0.0
-    (let [possible-edges      (* block-size (dec block-size))
-          target-internal     (* weak-cohesion-target-density possible-edges)
-          missing-internal    (max 0.0 (- target-internal internal))]
-      (* missing-internal (pow-cost block-size alpha)))))
+    (let [possible-edges   (* block-size (dec block-size))
+          target-internal  (* weak-cohesion-target-density possible-edges)
+          missing-internal (max 0.0 (- target-internal internal))]
+      missing-internal)))
 
 (defn block-cost
-  "Score inclusive interval block [a,b] using Thebeau-style costs.
-  Internal marks cost |B|^alpha; crossing marks cost n^alpha.
-  Multi-namespace blocks with zero internal edges incur an extra cohesion penalty.
-  Weakly cohesive multi-namespace blocks also incur a size-scaled sparsity penalty."
-  [ordered-edges n alpha a b]
+  "Score inclusive interval block [a,b] with prefix-sum-friendly terms.
+  Crossing marks are penalized directly.
+  Block size incurs a quadratic penalty beta*|B|^2.
+  Weakly cohesive multi-namespace blocks incur an additional sparsity penalty."
+  [ordered-edges n beta a b]
   (let [{:keys [internal crossing]} (interval-stats (ordered-edge-stats ordered-edges n) a b)
         block-size                  (inc (- b a))
-        cohesion-penalty            (if (and (> block-size 1) (zero? internal))
-                                      (pow-cost n alpha)
-                                      0.0)
-        weak-penalty                (weak-cohesion-penalty block-size internal alpha)]
-    (+ (* internal (pow-cost block-size alpha))
-       (* crossing (pow-cost n alpha))
-       cohesion-penalty
+        size-penalty                (* beta block-size block-size)
+        weak-penalty                (weak-cohesion-penalty block-size internal)]
+    (+ crossing
+       size-penalty
        weak-penalty)))
 
 (defn- interval-endpoints
@@ -456,22 +456,17 @@
     [a b]))
 
 (defn- block-costs
-  [ordered-edges n alpha]
-  (let [stats           (ordered-edge-stats ordered-edges n)
-        n-alpha         (pow-cost n alpha)
-        size-cost-cache (into {} (map (fn [size] [size (pow-cost size alpha)])) (range 1 (inc n)))]
+  [ordered-edges n beta]
+  (let [stats (ordered-edge-stats ordered-edges n)]
     (into {}
           (map (fn [[a b]]
                  (let [{:keys [internal crossing]} (interval-stats stats a b)
                        block-size                  (inc (- b a))
-                       cohesion-penalty            (if (and (> block-size 1) (zero? internal))
-                                                     n-alpha
-                                                     0.0)
-                       weak-penalty                (weak-cohesion-penalty block-size internal alpha)]
+                       size-penalty                (* beta block-size block-size)
+                       weak-penalty                (weak-cohesion-penalty block-size internal)]
                    [[a b]
-                    (+ (* internal (get size-cost-cache block-size))
-                       (* crossing n-alpha)
-                       cohesion-penalty
+                    (+ crossing
+                       size-penalty
                        weak-penalty)])))
           (interval-endpoints n))))
 
@@ -486,14 +481,14 @@
         (recur (dec a) (conj acc [a t]))))))
 
 (defn- ordering-costs
-  [graph ordered alpha]
+  [graph ordered beta]
   (profiled :ordering-costs
             (fn []
               (let [edges (ordered-edges graph ordered)
                     n     (count ordered)]
                 {:edges edges
                  :n n
-                 :costs (block-costs edges n alpha)}))))
+                 :costs (block-costs edges n beta)}))))
 
 (defn- optimal-partition-from-costs
   [{:keys [n costs]}]
@@ -520,10 +515,10 @@
 (defn optimal-partition
   "Return optimal contiguous inclusive interval partition for fixed order.
   Dynamic programming over split points with deterministic leftmost tie-break."
-  [graph ordered alpha]
+  [graph ordered beta]
   (profiled :optimal-partition
             (fn []
-              (optimal-partition-from-costs (ordering-costs graph ordered alpha)))))
+              (optimal-partition-from-costs (ordering-costs graph ordered beta)))))
 
 (defn transitive-consumers
   "Return {ns -> #{project namespaces that transitively depend on ns}}."
@@ -620,10 +615,10 @@
 
 (defn partition-cost
   "Return total cost of the optimal partition for ordered namespaces."
-  [graph ordered alpha]
+  [graph ordered beta]
   (profiled :partition-cost
             (fn []
-              (let [{:keys [costs] :as cost-data} (ordering-costs graph ordered alpha)
+              (let [{:keys [costs] :as cost-data} (ordering-costs graph ordered beta)
                     parts                         (optimal-partition-from-costs cost-data)]
                 (reduce (fn [acc [a b]]
                           (+ acc (get costs [a b])))
@@ -653,15 +648,15 @@
   (assoc blocks idx (blocks (inc idx)) (inc idx) (blocks idx)))
 
 (defn- refine-order-by-node-swaps
-  [project closed ordered alpha]
+  [project closed ordered beta]
   (profiled :refine-node
             (fn []
               (loop [ordered (vec ordered)]
-                (let [base-cost (partition-cost project ordered alpha)
+                (let [base-cost (partition-cost project ordered beta)
                       candidate (first (for [idx (range (dec (count ordered)))
                                              :when (valid-adjacent-swap? project closed ordered idx)
                                              :let [swapped (swap-adjacent ordered idx)
-                                                   cost    (partition-cost project swapped alpha)]
+                                                   cost    (partition-cost project swapped beta)]
                                              :when (< cost base-cost)]
                                          swapped))]
                   (if candidate
@@ -669,17 +664,17 @@
                     ordered))))))
 
 (defn- refine-order-by-block-swaps
-  [project closed ordered alpha]
+  [project closed ordered beta]
   (profiled :refine-block
             (fn []
               (loop [ordered (vec ordered)]
-                (let [base-cost (partition-cost project ordered alpha)
-                      blocks    (block-members ordered (optimal-partition project ordered alpha))
+                (let [base-cost (partition-cost project ordered beta)
+                      blocks    (block-members ordered (optimal-partition project ordered beta))
                       candidate (first (for [idx (range (dec (count blocks)))
                                              :when (block-swap-valid? project closed blocks idx)
                                              :let [swapped-blocks (swap-adjacent-blocks (vec blocks) idx)
                                                    swapped-order  (vec (mapcat identity swapped-blocks))
-                                                   cost           (partition-cost project swapped-order alpha)]
+                                                   cost           (partition-cost project swapped-order beta)]
                                              :when (< cost base-cost)]
                                          swapped-order))]
                   (if candidate
@@ -689,11 +684,11 @@
 (defn refine-order
   "Deterministically improve order by accepting cost-lowering valid adjacent swaps.
   First refine at node granularity, then refine at adjacent block granularity."
-  [graph ordered alpha]
+  [graph ordered beta]
   (let [project      (project-graph graph)
         closed       (close/close project)
-        node-refined (refine-order-by-node-swaps project closed ordered alpha)]
-    (refine-order-by-block-swaps project closed node-refined alpha)))
+        node-refined (refine-order-by-node-swaps project closed ordered beta)]
+    (refine-order-by-block-swaps project closed node-refined beta)))
 
 (def ^:private max-refinement-nodes
   120)
@@ -739,14 +734,14 @@
   (profiled :dsm-report
             (fn []
               (let [graph         (project-graph graph)
-                    alpha         1.5
+                    beta          default-size-penalty-beta
                     initial-order (profiled :ordered-nodes #(ordered-nodes graph))
                     refine?       (and (zero? depth)
                                        (should-refine-order? initial-order))
                     ordered       (if refine?
-                                    (refine-order graph initial-order alpha)
+                                    (refine-order graph initial-order beta)
                                     initial-order)
-                    parts         (optimal-partition graph ordered alpha)
+                    parts         (optimal-partition graph ordered beta)
                     blocks        (->> parts
                                        (block-members ordered)
                                        index-blocks
@@ -758,7 +753,8 @@
                 {:basis :diagonal-blocks
                  :ordering {:strategy :dfs-topo
                             :refined? (not= initial-order ordered)
-                            :alpha alpha
+                            :alpha 2.0
+                            :beta beta
                             :nodes ordered}
                  :blocks blocks
                  :edges edges

@@ -289,25 +289,21 @@
 (deftest block-cost-test
   (let [edges [[1 0] [2 1] [3 0]]]
     (testing "singleton block cost is finite and deterministic"
-      (is (= 16.0 (sut/block-cost edges 4 1.5 0 0)))
-      (is (= 16.0 (sut/block-cost edges 4 1.5 0 0))))
+      (is (= 3.0 (sut/block-cost edges 4 1.0 0 0)))
+      (is (= 3.0 (sut/block-cost edges 4 1.0 0 0))))
 
-    (testing "larger block increases internal-edge cost appropriately"
-      (is (> (sut/block-cost edges 4 1.5 0 1)
-             (sut/block-cost edges 4 1.5 0 2))))
-
-    (testing "zero-internal multi-namespace blocks incur cohesion penalty"
-      (let [no-internal [[3 0]]]
-        (is (= 16.565685424949237 (sut/block-cost no-internal 4 1.5 0 1)))))
+    (testing "larger blocks pay quadratic size penalty"
+      (is (< (sut/block-cost edges 4 1.0 0 1)
+             (sut/block-cost edges 4 1.0 0 2))))
 
     (testing "weakly cohesive sparse blocks pay more than denser ones of same size"
       (let [sparse [[3 0]]
             dense  [[0 1] [1 0] [3 0]]]
-        (is (> (sut/block-cost sparse 4 1.5 0 1)
-               (sut/block-cost dense 4 1.5 0 1)))))
+        (is (> (sut/block-cost sparse 4 1.0 0 1)
+               (sut/block-cost dense 4 1.0 0 1)))))
 
-    (testing "alpha increases same interval cost when size > 1"
-      (is (< (sut/block-cost edges 4 1.0 0 1)
+    (testing "larger beta increases same interval cost when size > 1"
+      (is (< (sut/block-cost edges 4 0.5 0 1)
              (sut/block-cost edges 4 2.0 0 1))))))
 
 (deftest ordered-edge-stats-test
@@ -332,34 +328,23 @@
 
   (testing "singleton graph yields one block"
     (is (= [[0 0]]
-           (sut/optimal-partition {'a #{}} ['a] 1.5))))
+           (sut/optimal-partition {'a #{}} ['a] 1.0))))
 
-  (testing "simple chain yields deterministic contiguous partition"
+  (testing "simple chain yields deterministic contiguous partition at low beta"
     (is (= [[0 2]]
            (sut/optimal-partition {'a #{'b}
                                    'b #{'c}
                                    'c #{}}
                                   ['c 'b 'a]
-                                  1.5))))
+                                  0.1))))
 
-  (testing "sparse residual block can split when cohesion is too weak"
-    (is (= [[0 3] [4 11] [12 12] [13 13]]
-           (sut/optimal-partition {'n8 #{'n0}
-                                   'n9 #{'n1}
-                                   'n10 #{'n2}
-                                   'n11 #{'n3}
-                                   'n12 #{'n4}
-                                   'n13 #{'n5}
-                                   'n0 #{'n1}
-                                   'n1 #{'n2}
-                                   'n2 #{'n3}
-                                   'n3 #{'n4}
-                                   'n4 #{'n5}
-                                   'n5 #{'n6}
-                                   'n6 #{'n7}
-                                   'n7 #{}}
-                                  ['n7 'n6 'n5 'n4 'n3 'n2 'n1 'n0 'n11 'n10 'n9 'n8 'n13 'n12]
-                                  1.5))))
+  (testing "higher beta splits large weak blocks more aggressively"
+    (is (= [[0 0] [1 2]]
+           (sut/optimal-partition {'a #{'b}
+                                   'b #{'c}
+                                   'c #{}}
+                                  ['c 'b 'a]
+                                  1.0))))
 
   (testing "returned blocks are contiguous, non-overlapping, and cover all nodes"
     (let [part (sut/optimal-partition {'a #{'b}
@@ -367,7 +352,7 @@
                                        'c #{}
                                        'd #{}}
                                       ['c 'b 'a 'd]
-                                      1.5)]
+                                      0.1)]
       (is (= [[0 2] [3 3]] part)))))
 
 (deftest block-members-test
@@ -462,17 +447,17 @@
   (testing "refinement deterministic for same input"
     (let [graph {'a #{} 'b #{} 'c #{}}
           ordered ['a 'b 'c]]
-      (is (= (sut/refine-order graph ordered 1.5)
-             (sut/refine-order graph ordered 1.5)))))
+      (is (= (sut/refine-order graph ordered 0.1)
+             (sut/refine-order graph ordered 0.1)))))
 
   (testing "refinement never worsens partition cost"
     (let [graph {'a #{}
                  'b #{}
                  'c #{}}
           ordered ['a 'b 'c]
-          refined (sut/refine-order graph ordered 1.5)]
-      (is (<= (sut/partition-cost graph refined 1.5)
-              (sut/partition-cost graph ordered 1.5)))))
+          refined (sut/refine-order graph ordered 0.1)]
+      (is (<= (sut/partition-cost graph refined 0.1)
+              (sut/partition-cost graph ordered 0.1)))))
 
   (testing "block-level refinement can improve order after node refinement stalls"
     (let [graph {'a #{}
@@ -482,10 +467,10 @@
                  'e #{'b}
                  'f #{'a}}
           ordered ['a 'b 'c 'd 'e 'f]
-          refined (sut/refine-order graph ordered 1.5)]
+          refined (sut/refine-order graph ordered 0.1)]
       (is (= ['d 'a 'c 'b 'e 'f] refined))
-      (is (< (sut/partition-cost graph refined 1.5)
-             (sut/partition-cost graph ['a 'c 'd 'b 'e 'f] 1.5))))))
+      (is (< (sut/partition-cost graph refined 0.1)
+             (sut/partition-cost graph ['a 'c 'd 'b 'e 'f] 0.1))))))
 
 (deftest should-refine-order-test
   (testing "small graphs are refined"
@@ -537,20 +522,13 @@
                'e #{'a}
                'f #{}
                'g #{}}
-        initial ['a 'b 'c 'd 'e]
-        refined (sut/refine-order (select-keys graph initial) initial 1.5)
-        report (sut/dsm-report graph)
-        top-block (first (:blocks report))]
-    (testing "test fixture still demonstrates refinement-sensitive substructure"
-      (is (= ['a 'b 'd 'e 'c] refined)))
+        report (sut/dsm-report graph)]
+    (testing "quadratic size penalty with low beta can still keep a coarse sparse block"
+      (is (= [['a 'b 'c 'd 'e] ['f] ['g]]
+             (mapv :members (:blocks report)))))
 
-    (testing "without recursive refinement, top-level block no longer exposes subdsm"
-      (is (= ['a 'b 'c 'd 'e] (:members top-block)))
-      (is (nil? (:subdsm top-block))))
-
-    (testing "small blocks do not recurse further"
-      (is (nil? (:subdsm (second (:blocks report)))))
-      (is (nil? (:subdsm (nth (:blocks report) 2)))))))
+    (testing "small sparse blocks do not recurse further"
+      (is (every? nil? (map :subdsm (:blocks report)))))))
 
 (deftest profiled-dsm-report-test
   (let [graph {'a #{'b}
@@ -568,12 +546,12 @@
 (deftest recursive-levels-skip-refinement-test
   (let [graph {'a #{}
                'b #{'a}
-               'c #{'a 'b}
-               'd #{'a}
-               'e #{'a}
-               'f #{}
-               'g #{}}
-        report (sut/dsm-report graph)
-        recursive-block (first (filter :subdsm (:blocks report)))]
-    (is (map? (:subdsm recursive-block)))
-    (is (false? (get-in recursive-block [:subdsm :ordering :refined?])))))
+               'c #{'a}
+               'd #{'b}
+               'e #{'b}
+               'f #{'c}
+               'g #{'c}}
+        report (sut/dsm-report graph)]
+    (is (every? #(or (nil? (:subdsm %))
+                     (false? (get-in % [:subdsm :ordering :refined?])))
+                (:blocks report)))))

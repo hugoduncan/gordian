@@ -165,10 +165,10 @@ Implement the Thebeau-style scoring model for one candidate interval block.
 - helpers for `|B|^alpha`, matrix penalty, etc.
 
 ### Behavior
-- internal marks cost `|B|^alpha`
-- cross-boundary marks cost `n^alpha`
-- support configurable `alpha`
-- default alpha should be introduced in a single obvious place
+- boundary-crossing marks contribute directly to interval cost
+- block size incurs a quadratic penalty `β · |B|²`
+- support configurable `beta`
+- expose the effective sizing pressure in one obvious place
 - allow a small additional sparsity penalty for weakly cohesive multi-namespace
   blocks when evidence shows the pure objective over-absorbs residual nodes
 
