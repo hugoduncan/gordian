@@ -443,6 +443,26 @@
                                        [['a] ['b 'c]]
                                        0)))))
 
+(deftest edge-length-delta-after-adjacent-swap-test
+  (testing "proxy prefers swaps that shorten incident edges"
+    (let [graph {'a #{}
+                 'b #{}
+                 'c #{'a}
+                 'd #{}}
+          ordered ['a 'b 'c 'd]
+          reverse (sut/reverse-graph graph)]
+      (is (neg? (#'gordian.dsm/edge-length-delta-after-adjacent-swap
+                 graph reverse ordered 1)))))
+
+  (testing "proxy is zero when swapped nodes are structurally irrelevant"
+    (let [graph {'a #{}
+                 'b #{}
+                 'c #{}}
+          ordered ['a 'b 'c]
+          reverse (sut/reverse-graph graph)]
+      (is (= 0 (#'gordian.dsm/edge-length-delta-after-adjacent-swap
+                graph reverse ordered 0))))))
+
 (deftest refine-order-test
   (testing "refinement deterministic for same input"
     (let [graph {'a #{} 'b #{} 'c #{}}

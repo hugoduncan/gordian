@@ -647,21 +647,51 @@
   [blocks idx]
   (assoc blocks idx (blocks (inc idx)) (inc idx) (blocks idx)))
 
+(defn- edge-length-delta-after-adjacent-swap
+  "Cheap local proxy for whether an adjacent swap is promising.
+  Computes the exact delta in total edge length Σ|from-to| for edges incident to
+  the swapped nodes only. Negative is better; positive is worse."
+  [project reverse ordered idx]
+  (let [a       (nth ordered idx nil)
+        b       (nth ordered (inc idx) nil)
+        pos     (index-of ordered)
+        before  (fn [x y] (Math/abs ^long (- ^long (pos x) ^long (pos y))))
+        after-p (fn [n]
+                  (cond
+                    (= n a) (inc idx)
+                    (= n b) idx
+                    :else   (pos n)))
+        after   (fn [x y] (Math/abs ^long (- ^long (after-p x) ^long (after-p y))))
+        touched (set (concat
+                      (map (fn [to] [a to]) (get project a #{}))
+                      (map (fn [to] [b to]) (get project b #{}))
+                      (map (fn [from] [from a]) (get reverse a #{}))
+                      (map (fn [from] [from b]) (get reverse b #{}))))]
+    (reduce (fn [delta [from to]]
+              (+ delta (- (after from to)
+                          (before from to))))
+            0
+            touched)))
+
 (defn- refine-order-by-node-swaps
   [project closed ordered beta]
   (profiled :refine-node
             (fn []
-              (loop [ordered (vec ordered)]
-                (let [base-cost (partition-cost project ordered beta)
-                      candidate (first (for [idx (range (dec (count ordered)))
-                                             :when (valid-adjacent-swap? project closed ordered idx)
-                                             :let [swapped (swap-adjacent ordered idx)
-                                                   cost    (partition-cost project swapped beta)]
-                                             :when (< cost base-cost)]
-                                         swapped))]
-                  (if candidate
-                    (recur candidate)
-                    ordered))))))
+              (let [reverse (reverse-graph project)]
+                (loop [ordered (vec ordered)]
+                  (let [base-cost (partition-cost project ordered beta)
+                        candidate (first (for [idx (range (dec (count ordered)))
+                                               :when (valid-adjacent-swap? project closed ordered idx)
+                                               :when (<= (edge-length-delta-after-adjacent-swap
+                                                          project reverse ordered idx)
+                                                         0)
+                                               :let [swapped (swap-adjacent ordered idx)
+                                                     cost    (partition-cost project swapped beta)]
+                                               :when (< cost base-cost)]
+                                           swapped))]
+                    (if candidate
+                      (recur candidate)
+                      ordered)))))))
 
 (defn- refine-order-by-block-swaps
   [project closed ordered beta]
