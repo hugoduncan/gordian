@@ -362,32 +362,41 @@
       (let [a (get back t)]
         (recur (dec a) (conj acc [a t]))))))
 
+(defn- ordering-costs
+  [graph ordered alpha]
+  (let [edges (ordered-edges graph ordered)
+        n     (count ordered)]
+    {:edges edges
+     :n n
+     :costs (block-costs edges n alpha)}))
+
+(defn- optimal-partition-from-costs
+  [{:keys [n costs]}]
+  (if (zero? n)
+    []
+    (loop [t 0
+           dp {}
+           back {}]
+      (if (= t n)
+        (reconstruct-partition back (dec n))
+        (let [[best-cost best-a]
+              (reduce (fn [[best-cost best-a] a]
+                        (let [prev-cost (if (zero? a) 0.0 (get dp (dec a)))
+                              total     (+ prev-cost (get costs [a t]))]
+                          (if (or (nil? best-cost) (< total best-cost))
+                            [total a]
+                            [best-cost best-a])))
+                      [nil nil]
+                      (range (inc t)))]
+          (recur (inc t)
+                 (assoc dp t best-cost)
+                 (assoc back t best-a)))))))
+
 (defn optimal-partition
   "Return optimal contiguous inclusive interval partition for fixed order.
   Dynamic programming over split points with deterministic leftmost tie-break."
   [graph ordered alpha]
-  (let [ordered-edges (ordered-edges graph ordered)
-        n             (count ordered)
-        costs         (block-costs ordered-edges n alpha)]
-    (if (zero? n)
-      []
-      (loop [t 0
-             dp {}
-             back {}]
-        (if (= t n)
-          (reconstruct-partition back (dec n))
-          (let [[best-cost best-a]
-                (reduce (fn [[best-cost best-a] a]
-                          (let [prev-cost (if (zero? a) 0.0 (get dp (dec a)))
-                                total     (+ prev-cost (get costs [a t]))]
-                            (if (or (nil? best-cost) (< total best-cost))
-                              [total a]
-                              [best-cost best-a])))
-                        [nil nil]
-                        (range (inc t)))]
-            (recur (inc t)
-                   (assoc dp t best-cost)
-                   (assoc back t best-a))))))))
+  (optimal-partition-from-costs (ordering-costs graph ordered alpha)))
 
 (defn transitive-consumers
   "Return {ns -> #{project namespaces that transitively depend on ns}}."
@@ -460,24 +469,26 @@
 (defn partition-cost
   "Return total cost of the optimal partition for ordered namespaces."
   [graph ordered alpha]
-  (let [edges     (ordered-edges graph ordered)
-        n         (count ordered)
-        parts     (optimal-partition graph ordered alpha)]
+  (let [{:keys [costs] :as cost-data} (ordering-costs graph ordered alpha)
+        parts                         (optimal-partition-from-costs cost-data)]
     (reduce (fn [acc [a b]]
-              (+ acc (block-cost edges n alpha a b)))
+              (+ acc (get costs [a b])))
             0.0
             parts)))
 
 (defn valid-adjacent-swap?
   "True when adjacent nodes at idx and idx+1 are incomparable in the dependency graph."
-  [graph ordered idx]
-  (let [project (project-graph graph)
-        closed  (close/close project)
-        a       (nth ordered idx nil)
-        b       (nth ordered (inc idx) nil)]
-    (and a b
-         (not (contains? (get closed a #{}) b))
-         (not (contains? (get closed b #{}) a)))))
+  ([graph ordered idx]
+   (let [project (project-graph graph)]
+     (valid-adjacent-swap? project (close/close project) ordered idx)))
+  ([project closed ordered idx]
+   (let [a (nth ordered idx nil)
+         b (nth ordered (inc idx) nil)]
+     (and a b
+          (contains? project a)
+          (contains? project b)
+          (not (contains? (get closed a #{}) b))
+          (not (contains? (get closed b #{}) a))))))
 
 (defn- swap-adjacent
   [v idx]
@@ -486,17 +497,19 @@
 (defn refine-order
   "Deterministically improve order by accepting leftmost cost-lowering valid adjacent swaps."
   [graph ordered alpha]
-  (loop [ordered (vec ordered)]
-    (let [base-cost (partition-cost graph ordered alpha)
-          candidate (first (for [idx (range (dec (count ordered)))
-                                 :when (valid-adjacent-swap? graph ordered idx)
-                                 :let [swapped (swap-adjacent ordered idx)
-                                       cost    (partition-cost graph swapped alpha)]
-                                 :when (< cost base-cost)]
-                             swapped))]
-      (if candidate
-        (recur candidate)
-        ordered))))
+  (let [project (project-graph graph)
+        closed  (close/close project)]
+    (loop [ordered (vec ordered)]
+      (let [base-cost (partition-cost project ordered alpha)
+            candidate (first (for [idx (range (dec (count ordered)))
+                                   :when (valid-adjacent-swap? project closed ordered idx)
+                                   :let [swapped (swap-adjacent ordered idx)
+                                         cost    (partition-cost project swapped alpha)]
+                                   :when (< cost base-cost)]
+                               swapped))]
+        (if candidate
+          (recur candidate)
+          ordered)))))
 
 (defn dsm-report
   "Assemble the complete pure DSM payload from a structural graph."
