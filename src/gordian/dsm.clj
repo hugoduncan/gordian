@@ -693,23 +693,57 @@
                       (recur candidate)
                       ordered)))))))
 
+(defn- block-edge-length-delta-after-swap
+  "Cheap local proxy for adjacent block swaps.
+  Computes the exact delta in total edge length Σ|from-to| for edges incident to
+  either swapped block. Negative is better; positive is worse."
+  [project reverse ordered blocks idx]
+  (let [left       (nth blocks idx nil)
+        right      (nth blocks (inc idx) nil)
+        pos        (index-of ordered)
+        left-set   (set left)
+        right-set  (set right)
+        left-start (pos (first left))
+        right-start (pos (first right))
+        swapped-pos (fn [n]
+                      (let [p (pos n)]
+                        (cond
+                          (left-set n)  (+ right-start (- p left-start))
+                          (right-set n) (+ left-start (- p right-start))
+                          :else         p)))
+        before     (fn [x y] (Math/abs ^long (- ^long (pos x) ^long (pos y))))
+        after      (fn [x y] (Math/abs ^long (- ^long (swapped-pos x) ^long (swapped-pos y))))
+        touched-ns (concat left right)
+        touched    (set (concat
+                         (mapcat (fn [n] (map (fn [to] [n to]) (get project n #{}))) touched-ns)
+                         (mapcat (fn [n] (map (fn [from] [from n]) (get reverse n #{}))) touched-ns)))]
+    (reduce (fn [delta [from to]]
+              (+ delta (- (after from to)
+                          (before from to))))
+            0
+            touched)))
+
 (defn- refine-order-by-block-swaps
   [project closed ordered beta]
   (profiled :refine-block
             (fn []
-              (loop [ordered (vec ordered)]
-                (let [base-cost (partition-cost project ordered beta)
-                      blocks    (block-members ordered (optimal-partition project ordered beta))
-                      candidate (first (for [idx (range (dec (count blocks)))
-                                             :when (block-swap-valid? project closed blocks idx)
-                                             :let [swapped-blocks (swap-adjacent-blocks (vec blocks) idx)
-                                                   swapped-order  (vec (mapcat identity swapped-blocks))
-                                                   cost           (partition-cost project swapped-order beta)]
-                                             :when (< cost base-cost)]
-                                         swapped-order))]
-                  (if candidate
-                    (recur candidate)
-                    ordered))))))
+              (let [reverse (reverse-graph project)]
+                (loop [ordered (vec ordered)]
+                  (let [base-cost (partition-cost project ordered beta)
+                        blocks    (block-members ordered (optimal-partition project ordered beta))
+                        candidate (first (for [idx (range (dec (count blocks)))
+                                               :when (block-swap-valid? project closed blocks idx)
+                                               :when (<= (block-edge-length-delta-after-swap
+                                                          project reverse ordered blocks idx)
+                                                         0)
+                                               :let [swapped-blocks (swap-adjacent-blocks (vec blocks) idx)
+                                                     swapped-order  (vec (mapcat identity swapped-blocks))
+                                                     cost           (partition-cost project swapped-order beta)]
+                                               :when (< cost base-cost)]
+                                           swapped-order))]
+                    (if candidate
+                      (recur candidate)
+                      ordered)))))))
 
 (defn refine-order
   "Deterministically improve order by accepting cost-lowering valid adjacent swaps.

@@ -463,6 +463,31 @@
       (is (= 0 (#'gordian.dsm/edge-length-delta-after-adjacent-swap
                 graph reverse ordered 0))))))
 
+(deftest block-edge-length-delta-after-swap-test
+  (testing "block proxy prefers swaps that shorten incident edges"
+    (let [graph {'a #{}
+                 'b #{}
+                 'c #{'a}
+                 'd #{}
+                 'e #{'b}
+                 'f #{'a}}
+          ordered ['a 'c 'd 'b 'e 'f]
+          blocks [['a 'c] ['d] ['b 'e] ['f]]
+          reverse (sut/reverse-graph graph)]
+      (is (neg? (#'gordian.dsm/block-edge-length-delta-after-swap
+                 graph reverse ordered blocks 0)))))
+
+  (testing "block proxy is zero when swapped blocks have no incident edges"
+    (let [graph {'a #{}
+                 'b #{}
+                 'c #{}
+                 'd #{}}
+          ordered ['a 'b 'c 'd]
+          blocks [['a] ['b] ['c] ['d]]
+          reverse (sut/reverse-graph graph)]
+      (is (= 0 (#'gordian.dsm/block-edge-length-delta-after-swap
+                graph reverse ordered blocks 1))))))
+
 (deftest refine-order-test
   (testing "refinement deterministic for same input"
     (let [graph {'a #{} 'b #{} 'c #{}}
