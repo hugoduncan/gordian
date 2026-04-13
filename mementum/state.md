@@ -686,13 +686,21 @@ Quality change implemented:
 - add a mild weak-cohesion penalty for multi-namespace blocks whose internal
   edge count falls below a modest target density
 - preserve the stronger existing penalty for zero-internal-edge blocks
-- keep ordering and refinement behavior otherwise unchanged
 
 Observed effect:
 - `gordian src/` improved from `3 singletons + giant blob` to 11 blocks with a
   5-namespace block and an 18-namespace residual block
 - `psi/refactor` also fragmented substantially more, though it still contains
   a large 102-node block, indicating graph shape remains an important factor
+
+Refinement follow-up:
+- added block-level adjacent-swap refinement after node-level refinement
+- swap allowed only when adjacent blocks are pairwise incomparable in the
+  dependency DAG
+- evidence from brute-force search found real graphs where node refinement
+  stalls but block swapping lowers total partition cost
+- on current `gordian src/` and `psi/refactor` snapshots this did not further
+  change the resulting partition, but it closes a real refinement blind spot
 
 ## Session 20 commits — DSM HTML output
 

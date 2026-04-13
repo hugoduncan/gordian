@@ -362,10 +362,12 @@ Add deterministic adjacent-swap improvement if the initial partition quality is 
 ### Functions
 - `swap-cost-delta`
 - `valid-adjacent-swap?`
+- `block-swap-valid?`
 - `refine-order [graph ordered-nodes alpha]`
 
 ### Behavior
-- only swap adjacent incomparable nodes
+- first swap adjacent incomparable nodes
+- then swap adjacent blocks whose members are pairwise incomparable
 - accept only cost-lowering swaps
 - rerun partition after accepted swaps
 - terminate at local optimum

@@ -430,6 +430,24 @@
                                          ['a 'b]
                                          0)))))
 
+(deftest block-swap-valid?-test
+  (testing "accepts adjacent incomparable blocks"
+    (is (true? (sut/block-swap-valid? {'a #{}
+                                       'b #{}
+                                       'c #{'a}
+                                       'd #{}
+                                       'e #{'b}
+                                       'f #{'a}}
+                                      [['a 'c] ['d] ['b 'e] ['f]]
+                                      0))))
+
+  (testing "rejects adjacent blocks with dependency relation between members"
+    (is (false? (sut/block-swap-valid? {'a #{}
+                                        'b #{'a}
+                                        'c #{}}
+                                       [['a] ['b 'c]]
+                                       0)))))
+
 (deftest refine-order-test
   (testing "refinement deterministic for same input"
     (let [graph {'a #{} 'b #{} 'c #{}}
@@ -444,7 +462,20 @@
           ordered ['a 'b 'c]
           refined (sut/refine-order graph ordered 1.5)]
       (is (<= (sut/partition-cost graph refined 1.5)
-              (sut/partition-cost graph ordered 1.5))))))
+              (sut/partition-cost graph ordered 1.5)))))
+
+  (testing "block-level refinement can improve order after node refinement stalls"
+    (let [graph {'a #{}
+                 'b #{}
+                 'c #{'a}
+                 'd #{}
+                 'e #{'b}
+                 'f #{'a}}
+          ordered ['a 'b 'c 'd 'e 'f]
+          refined (sut/refine-order graph ordered 1.5)]
+      (is (= ['d 'a 'c 'b 'e 'f] refined))
+      (is (< (sut/partition-cost graph refined 1.5)
+             (sut/partition-cost graph ['a 'c 'd 'b 'e 'f] 1.5))))))
 
 (deftest should-refine-order-test
   (testing "small graphs are refined"

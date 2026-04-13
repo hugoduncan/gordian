@@ -518,6 +518,21 @@
   [ordered intervals]
   (mapv (fn [[a b]] (subvec (vec ordered) a (inc b))) intervals))
 
+(defn block-swap-valid?
+  "True when adjacent partition blocks are pairwise incomparable in the dependency graph."
+  ([graph blocks idx]
+   (let [project-graph' (project-graph graph)]
+     (block-swap-valid? project-graph' (close/close project-graph') blocks idx)))
+  ([_project closed blocks idx]
+   (let [a (nth blocks idx nil)
+         b (nth blocks (inc idx) nil)]
+     (and a b
+          (every? true?
+                  (for [x a
+                        y b]
+                    (and (not (contains? (get closed x #{}) y))
+                         (not (contains? (get closed y #{}) x)))))))))
+
 (defn block-edge-counts
   "Return counted inter-block edges for a partition-defined block set."
   [graph blocks]
@@ -584,22 +599,48 @@
   [v idx]
   (assoc v idx (v (inc idx)) (inc idx) (v idx)))
 
+(defn- swap-adjacent-blocks
+  [blocks idx]
+  (assoc blocks idx (blocks (inc idx)) (inc idx) (blocks idx)))
+
+(defn- refine-order-by-node-swaps
+  [project closed ordered alpha]
+  (loop [ordered (vec ordered)]
+    (let [base-cost (partition-cost project ordered alpha)
+          candidate (first (for [idx (range (dec (count ordered)))
+                                 :when (valid-adjacent-swap? project closed ordered idx)
+                                 :let [swapped (swap-adjacent ordered idx)
+                                       cost    (partition-cost project swapped alpha)]
+                                 :when (< cost base-cost)]
+                             swapped))]
+      (if candidate
+        (recur candidate)
+        ordered))))
+
+(defn- refine-order-by-block-swaps
+  [project closed ordered alpha]
+  (loop [ordered (vec ordered)]
+    (let [base-cost (partition-cost project ordered alpha)
+          blocks    (block-members ordered (optimal-partition project ordered alpha))
+          candidate (first (for [idx (range (dec (count blocks)))
+                                 :when (block-swap-valid? project closed blocks idx)
+                                 :let [swapped-blocks (swap-adjacent-blocks (vec blocks) idx)
+                                       swapped-order  (vec (mapcat identity swapped-blocks))
+                                       cost           (partition-cost project swapped-order alpha)]
+                                 :when (< cost base-cost)]
+                             swapped-order))]
+      (if candidate
+        (recur candidate)
+        ordered))))
+
 (defn refine-order
-  "Deterministically improve order by accepting leftmost cost-lowering valid adjacent swaps."
+  "Deterministically improve order by accepting cost-lowering valid adjacent swaps.
+  First refine at node granularity, then refine at adjacent block granularity."
   [graph ordered alpha]
-  (let [project (project-graph graph)
-        closed  (close/close project)]
-    (loop [ordered (vec ordered)]
-      (let [base-cost (partition-cost project ordered alpha)
-            candidate (first (for [idx (range (dec (count ordered)))
-                                   :when (valid-adjacent-swap? project closed ordered idx)
-                                   :let [swapped (swap-adjacent ordered idx)
-                                         cost    (partition-cost project swapped alpha)]
-                                   :when (< cost base-cost)]
-                               swapped))]
-        (if candidate
-          (recur candidate)
-          ordered)))))
+  (let [project      (project-graph graph)
+        closed       (close/close project)
+        node-refined (refine-order-by-node-swaps project closed ordered alpha)]
+    (refine-order-by-block-swaps project closed node-refined alpha)))
 
 (def ^:private max-refinement-nodes
   120)

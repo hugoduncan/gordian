@@ -308,10 +308,11 @@ locality.
 Use local deterministic refinement:
 
 1. start from DFS/topological seed order
-2. try swapping adjacent namespaces or adjacent blocks
-3. accept swap if total partitioned DSM cost decreases
-4. recompute optimal partition after accepted swaps
-5. repeat until no improving local swap remains
+2. try swapping adjacent namespaces
+3. then try swapping adjacent partition blocks
+4. accept swap if total partitioned DSM cost decreases
+5. recompute optimal partition after accepted swaps
+6. repeat until no improving local swap remains
 
 ### Constraint
 Only permit swaps that preserve dependency validity.
@@ -319,7 +320,9 @@ Only permit swaps that preserve dependency validity.
 For namespace-level swaps, a simple rule is:
 - swap adjacent nodes only if they are incomparable in the dependency DAG
 
-For block-level swaps, analogous quotient-graph constraints apply.
+For block-level swaps, the current implementation uses a conservative rule:
+- swap adjacent blocks only when every cross-block namespace pair is mutually
+  incomparable in the dependency DAG
 
 ### Why this is good
 This gives:
