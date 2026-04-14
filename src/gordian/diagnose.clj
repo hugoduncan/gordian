@@ -4,14 +4,6 @@
   (:require [clojure.set :as set]
             [gordian.finding :as finding]))
 
-;;; ── compatibility helpers ───────────────────────────────────────────────
-
-(defn pair-key
-  "Canonical pair identity — unordered set of two namespace symbols.
-  Delegates to gordian.finding/pair-key."
-  [pair]
-  (finding/pair-key pair))
-
 ;;; ── health assessment ────────────────────────────────────────────────────
 
 (defn health
@@ -23,7 +15,7 @@
    :health           (cond
                        (> (or propagation-cost 0.0) 0.30) :concerning
                        (> (or propagation-cost 0.0) 0.10) :moderate
-                       :else                               :healthy)
+                       :else                              :healthy)
    :cycle-count      (count cycles)
    :ns-count         (count nodes)})
 

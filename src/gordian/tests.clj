@@ -19,11 +19,6 @@
   (let [s (str ns-sym)]
     (boolean (some #(str/includes? s %) support-fragments))))
 
-(defn executable-test-ns?
-  "True when the namespace does not look like shared test support."
-  [ns-sym]
-  (not (support-test-ns? ns-sym)))
-
 (defn integration-cue?
   "True when the namespace name suggests an integration/system style test."
   [ns-sym]
@@ -255,7 +250,7 @@
   [(severity-rank (:severity f))
    (- (finding/finding-magnitude f))])
 
-(defn find-src-depends-on-test
+(defn- find-src-depends-on-test
   [edges]
   (mapv (fn [{:keys [src test test-role]}]
           {:severity :high
@@ -265,7 +260,7 @@
            :evidence {:src src :test test :test-role test-role}})
         edges))
 
-(defn find-test-support-leaked-to-src
+(defn- find-test-support-leaked-to-src
   [rows]
   (mapv (fn [{:keys [ns incoming-src ca]}]
           {:severity :high
@@ -275,7 +270,7 @@
            :evidence {:ns ns :ca ca :incoming-src incoming-src}})
         rows))
 
-(defn find-test-executable-has-incoming-deps
+(defn- find-test-executable-has-incoming-deps
   [rows]
   (mapv (fn [{:keys [ns ca incoming-src incoming-test from-executable from-support]}]
           {:severity (if (seq incoming-src) :high :medium)
@@ -292,7 +287,7 @@
                       :from-support from-support}})
         rows))
 
-(defn find-mixed-cycles
+(defn- find-mixed-cycles
   [rows]
   (mapv (fn [{:keys [members src-members test-members]}]
           {:severity :high
@@ -305,7 +300,7 @@
                       :size (count members)}})
         rows))
 
-(defn find-unit-test-too-broad
+(defn- find-unit-test-too-broad
   [profiles]
   (->> profiles
        (filter #(and (= :executable (:test-role %))
@@ -320,7 +315,7 @@
                 :reason   "test may be broader than a focused unit test"
                 :evidence {:ns ns :reach reach :ce ce :role role}}))))
 
-(defn find-integration-test-very-broad
+(defn- find-integration-test-very-broad
   [profiles]
   (->> profiles
        (filter #(and (= :executable (:test-role %))
@@ -335,7 +330,7 @@
                 :reason   "integration-style test pulls in a very broad slice of the system"
                 :evidence {:ns ns :reach reach :ce ce :role role}}))))
 
-(defn find-untested-core
+(defn- find-untested-core
   [coverage]
   (mapv (fn [{:keys [ns ca-src ca-with-tests ca-delta role]}]
           {:severity :medium
@@ -349,7 +344,7 @@
                       :ca-delta ca-delta}})
         (:untested-core coverage)))
 
-(defn find-suite-coupling-findings
+(defn- find-suite-coupling-findings
   [pc]
   (case (:interpretation pc)
     :over-coupled

@@ -3,12 +3,6 @@
   All functions are pure — they take data and return data."
   (:require [gordian.finding :as finding]))
 
-(defn finding-key
-  "Identity key for a finding — category + subject.
-  Delegates to gordian.finding/finding-key."
-  [finding]
-  (finding/finding-key finding))
-
 (defn cluster-context
   "Build ranking context from clusters/unclustered findings.
   Returns {:cluster-size-by-finding {finding-key -> n}}."

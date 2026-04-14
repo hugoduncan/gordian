@@ -152,76 +152,68 @@
         (is (= 0 (:ca-external m)))
         (is (= 0 (:ce-external m)))))))
 
-;;; ── annotate-conceptual-pair ─────────────────────────────────────────────
-
-(deftest annotate-conceptual-pair-test
+(deftest annotate-conceptual-pairs-test
   (testing "same-family pair: prefix tokens classified as family-terms"
-    (let [pair {:ns-a 'psi.agent-session.core
-                :ns-b 'psi.agent-session.mutations
-                :score 0.35
-                :shared-terms ["agent" "session" "mutation"]}
-          result (sut/annotate-conceptual-pair pair)]
+    (let [pairs [{:ns-a 'psi.agent-session.core
+                  :ns-b 'psi.agent-session.mutations
+                  :score 0.35
+                  :shared-terms ["agent" "session" "mutation"]}]
+          result (first (sut/annotate-conceptual-pairs pairs))]
       (is (true? (:same-family? result)))
-      ;; "agent" and "session" come from prefix "psi.agent-session"
-      ;; "mutation" comes from the mutations ns, not the prefix
       (is (= ["agent" "session"] (:family-terms result)))
       (is (= ["mutation"] (:independent-terms result)))))
 
   (testing "same-family pair: all terms from prefix → empty independent"
-    (let [pair {:ns-a 'psi.agent-session.core
-                :ns-b 'psi.agent-session.ui
-                :score 0.25
-                :shared-terms ["agent" "session"]}
-          result (sut/annotate-conceptual-pair pair)]
+    (let [pairs [{:ns-a 'psi.agent-session.core
+                  :ns-b 'psi.agent-session.ui
+                  :score 0.25
+                  :shared-terms ["agent" "session"]}]
+          result (first (sut/annotate-conceptual-pairs pairs))]
       (is (true? (:same-family? result)))
       (is (= ["agent" "session"] (:family-terms result)))
       (is (= [] (:independent-terms result)))))
 
   (testing "same-family pair: all terms independent (none from prefix)"
-    (let [pair {:ns-a 'gordian.scan
-                :ns-b 'gordian.close
-                :score 0.30
-                :shared-terms ["reach" "transitive" "node"]}
-          result (sut/annotate-conceptual-pair pair)]
+    (let [pairs [{:ns-a 'gordian.scan
+                  :ns-b 'gordian.close
+                  :score 0.30
+                  :shared-terms ["reach" "transitive" "node"]}]
+          result (first (sut/annotate-conceptual-pairs pairs))]
       (is (true? (:same-family? result)))
-      ;; prefix is "gordian" → tokenizes to ["gordian"]
-      ;; none of the shared terms are "gordian"
       (is (= [] (:family-terms result)))
       (is (= ["reach" "transitive" "node"] (:independent-terms result)))))
 
   (testing "different-family pair: all terms are independent"
-    (let [pair {:ns-a 'gordian.scan
-                :ns-b 'psi.agent-session.core
-                :score 0.20
-                :shared-terms ["file" "parse"]}
-          result (sut/annotate-conceptual-pair pair)]
+    (let [pairs [{:ns-a 'gordian.scan
+                  :ns-b 'psi.agent-session.core
+                  :score 0.20
+                  :shared-terms ["file" "parse"]}]
+          result (first (sut/annotate-conceptual-pairs pairs))]
       (is (false? (:same-family? result)))
       (is (= [] (:family-terms result)))
       (is (= ["file" "parse"] (:independent-terms result)))))
 
   (testing "empty shared-terms handled"
-    (let [pair {:ns-a 'a.x :ns-b 'a.y :score 0.15 :shared-terms []}
-          result (sut/annotate-conceptual-pair pair)]
+    (let [pairs [{:ns-a 'a.x :ns-b 'a.y :score 0.15 :shared-terms []}]
+          result (first (sut/annotate-conceptual-pairs pairs))]
       (is (true? (:same-family? result)))
       (is (= [] (:family-terms result)))
       (is (= [] (:independent-terms result)))))
 
   (testing "nil shared-terms handled"
-    (let [pair {:ns-a 'a.x :ns-b 'a.y :score 0.15}
-          result (sut/annotate-conceptual-pair pair)]
+    (let [pairs [{:ns-a 'a.x :ns-b 'a.y :score 0.15}]
+          result (first (sut/annotate-conceptual-pairs pairs))]
       (is (= [] (:family-terms result)))
       (is (= [] (:independent-terms result)))))
 
   (testing "single-segment namespaces: root family, prefix tokens empty"
-    (let [pair {:ns-a 'alpha :ns-b 'beta :score 0.20
-                :shared-terms ["data" "transform"]}
-          result (sut/annotate-conceptual-pair pair)]
+    (let [pairs [{:ns-a 'alpha :ns-b 'beta :score 0.20
+                  :shared-terms ["data" "transform"]}]
+          result (first (sut/annotate-conceptual-pairs pairs))]
       (is (true? (:same-family? result)))
-      ;; prefix "" tokenizes to nil/empty
       (is (= [] (:family-terms result)))
-      (is (= ["data" "transform"] (:independent-terms result))))))
+      (is (= ["data" "transform"] (:independent-terms result)))))
 
-(deftest annotate-conceptual-pairs-test
   (testing "annotates all pairs in a vector"
     (let [pairs [{:ns-a 'a.x :ns-b 'a.y :score 0.3 :shared-terms ["foo"]}
                  {:ns-a 'a.x :ns-b 'b.y :score 0.2 :shared-terms ["bar"]}]

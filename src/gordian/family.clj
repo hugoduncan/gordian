@@ -58,7 +58,7 @@
 
 ;;; ── conceptual pair annotation ───────────────────────────────────────────
 
-(defn annotate-conceptual-pair
+(defn- annotate-conceptual-pair
   "Annotate a single conceptual pair with family metadata.
   Adds :same-family?, :family-terms, :independent-terms.
   family-terms are shared-terms that also appear in the tokenized shared

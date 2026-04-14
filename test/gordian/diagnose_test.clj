@@ -3,16 +3,6 @@
             [clojure.string :as str]
             [gordian.diagnose :as sut]))
 
-;;; ── pair-key ─────────────────────────────────────────────────────────────
-
-(deftest pair-key-test
-  (testing "produces set of two ns symbols"
-    (is (= #{'a 'b} (sut/pair-key {:ns-a 'a :ns-b 'b}))))
-
-  (testing "order-independent"
-    (is (= (sut/pair-key {:ns-a 'a :ns-b 'b})
-           (sut/pair-key {:ns-a 'b :ns-b 'a})))))
-
 ;;; ── health ───────────────────────────────────────────────────────────────
 
 (deftest health-test

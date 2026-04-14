@@ -12,13 +12,6 @@
     (is (false? (sut/support-test-ns? 'app.core-test)))
     (is (false? (sut/support-test-ns? 'app.integration-test)))))
 
-(deftest executable-test-ns?-test
-  (testing "non-support test namespaces are executable"
-    (is (true? (sut/executable-test-ns? 'app.core-test))))
-
-  (testing "support namespaces are not executable"
-    (is (false? (sut/executable-test-ns? 'app.test-support)))))
-
 (deftest integration-cue?-test
   (testing "common integration cues are detected"
     (is (true? (sut/integration-cue? 'app.integration-test)))

@@ -104,7 +104,7 @@
           (contains? members (:ns-b subject)))
       :else false)))
 
-(defn filter-findings
+(defn- filter-findings
   "Filter findings to those touching any member."
   [findings members]
   (->> findings

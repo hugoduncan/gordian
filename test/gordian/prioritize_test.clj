@@ -1,5 +1,6 @@
 (ns gordian.prioritize-test
   (:require [clojure.test :refer [deftest is testing]]
+            [gordian.finding :as finding]
             [gordian.prioritize :as sut]))
 
 (def high-cross
@@ -29,8 +30,8 @@
 (deftest cluster-context-test
   (let [clusters [{:findings [high-cross low-noise]}]
         ctx      (sut/cluster-context clusters [])]
-    (is (= 2 (get-in ctx [:cluster-size-by-finding (sut/finding-key high-cross)])))
-    (is (= 2 (get-in ctx [:cluster-size-by-finding (sut/finding-key low-noise)])))))
+    (is (= 2 (get-in ctx [:cluster-size-by-finding (finding/finding-key high-cross)])))
+    (is (= 2 (get-in ctx [:cluster-size-by-finding (finding/finding-key low-noise)])))))
 
 (deftest actionability-score-test
   (let [ctx (sut/cluster-context [{:findings [high-cross medium-same-family]}] [])]
