@@ -48,7 +48,7 @@
 
 ;;; ── finding → namespaces ─────────────────────────────────────────────────
 
-(defn finding-namespaces
+(defn- finding-namespaces
   "Extract namespace symbols from a finding's :subject."
   [{:keys [subject]}]
   (cond

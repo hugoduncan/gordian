@@ -2,27 +2,29 @@
   (:require [clojure.test :refer [deftest is testing]]
             [gordian.cluster :as cluster]))
 
+(def finding-namespaces #'gordian.cluster/finding-namespaces)
+
 ;;; ── finding-namespaces ───────────────────────────────────────────────────
 
 (deftest finding-namespaces-test
   (testing "pair finding → two ns"
     (is (= ['a.core 'b.svc]
-           (cluster/finding-namespaces
+           (finding-namespaces
             {:subject {:ns-a 'a.core :ns-b 'b.svc}}))))
 
   (testing "single ns finding"
     (is (= ['a.core]
-           (cluster/finding-namespaces
+           (finding-namespaces
             {:subject {:ns 'a.core}}))))
 
   (testing "cycle finding with :members"
-    (let [nss (cluster/finding-namespaces
+    (let [nss (finding-namespaces
                {:subject {:members #{'x 'y 'z}}})]
       (is (= 3 (count nss)))
       (is (= #{'x 'y 'z} (set nss)))))
 
   (testing "empty subject"
-    (is (= [] (cluster/finding-namespaces {:subject {}})))))
+    (is (= [] (finding-namespaces {:subject {}})))))
 
 ;;; ── cluster-findings ─────────────────────────────────────────────────────
 

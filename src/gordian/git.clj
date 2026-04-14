@@ -58,7 +58,7 @@
 
 ;;; ── path → namespace resolution ──────────────────────────────────────────
 
-(defn path->ns
+(defn- path->ns
   "Map a repo-relative file path to a namespace symbol.
   Strips the first matching src-dir prefix, then converts path separators
   to dots, underscores to hyphens, and drops the .clj suffix.

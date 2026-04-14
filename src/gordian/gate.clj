@@ -31,7 +31,7 @@
      :actual actual
      :reason (str actual " new cycle" (when (not= 1 actual) "s"))}))
 
-(defn check-new-findings
+(defn- check-new-findings
   "Fail if newly-added findings of the given severity exceed limit."
   [diff severity limit]
   (let [actual (count (filter #(= severity (:severity %))

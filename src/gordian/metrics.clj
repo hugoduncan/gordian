@@ -17,17 +17,17 @@
   (let [project-nodes (set (keys graph))]
     (filter project-nodes (get graph node #{}))))
 
-(defn ce
+(defn- ce
   "Efferent coupling of `node`: # project namespaces it directly requires."
   [graph node]
   (count (project-deps graph node)))
 
-(defn ca
+(defn- ca
   "Afferent coupling of `node`: # project namespaces that directly require it."
   [graph node]
   (count (filter (fn [[_ deps]] (contains? deps node)) graph)))
 
-(defn instability
+(defn- instability
   "I = Ce / (Ca + Ce).  Returns 0.0 when both are zero (isolated node)."
   [ca-val ce-val]
   (let [total (+ ca-val ce-val)]

@@ -3,40 +3,42 @@
             [clojure.test :refer [deftest is testing]]
             [gordian.git :as sut]))
 
+(def path->ns #'gordian.git/path->ns)
+
 ;;; ── path->ns ─────────────────────────────────────────────────────────────
 
 (deftest path->ns-test
   (testing "strips src-dir prefix and converts to ns symbol"
     (is (= 'gordian.scan
-           (sut/path->ns "src/gordian/scan.clj" ["src"]))))
+           (path->ns "src/gordian/scan.clj" ["src"]))))
 
   (testing "underscore converted to hyphen"
     (is (= 'gordian.cc-change
-           (sut/path->ns "src/gordian/cc_change.clj" ["src"]))))
+           (path->ns "src/gordian/cc_change.clj" ["src"]))))
 
   (testing "nested path"
     (is (= 'a.b.c
-           (sut/path->ns "src/a/b/c.clj" ["src"]))))
+           (path->ns "src/a/b/c.clj" ["src"]))))
 
   (testing "test/ prefix stripped"
     (is (= 'gordian.scan-test
-           (sut/path->ns "test/gordian/scan_test.clj" ["test"]))))
+           (path->ns "test/gordian/scan_test.clj" ["test"]))))
 
   (testing "first matching src-dir wins"
     (is (= 'gordian.scan
-           (sut/path->ns "src/gordian/scan.clj" ["test" "src"]))))
+           (path->ns "src/gordian/scan.clj" ["test" "src"]))))
 
   (testing "no matching src-dir — path converted as-is without prefix strip"
     (is (= 'gordian.scan
-           (sut/path->ns "gordian/scan.clj" []))))
+           (path->ns "gordian/scan.clj" []))))
 
   (testing ".clj suffix dropped"
     (is (= 'foo.bar
-           (sut/path->ns "src/foo/bar.clj" ["src"]))))
+           (path->ns "src/foo/bar.clj" ["src"]))))
 
   (testing "trailing slash on src-dir normalised"
     (is (= 'gordian.scan
-           (sut/path->ns "src/gordian/scan.clj" ["src/"])))))
+           (path->ns "src/gordian/scan.clj" ["src/"])))))
 
 ;;; ── commits-as-ns ────────────────────────────────────────────────────────
 

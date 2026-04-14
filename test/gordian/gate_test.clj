@@ -4,6 +4,7 @@
 
 (def check-pc-delta #'gordian.gate/check-pc-delta)
 (def check-new-cycles #'gordian.gate/check-new-cycles)
+(def check-new-findings #'gordian.gate/check-new-findings)
 (def gate-result #'gordian.gate/gate-result)
 (def summarize #'gordian.gate/summarize)
 
@@ -33,12 +34,12 @@
 
 (deftest check-new-findings-test
   (testing "high severity"
-    (let [c (sut/check-new-findings diff :high 0)]
+    (let [c (check-new-findings diff :high 0)]
       (is (= :new-high-findings (:name c)))
       (is (= :fail (:status c)))
       (is (= 1 (:actual c)))))
   (testing "medium severity"
-    (let [c (sut/check-new-findings diff :medium 2)]
+    (let [c (check-new-findings diff :medium 2)]
       (is (= :new-medium-findings (:name c)))
       (is (= :pass (:status c)))
       (is (= 2 (:actual c))))))

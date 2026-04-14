@@ -21,7 +21,7 @@
     0.0
     (/ (double (apply + xs)) (count xs))))
 
-(defn classify-node
+(defn- classify-node
   "Return role keyword for a single node given threshold values."
   [{:keys [reach fan-in]} reach-threshold fan-in-threshold]
   (cond

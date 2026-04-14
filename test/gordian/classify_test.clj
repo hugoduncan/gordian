@@ -2,26 +2,28 @@
   (:require [clojure.test :refer [deftest is testing]]
             [gordian.classify :as sut]))
 
+(def classify-node #'gordian.classify/classify-node)
+
 ;;; ── classify-node ────────────────────────────────────────────────────────
 
 (deftest classify-node-test
   (testing "low reach + high fan-in → :core"
-    (is (= :core (sut/classify-node {:reach 0.1 :fan-in 0.9} 0.5 0.5))))
+    (is (= :core (classify-node {:reach 0.1 :fan-in 0.9} 0.5 0.5))))
 
   (testing "high reach + low fan-in → :peripheral"
-    (is (= :peripheral (sut/classify-node {:reach 0.9 :fan-in 0.1} 0.5 0.5))))
+    (is (= :peripheral (classify-node {:reach 0.9 :fan-in 0.1} 0.5 0.5))))
 
   (testing "high reach + high fan-in → :shared"
-    (is (= :shared (sut/classify-node {:reach 0.9 :fan-in 0.9} 0.5 0.5))))
+    (is (= :shared (classify-node {:reach 0.9 :fan-in 0.9} 0.5 0.5))))
 
   (testing "low reach + low fan-in → :isolated"
-    (is (= :isolated (sut/classify-node {:reach 0.1 :fan-in 0.1} 0.5 0.5))))
+    (is (= :isolated (classify-node {:reach 0.1 :fan-in 0.1} 0.5 0.5))))
 
   (testing "exactly at threshold: reach≥ and fan-in≥ → :shared"
-    (is (= :shared (sut/classify-node {:reach 0.5 :fan-in 0.5} 0.5 0.5))))
+    (is (= :shared (classify-node {:reach 0.5 :fan-in 0.5} 0.5 0.5))))
 
   (testing "exactly at reach threshold, below fan-in → :peripheral"
-    (is (= :peripheral (sut/classify-node {:reach 0.5 :fan-in 0.0} 0.5 0.5)))))
+    (is (= :peripheral (classify-node {:reach 0.5 :fan-in 0.0} 0.5 0.5)))))
 
 ;;; ── classify ─────────────────────────────────────────────────────────────
 
