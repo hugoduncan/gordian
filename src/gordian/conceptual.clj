@@ -54,7 +54,7 @@
 
 ;;; ── similarity ────────────────────────────────────────────────────────────
 
-(defn normalize-tfidf
+(defn- normalize-tfidf
   "Normalize each TF-IDF vector to unit length.
   Returns {ns → {term → normalized-weight}}.
   Cosine similarity of two unit vectors equals their dot product, so

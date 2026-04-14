@@ -26,7 +26,6 @@
 (def refine-order #'gordian.dsm/refine-order)
 (def partition-cost #'gordian.dsm/partition-cost)
 (def should-refine-order? #'gordian.dsm/should-refine-order?)
-(def profiled-dsm-report #'gordian.dsm/profiled-dsm-report)
 
 (deftest index-blocks-test
   (let [blocks (index-blocks [['c] ['a 'b] ['d]])]
@@ -438,19 +437,6 @@
 
     (testing "small sparse blocks do not recurse further"
       (is (every? nil? (map :subdsm (:blocks report)))))))
-
-(deftest profiled-dsm-report-test
-  (let [graph {'a #{'b}
-               'b #{'c}
-               'c #{}}
-        {:keys [report profile]} (profiled-dsm-report graph)]
-    (is (= :diagonal-blocks (:basis report)))
-    (is (map? profile))
-    (is (contains? profile :dsm-report))
-    (is (contains? profile :ordered-nodes))
-    (is (contains? profile :optimal-partition))
-    (is (contains? profile :ordering-costs))
-    (is (every? #(contains? (val %) :millis) profile))))
 
 (deftest recursive-levels-skip-refinement-test
   (let [graph {'a #{}

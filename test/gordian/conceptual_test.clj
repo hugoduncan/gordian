@@ -2,6 +2,8 @@
   (:require [clojure.test :refer [deftest is testing]]
             [gordian.conceptual :as sut]))
 
+(def normalize-tfidf #'gordian.conceptual/normalize-tfidf)
+
 ;;; ── tokenize ──────────────────────────────────────────────────────────────
 
 (deftest tokenize-test
@@ -199,7 +201,7 @@
 
 (deftest normalize-tfidf-test
   (let [tfidf (sut/build-tfidf small-corpus)
-        unit  (sut/normalize-tfidf tfidf)]
+        unit  (normalize-tfidf tfidf)]
 
     (testing "same keyset as input"
       (is (= (set (keys tfidf)) (set (keys unit)))))
@@ -219,7 +221,7 @@
         (is (<= 0.0 dot-unit 1.0))))
 
     (testing "empty vector passes through unchanged"
-      (let [result (sut/normalize-tfidf {'empty-ns {}})]
+      (let [result (normalize-tfidf {'empty-ns {}})]
         (is (= {} (get result 'empty-ns)))))))
 
 ;;; ── conceptual-pairs ──────────────────────────────────────────────────────

@@ -577,5 +577,6 @@ Examples:
                               :explain-pair (explain-pair-cmd opts)
                               (analyze opts))))))))
 
+#_{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn -main [& args]
   (run args))

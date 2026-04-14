@@ -26,15 +26,6 @@
     (record-profile! k (- end start))
     ret))
 
-(defn- profile-summary
-  [profile]
-  (into {}
-        (map (fn [[k {:keys [count nanos]}]]
-               [k {:count count
-                   :nanos nanos
-                   :millis (/ nanos 1000000.0)}]))
-        profile))
-
 (defn- index-blocks
   "Assign stable block ids and basic metadata to ordered SCCs."
   [ordered-sccs]
@@ -571,7 +562,7 @@
           (assoc block :subdsm (recursive-subdsm graph block depth)))
         blocks))
 
-(defn dsm-report*
+(defn- dsm-report*
   "Assemble the complete pure DSM payload from a structural graph.
   Internal helper supports bounded recursive decomposition for large blocks."
   [graph depth]
@@ -610,12 +601,3 @@
   [graph]
   (dsm-report* graph 0))
 
-(defn profiled-dsm-report
-  "Return DSM payload plus phase timing summary.
-  Intended for complexity/runtime investigation, not canonical output wiring."
-  [graph]
-  (let [profile (atom {})
-        report  (binding [*profile* profile]
-                  (dsm-report graph))]
-    {:report report
-     :profile (profile-summary @profile)}))
