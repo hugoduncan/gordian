@@ -2,6 +2,9 @@
   (:require [clojure.test :refer [deftest is testing]]
             [gordian.cc-change :as sut]))
 
+(def ns-change-counts #'gordian.cc-change/ns-change-counts)
+(def co-change-counts #'gordian.cc-change/co-change-counts)
+
 ;;; ── shared graph fixture ─────────────────────────────────────────────────
 
 (def ^:private graph
@@ -31,21 +34,21 @@
 
 (deftest ns-change-counts-test
   (testing "counts commits per namespace"
-    (let [counts (sut/ns-change-counts commits)]
+    (let [counts (ns-change-counts commits)]
       (is (= 3 (get counts 'gordian.scan)))
       (is (= 3 (get counts 'gordian.main)))
       (is (= 2 (get counts 'gordian.output)))))
 
   (testing "single-namespace commit contributes to count but no pairs"
     ;; commit d touches only main; still counted
-    (let [counts (sut/ns-change-counts [{:sha "x" :nss #{'gordian.main}}])]
+    (let [counts (ns-change-counts [{:sha "x" :nss #{'gordian.main}}])]
       (is (= 1 (get counts 'gordian.main)))))
 
   (testing "empty commits → empty map"
-    (is (= {} (sut/ns-change-counts []))))
+    (is (= {} (ns-change-counts []))))
 
   (testing "all namespaces in commits are present as keys"
-    (let [counts (sut/ns-change-counts commits)]
+    (let [counts (ns-change-counts commits)]
       (is (= #{'gordian.scan 'gordian.main 'gordian.output}
              (set (keys counts)))))))
 
@@ -53,35 +56,35 @@
 
 (deftest co-change-counts-test
   (testing "correct co-change counts"
-    (let [co (sut/co-change-counts commits)]
+    (let [co (co-change-counts commits)]
       (is (= 2 (get co '[gordian.main gordian.scan])))
       (is (= 2 (get co '[gordian.output gordian.scan])))
       (is (= 1 (get co '[gordian.main gordian.output])))))
 
   (testing "pairs stored in canonical order (lex smaller ns first)"
     ;; 'gordian.main < 'gordian.output < 'gordian.scan alphabetically
-    (let [co (sut/co-change-counts commits)]
+    (let [co (co-change-counts commits)]
       (is (every? (fn [[a b]] (neg? (compare (str a) (str b)))) (keys co)))))
 
   (testing "single-ns commit contributes no pairs"
-    (let [co (sut/co-change-counts [{:sha "x" :nss #{'gordian.main}}])]
+    (let [co (co-change-counts [{:sha "x" :nss #{'gordian.main}}])]
       (is (empty? co))))
 
   (testing "3-ns commit emits all 3 pairs"
-    (let [co (sut/co-change-counts [{:sha "x"
-                                     :nss #{'gordian.scan
-                                            'gordian.main
-                                            'gordian.output}}])]
+    (let [co (co-change-counts [{:sha "x"
+                                 :nss #{'gordian.scan
+                                        'gordian.main
+                                        'gordian.output}}])]
       (is (= 3 (count co)))
       (is (= 1 (get co '[gordian.main gordian.scan])))
       (is (= 1 (get co '[gordian.output gordian.scan])))
       (is (= 1 (get co '[gordian.main gordian.output])))))
 
   (testing "empty commits → empty map"
-    (is (= {} (sut/co-change-counts []))))
+    (is (= {} (co-change-counts []))))
 
   (testing "repeated pair across commits accumulates"
-    (let [co (sut/co-change-counts
+    (let [co (co-change-counts
               [{:sha "1" :nss #{'a 'b}}
                {:sha "2" :nss #{'a 'b}}
                {:sha "3" :nss #{'a 'b}}])]

@@ -2,7 +2,7 @@
 
 ;;; ── change counting ──────────────────────────────────────────────────────
 
-(defn ns-change-counts
+(defn- ns-change-counts
   "Return {ns-sym → int} — how many commits touched each namespace.
   Input: [{:nss #{ns-sym}}] as produced by gordian.git/commits-as-ns."
   [commits]
@@ -11,7 +11,7 @@
           {}
           commits))
 
-(defn co-change-counts
+(defn- co-change-counts
   "Return {[ns-a ns-b] → int} — commits containing both namespaces.
   Pairs stored in canonical order: (compare (str a) (str b)) < 0
   so each pair is counted exactly once regardless of set iteration order."

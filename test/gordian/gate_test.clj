@@ -2,6 +2,11 @@
   (:require [clojure.test :refer [deftest is testing]]
             [gordian.gate :as sut]))
 
+(def check-pc-delta #'gordian.gate/check-pc-delta)
+(def check-new-cycles #'gordian.gate/check-new-cycles)
+(def gate-result #'gordian.gate/gate-result)
+(def summarize #'gordian.gate/summarize)
+
 (def diff
   {:health   {:delta {:propagation-cost 0.015}}
    :cycles   {:added [#{'a 'b}]}
@@ -11,18 +16,18 @@
 
 (deftest check-pc-delta-test
   (testing "pass when delta <= limit"
-    (is (= :pass (:status (sut/check-pc-delta {:health {:delta {:propagation-cost 0.005}}} 0.01)))))
+    (is (= :pass (:status (check-pc-delta {:health {:delta {:propagation-cost 0.005}}} 0.01)))))
   (testing "fail when delta > limit"
-    (let [c (sut/check-pc-delta diff 0.01)]
+    (let [c (check-pc-delta diff 0.01)]
       (is (= :fail (:status c)))
       (is (= :pc-delta (:name c)))
       (is (= 0.01 (:limit c))))))
 
 (deftest check-new-cycles-test
   (testing "pass when no cycles added"
-    (is (= :pass (:status (sut/check-new-cycles {:cycles {:added []}})))))
+    (is (= :pass (:status (check-new-cycles {:cycles {:added []}})))))
   (testing "fail when cycles added"
-    (let [c (sut/check-new-cycles diff)]
+    (let [c (check-new-cycles diff)]
       (is (= :fail (:status c)))
       (is (= 1 (:actual c))))))
 
@@ -62,12 +67,12 @@
     (is (thrown? Exception (sut/resolve-checks {:fail-on "wat"} diff)))))
 
 (deftest gate-result-test
-  (is (= :pass (sut/gate-result [{:status :pass} {:status :pass}])))
-  (is (= :fail (sut/gate-result [{:status :pass} {:status :fail}]))))
+  (is (= :pass (gate-result [{:status :pass} {:status :pass}])))
+  (is (= :fail (gate-result [{:status :pass} {:status :fail}]))))
 
 (deftest summarize-test
   (is (= {:passed 2 :failed 1 :total 3}
-         (sut/summarize [{:status :pass} {:status :fail} {:status :pass}]))))
+         (summarize [{:status :pass} {:status :fail} {:status :pass}]))))
 
 (deftest gate-report-test
   (let [checks [{:name :pc-delta :status :pass}

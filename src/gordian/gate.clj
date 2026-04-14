@@ -9,7 +9,7 @@
 (def ^:private known-checks
   #{:pc-delta :new-cycles :new-high-findings :new-medium-findings})
 
-(defn check-pc-delta
+(defn- check-pc-delta
   "Fail if propagation cost delta exceeds limit."
   [diff limit]
   (let [actual (double (or (get-in diff [:health :delta :propagation-cost]) 0.0))]
@@ -21,7 +21,7 @@
                   (format "%+.4f" actual)
                   " limit=" (format "%+.4f" limit))}))
 
-(defn check-new-cycles
+(defn- check-new-cycles
   "Fail if any new cycles were introduced."
   [diff]
   (let [actual (count (get-in diff [:cycles :added] []))]
@@ -83,12 +83,12 @@
       (when (contains? selected :new-medium-findings)
         [(check-new-findings diff :medium (long (or (:max-new-medium-findings opts) 0)))])))))
 
-(defn gate-result
+(defn- gate-result
   "Overall gate result from evaluated checks."
   [checks]
   (if (every? #(= :pass (:status %)) checks) :pass :fail))
 
-(defn summarize
+(defn- summarize
   "Summarize check statuses."
   [checks]
   (let [failed (count (filter #(= :fail (:status %)) checks))

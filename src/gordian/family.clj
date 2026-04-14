@@ -5,7 +5,7 @@
   (:require [clojure.string :as str]
             [gordian.text :as text]))
 
-(defn family-prefix
+(defn- family-prefix
   "Return the family prefix for a namespace symbol.
   Drops the last dot-separated segment.
   Single-segment namespaces return \"\" (root family)."
@@ -14,7 +14,7 @@
         i (str/last-index-of s ".")]
     (if i (subs s 0 i) "")))
 
-(defn same-family?
+(defn- same-family?
   "True if two namespace symbols share the same family prefix."
   [a b]
   (= (family-prefix a) (family-prefix b)))

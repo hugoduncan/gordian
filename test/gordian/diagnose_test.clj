@@ -3,67 +3,73 @@
             [clojure.string :as str]
             [gordian.diagnose :as sut]))
 
+(def health #'gordian.diagnose/health)
+(def find-cycles #'gordian.diagnose/find-cycles)
+(def find-sdp-violations #'gordian.diagnose/find-sdp-violations)
+(def find-god-modules #'gordian.diagnose/find-god-modules)
+(def find-hubs #'gordian.diagnose/find-hubs)
+
 ;;; ── health ───────────────────────────────────────────────────────────────
 
 (deftest health-test
   (testing "low PC → :healthy"
     (is (= :healthy
-           (:health (sut/health {:propagation-cost 0.05
-                                 :cycles [] :nodes [{} {} {}]})))))
+           (:health (health {:propagation-cost 0.05
+                             :cycles [] :nodes [{} {} {}]})))))
 
   (testing "moderate PC → :moderate"
     (is (= :moderate
-           (:health (sut/health {:propagation-cost 0.20
-                                 :cycles [] :nodes [{} {}]})))))
+           (:health (health {:propagation-cost 0.20
+                             :cycles [] :nodes [{} {}]})))))
 
   (testing "high PC → :concerning"
     (is (= :concerning
-           (:health (sut/health {:propagation-cost 0.40
-                                 :cycles [] :nodes [{} {}]})))))
+           (:health (health {:propagation-cost 0.40
+                             :cycles [] :nodes [{} {}]})))))
 
   (testing "boundary: 0.10 is :healthy"
     (is (= :healthy
-           (:health (sut/health {:propagation-cost 0.10
-                                 :cycles [] :nodes [{}]})))))
+           (:health (health {:propagation-cost 0.10
+                             :cycles [] :nodes [{}]})))))
 
   (testing "boundary: 0.30 is :moderate"
     (is (= :moderate
-           (:health (sut/health {:propagation-cost 0.30
-                                 :cycles [] :nodes [{}]})))))
+           (:health (health {:propagation-cost 0.30
+                             :cycles [] :nodes [{}]})))))
 
   (testing "reports correct cycle-count and ns-count"
-    (let [h (sut/health {:propagation-cost 0.05
-                         :cycles [#{'a 'b} #{'c 'd 'e}]
-                         :nodes [{} {} {} {} {}]})]
+    (let [h (health {:propagation-cost 0.05
+                     :cycles [#{'a 'b} #{'c 'd 'e}]
+                     :nodes [{} {} {} {} {}]})]
       (is (= 2 (:cycle-count h)))
       (is (= 5 (:ns-count h)))))
 
   (testing "nil propagation-cost treated as 0"
     (is (= :healthy
-           (:health (sut/health {:cycles [] :nodes []}))))))
+           (:health (health {:cycles [] :nodes []}))))))
 
 ;;; ── find-cycles ──────────────────────────────────────────────────────────
 
 (deftest find-cycles-test
   (testing "empty cycles → empty findings"
-    (is (= [] (sut/find-cycles []))))
+    (is (= [] (find-cycles []))))
 
   (testing "one cycle → one :high finding"
-    (let [findings (sut/find-cycles [#{'a 'b}])]
+    (let [findings (find-cycles [#{'a 'b}])]
       (is (= 1 (count findings)))
       (is (= :high (:severity (first findings))))
       (is (= :cycle (:category (first findings))))))
 
   (testing "finding has :members in :subject and :size in :evidence"
-    (let [f (first (sut/find-cycles [#{'a 'b 'c}]))]
+    (let [f (first (find-cycles [#{'a 'b 'c}]))]
       (is (= #{'a 'b 'c} (get-in f [:subject :members])))
       (is (= 3 (get-in f [:evidence :size])))))
 
   (testing "two cycles → two findings"
-    (is (= 2 (count (sut/find-cycles [#{'a 'b} #{'c 'd}])))))
+    (is (= 2 (count (find-cycles [#{'a 'b} #{'c 'd}])))))
 
   (testing "reason includes size"
-    (let [f (first (sut/find-cycles [#{'x 'y}]))]
+    (let [f (first (find-cycles [#{'x 'y}]))]
       (is (= "2-namespace cycle" (:reason f))))))
 
 ;;; ── find-sdp-violations ─────────────────────────────────────────────────
@@ -77,29 +83,29 @@
 
 (deftest find-sdp-violations-test
   (testing "Ca≥2 and I>0.5 → medium finding"
-    (let [findings (sut/find-sdp-violations sample-nodes)
+    (let [findings (find-sdp-violations sample-nodes)
           flagged  (set (map #(get-in % [:subject :ns]) findings))]
       (is (contains? flagged 'c.bad))
       (is (= :medium (:severity (first findings))))))
 
   (testing "Ca=0 → not flagged"
     (let [flagged (set (map #(get-in % [:subject :ns])
-                            (sut/find-sdp-violations sample-nodes)))]
+                            (find-sdp-violations sample-nodes)))]
       (is (not (contains? flagged 'b.hub)))))
 
   (testing "I=0.0 → not flagged (stable)"
     (let [flagged (set (map #(get-in % [:subject :ns])
-                            (sut/find-sdp-violations sample-nodes)))]
+                            (find-sdp-violations sample-nodes)))]
       (is (not (contains? flagged 'e.low)))))
 
   (testing "Ca=1 → not flagged (threshold is 2)"
     (let [flagged (set (map #(get-in % [:subject :ns])
-                            (sut/find-sdp-violations sample-nodes)))]
+                            (find-sdp-violations sample-nodes)))]
       (is (not (contains? flagged 'd.ok)))))
 
   (testing "Ca≥2 but I≤0.5 → not flagged"
     (let [flagged (set (map #(get-in % [:subject :ns])
-                            (sut/find-sdp-violations sample-nodes)))]
+                            (find-sdp-violations sample-nodes)))]
       (is (not (contains? flagged 'a.core))))))
 
 ;;; ── find-god-modules ────────────────────────────────────────────────────
@@ -111,19 +117,19 @@
                {:ns 'x.mild :reach 0.1 :fan-in 0.1 :ca 1 :ce 1 :instability 0.5 :role :shared}]]
 
     (testing "shared with extreme values → medium finding"
-      (let [findings (sut/find-god-modules nodes)]
+      (let [findings (find-god-modules nodes)]
         (is (= 1 (count findings)))
         (is (= 'x.god (get-in (first findings) [:subject :ns])))
         (is (= :medium (:severity (first findings))))))
 
     (testing "core node with high fan-in → not flagged (not :shared)"
       (let [flagged (set (map #(get-in % [:subject :ns])
-                              (sut/find-god-modules nodes)))]
+                              (find-god-modules nodes)))]
         (is (not (contains? flagged 'x.core)))))
 
     (testing "shared with normal values → not flagged"
       (let [flagged (set (map #(get-in % [:subject :ns])
-                              (sut/find-god-modules nodes)))]
+                              (find-god-modules nodes)))]
         (is (not (contains? flagged 'x.mild)))))))
 
 ;;; ── find-god-modules — façade detection ──────────────────────────────────
@@ -152,7 +158,7 @@
           :family "lib" :ca-family 0 :ca-external 0 :ce-family 0 :ce-external 1}]]
 
     (testing "façade detected → :facade category at :low severity"
-      (let [findings (sut/find-god-modules facade-nodes)
+      (let [findings (find-god-modules facade-nodes)
             f        (first findings)]
         (is (= 1 (count findings)))
         (is (= :facade (:category f)))
@@ -160,7 +166,7 @@
         (is (= 'app.facade (get-in f [:subject :ns])))))
 
     (testing "façade evidence includes family-scoped metrics"
-      (let [f (first (sut/find-god-modules facade-nodes))]
+      (let [f (first (find-god-modules facade-nodes))]
         (is (= 3 (get-in f [:evidence :ca-external])))
         (is (= 0 (get-in f [:evidence :ce-external])))
         (is (= 2 (get-in f [:evidence :ce-family])))
@@ -182,7 +188,7 @@
           :family "y" :ca-family 0 :ca-external 0 :ce-family 0 :ce-external 1}]]
 
     (testing "god-module with high Ce-external → NOT a façade, stays :god-module"
-      (let [findings (sut/find-god-modules god-nodes)
+      (let [findings (find-god-modules god-nodes)
             f        (first findings)]
         (is (= 1 (count findings)))
         (is (= :god-module (:category f)))
@@ -197,7 +203,7 @@
          {:ns 'x.leaf :reach 0.1 :fan-in 0.0 :ca 0 :ce 2 :instability 1.0 :role :peripheral}]]
 
     (testing "without family metrics → god-module (no façade possible)"
-      (let [findings (sut/find-god-modules no-family-nodes)]
+      (let [findings (find-god-modules no-family-nodes)]
         (is (= 1 (count findings)))
         (is (= :god-module (:category (first findings))))))))
 
@@ -209,7 +215,7 @@
                {:ns 'h.b    :reach 0.0 :fan-in 0.1 :ca 1 :ce 0 :instability 0.0 :role :core}]]
 
     (testing "reach > 3× mean → low finding"
-      (let [findings (sut/find-hubs nodes)]
+      (let [findings (find-hubs nodes)]
         ;; mean reach = (0.9+0.1+0.0)/3 = 0.333; 3× = 1.0; 0.9 < 1.0 → not flagged?
         ;; Actually 0.9 is not > 1.0. Let me use a more extreme example.
         ;; But wait: 0.9 > 3*0.333 = 0.999? No, 0.9 < 0.999. Hmm.
@@ -225,13 +231,13 @@
                      {:ns 'h.c    :reach 0.0  :fan-in 0.1 :ca 1 :ce 0 :instability 0.0 :role :core}
                      {:ns 'h.d    :reach 0.0  :fan-in 0.1 :ca 1 :ce 0 :instability 0.0 :role :core}]
             ;; mean = 0.95/5 = 0.19, 3× = 0.57, 0.9 > 0.57 ✓
-            findings (sut/find-hubs extreme)]
+            findings (find-hubs extreme)]
         (is (= 1 (count findings)))
         (is (= 'h.main (get-in (first findings) [:subject :ns])))
         (is (= :low (:severity (first findings))))))
 
     (testing "empty nodes → no findings"
-      (is (empty? (sut/find-hubs []))))))
+      (is (empty? (find-hubs []))))))
 
 ;;; ── pair-level findings ─────────────────────────────────────────────────
 

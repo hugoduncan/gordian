@@ -2,54 +2,57 @@
   (:require [clojure.test :refer [deftest is testing]]
             [gordian.family :as sut]))
 
+(def family-prefix #'gordian.family/family-prefix)
+(def same-family? #'gordian.family/same-family?)
+
 ;;; ── family-prefix ────────────────────────────────────────────────────────
 
 (deftest family-prefix-test
   (testing "two-segment namespace → first segment"
-    (is (= "gordian" (sut/family-prefix 'gordian.scan)))
-    (is (= "gordian" (sut/family-prefix 'gordian.main))))
+    (is (= "gordian" (family-prefix 'gordian.scan)))
+    (is (= "gordian" (family-prefix 'gordian.main))))
 
   (testing "three-segment namespace → first two segments"
-    (is (= "psi.agent-session" (sut/family-prefix 'psi.agent-session.core)))
-    (is (= "psi.agent-session" (sut/family-prefix 'psi.agent-session.mutations))))
+    (is (= "psi.agent-session" (family-prefix 'psi.agent-session.core)))
+    (is (= "psi.agent-session" (family-prefix 'psi.agent-session.mutations))))
 
   (testing "four-segment namespace → first three segments"
     (is (= "psi.agent-session.mutations"
-           (sut/family-prefix 'psi.agent-session.mutations.extensions))))
+           (family-prefix 'psi.agent-session.mutations.extensions))))
 
   (testing "single-segment namespace → empty string (root family)"
-    (is (= "" (sut/family-prefix 'alpha)))
-    (is (= "" (sut/family-prefix 'beta)))))
+    (is (= "" (family-prefix 'alpha)))
+    (is (= "" (family-prefix 'beta)))))
 
 ;;; ── same-family? ─────────────────────────────────────────────────────────
 
 (deftest same-family?-test
   (testing "siblings in same family"
-    (is (true? (sut/same-family? 'gordian.scan 'gordian.main)))
-    (is (true? (sut/same-family? 'psi.agent-session.core
-                                 'psi.agent-session.mutations))))
+    (is (true? (same-family? 'gordian.scan 'gordian.main)))
+    (is (true? (same-family? 'psi.agent-session.core
+                             'psi.agent-session.mutations))))
 
   (testing "different families"
-    (is (false? (sut/same-family? 'gordian.scan 'psi.agent-session.core)))
-    (is (false? (sut/same-family? 'psi.agent-session.core
-                                  'psi.background.runner))))
+    (is (false? (same-family? 'gordian.scan 'psi.agent-session.core)))
+    (is (false? (same-family? 'psi.agent-session.core
+                              'psi.background.runner))))
 
   (testing "single-segment namespaces are all in root family"
-    (is (true? (sut/same-family? 'alpha 'beta))))
+    (is (true? (same-family? 'alpha 'beta))))
 
   (testing "same namespace is same family"
-    (is (true? (sut/same-family? 'gordian.scan 'gordian.scan))))
+    (is (true? (same-family? 'gordian.scan 'gordian.scan))))
 
   (testing "different nesting depths with same parent are same family"
     ;; psi.agent-session.core and psi.agent-session.ui share psi.agent-session
-    (is (true? (sut/same-family? 'psi.agent-session.core
-                                 'psi.agent-session.ui))))
+    (is (true? (same-family? 'psi.agent-session.core
+                             'psi.agent-session.ui))))
 
   (testing "child sub-family is NOT same family as parent family"
     ;; psi.agent-session.mutations.extensions → family psi.agent-session.mutations
     ;; psi.agent-session.core → family psi.agent-session
-    (is (false? (sut/same-family? 'psi.agent-session.mutations.extensions
-                                  'psi.agent-session.core)))))
+    (is (false? (same-family? 'psi.agent-session.mutations.extensions
+                              'psi.agent-session.core)))))
 
 ;;; ── family-metrics ───────────────────────────────────────────────────────
 

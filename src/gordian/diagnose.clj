@@ -21,7 +21,7 @@
 
 ;;; ── cycle findings ──────────────────────────────────────────────────────
 
-(defn find-cycles
+(defn- find-cycles
   "Convert SCC cycle sets into findings. Each cycle is a :high finding."
   [cycles]
   (mapv (fn [members]
@@ -39,7 +39,7 @@
     (/ (reduce + 0.0 xs) (count xs))
     0.0))
 
-(defn find-sdp-violations
+(defn- find-sdp-violations
   "Namespaces with high Ca (≥2) but high instability (>0.5).
   These are depended upon by many modules but are themselves unstable —
   a violation of the Stable Dependencies Principle."
@@ -67,7 +67,7 @@
        (<= (or ce-external 0) 1)
        (>= (or ce-family 0) 1)))
 
-(defn find-god-modules
+(defn- find-god-modules
   "Shared-role namespaces with reach or fan-in > 2× the mean.
   These are bottlenecks through which too much flows in both directions.
   When a candidate matches the façade pattern (high Ca-external, low
@@ -209,7 +209,7 @@
                               :confidence-b (:confidence-b p)}})))
         change-pairs))
 
-(defn find-hubs
+(defn- find-hubs
   "Namespaces with reach > 3× mean. Informational — entry points naturally
   have high reach, but extreme values warrant monitoring."
   [nodes]

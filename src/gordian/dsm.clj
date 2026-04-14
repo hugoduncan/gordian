@@ -1,56 +1,6 @@
 (ns gordian.dsm
-  (:require [clojure.set :as set]
-            [clojure.string :as str]
-            [gordian.close :as close]
-            [gordian.scc :as scc]))
+  (:require [gordian.close :as close]))
 
-(defn- condensation-edges
-  [graph sccs]
-  (let [scc-vec   (vec sccs)
-        ns->scc   (reduce-kv (fn [m idx members]
-                               (reduce (fn [m' ns] (assoc m' ns idx)) m members))
-                             {}
-                             scc-vec)]
-    (reduce-kv (fn [m from-ns deps]
-                 (let [from-id (get ns->scc from-ns)]
-                   (reduce (fn [m' to]
-                             (let [to-id (get ns->scc to)]
-                               (if (and from-id to-id (not= from-id to-id))
-                                 (update m' from-id (fnil conj #{}) to-id)
-                                 m')))
-                           m
-                           deps)))
-               (zipmap (range (count scc-vec)) (repeat #{}))
-               graph)))
-
-(defn- topo-sort-stable
-  [adj labels]
-  (let [nodes    (sort (keys adj))
-        indegree (reduce-kv (fn [m _from tos]
-                              (reduce (fn [m' to] (update m' to (fnil inc 0)))
-                                      m
-                                      tos))
-                            (zipmap nodes (repeat 0))
-                            adj)]
-    (loop [indegree indegree
-           ready    (sort-by labels (filter #(zero? (get indegree % 0)) nodes))
-           order    []]
-      (if-let [n (first ready)]
-        (let [ready' (vec (rest ready))
-              [indegree' newly-ready]
-              (reduce (fn [[m rs] to]
-                        (let [m' (update m to dec)]
-                          (if (zero? (get m' to))
-                            [m' (conj rs to)]
-                            [m' rs])))
-                      [indegree []]
-                      (sort-by labels (get adj n #{})))]
-          (recur indegree'
-                 (sort-by labels (into ready' newly-ready))
-                 (conj order n)))
-        order))))
-
-(declare block-label)
 (declare dsm-report*)
 
 (def ^:dynamic *profile*
@@ -76,7 +26,7 @@
     (record-profile! k (- end start))
     ret))
 
-(defn profile-summary
+(defn- profile-summary
   [profile]
   (into {}
         (map (fn [[k {:keys [count nanos]}]]
@@ -85,22 +35,7 @@
                    :millis (/ nanos 1000000.0)}]))
         profile))
 
-(defn ordered-sccs
-  "Return SCCs in deterministic topological order of the condensation graph.
-  Includes singleton SCCs.
-  Each SCC is returned as a vector in lexicographic member order."
-  [graph]
-  (let [sccs   (scc/tarjan graph)
-        labels (into {} (map-indexed (fn [idx members] [idx (block-label members)]) sccs))
-        adj    (condensation-edges graph sccs)
-        order  (reverse (topo-sort-stable adj labels))]
-    (mapv (fn [idx]
-            (->> (get (vec sccs) idx)
-                 (sort-by str)
-                 vec))
-          order)))
-
-(defn index-blocks
+(defn- index-blocks
   "Assign stable block ids and basic metadata to ordered SCCs."
   [ordered-sccs]
   (mapv (fn [idx members]
@@ -110,7 +45,7 @@
         (range)
         ordered-sccs))
 
-(defn ns->block-id
+(defn- ns->block-id
   "Return a map from namespace symbol to containing block id."
   [blocks]
   (reduce (fn [m {:keys [id members]}]
@@ -118,7 +53,7 @@
           {}
           blocks))
 
-(defn collapsed-edges
+(defn- collapsed-edges
   "Return counted inter-block edges induced by namespace-level graph edges."
   [graph blocks]
   (let [ns->bid (ns->block-id blocks)]
@@ -137,7 +72,7 @@
          (mapv (fn [[[from to] edge-count]]
                  {:from from :to to :edge-count edge-count})))))
 
-(defn internal-edge-count
+(defn- internal-edge-count
   "Count namespace-level edges whose endpoints both lie within members."
   [graph members]
   (let [member-set (set members)]
@@ -146,7 +81,7 @@
             0
             members)))
 
-(defn block-density
+(defn- block-density
   "Directed internal density for a block, excluding self-edges."
   [graph members]
   (let [n (count members)]
@@ -155,7 +90,7 @@
       (double (/ (internal-edge-count graph members)
                  (* n (dec n)))))))
 
-(defn annotate-blocks
+(defn- annotate-blocks
   "Add derived metrics to indexed blocks."
   [graph blocks]
   (mapv (fn [{:keys [members size] :as block}]
@@ -167,12 +102,7 @@
                    :density (block-density graph members))))
         blocks))
 
-(defn ordered-members
-  "Return deterministic local member ordering for an SCC detail matrix."
-  [members]
-  (->> members (sort-by str) vec))
-
-(defn internal-edge-coords
+(defn- internal-edge-coords
   "Return local [i j] coordinates for internal edges under ordered-members."
   [graph members]
   (let [members    (vec members)
@@ -187,44 +117,7 @@
                           (mapv (fn [to] [i (get index-of to)]))))))
          vec)))
 
-(defn scc-detail
-  "Return one detail record for a non-singleton SCC block."
-  [graph {:keys [id members] :as _block}]
-  (let [members' (ordered-members members)]
-    {:id id
-     :members members'
-     :size (count members')
-     :internal-edges (internal-edge-coords graph members')
-     :internal-edge-count (internal-edge-count graph members')
-     :density (block-density graph members')}))
-
-(defn scc-details
-  "Return detail records for all non-singleton SCC blocks in block-id order."
-  [graph blocks]
-  (->> blocks
-       (filter #(< 1 (:size %)))
-       (mapv (partial scc-detail graph))))
-
-(defn collapsed-summary
-  "Return top-level summary metrics for the collapsed SCC matrix."
-  [blocks edges]
-  (let [block-count          (count blocks)
-        singleton-block-count (count (filter #(= 1 (:size %)) blocks))
-        cyclic-block-count   (count (filter :cyclic? blocks))
-        largest-block-size   (apply max 0 (map :size blocks))
-        inter-block-edge-count (reduce + 0 (map :edge-count edges))
-        density              (if (<= block-count 1)
-                               0.0
-                               (double (/ inter-block-edge-count
-                                          (* block-count (dec block-count)))))]
-    {:block-count block-count
-     :singleton-block-count singleton-block-count
-     :cyclic-block-count cyclic-block-count
-     :largest-block-size largest-block-size
-     :inter-block-edge-count inter-block-edge-count
-     :density density}))
-
-(defn project-graph
+(defn- project-graph
   "Restrict graph to project-internal nodes only.
   Drops dependency targets not present as graph keys."
   [graph]
@@ -234,7 +127,7 @@
                  [ns (into #{} (filter project-ns) deps)]))
           graph)))
 
-(defn reverse-graph
+(defn- reverse-graph
   "Reverse all edges in a project graph, preserving all nodes as keys."
   [graph]
   (reduce-kv (fn [rev from deps]
@@ -245,37 +138,7 @@
              (zipmap (keys graph) (repeat #{}))
              graph))
 
-(defn topo-order
-  "Return a dependees-first topological order for an acyclic graph.
-  Stable lexical tie-break by namespace name."
-  [graph]
-  (let [rev      (reverse-graph graph)
-        nodes    (sort-by str (keys rev))
-        indegree (reduce-kv (fn [m _from tos]
-                              (reduce (fn [m' to] (update m' to (fnil inc 0)))
-                                      m
-                                      tos))
-                            (zipmap nodes (repeat 0))
-                            rev)]
-    (loop [indegree indegree
-           ready    (sort-by str (filter #(zero? (get indegree % 0)) nodes))
-           order    []]
-      (if-let [n (first ready)]
-        (let [ready' (vec (rest ready))
-              [indegree' newly-ready]
-              (reduce (fn [[m rs] to]
-                        (let [m' (update m to dec)]
-                          (if (zero? (get m' to))
-                            [m' (conj rs to)]
-                            [m' rs])))
-                      [indegree []]
-                      (sort-by str (get rev n #{})))]
-          (recur indegree'
-                 (sort-by str (into ready' newly-ready))
-                 (conj order n)))
-        order))))
-
-(defn dfs-topo-order
+(defn- dfs-topo-order
   "Return a deterministic DFS post-order linearization, reversed into
   dependees-first topological order. Tie-break lexicographically by namespace."
   [graph]
@@ -292,34 +155,17 @@
         (visit n))
       (vec @out))))
 
-(defn ordered-nodes
+(defn- ordered-nodes
   "Return deterministic project-internal namespace order for DSM layout."
   [graph]
   (-> graph project-graph dfs-topo-order))
 
-(defn common-prefix
-  "Return the common dot-prefix of namespace strings, or nil if none."
-  [members]
-  (let [parts (map #(str/split (str %) #"\.") members)
-        prefix (->> (apply map vector parts)
-                    (take-while (fn [xs] (apply = xs)))
-                    (map first)
-                    vec)]
-    (when (seq prefix)
-      (str/join "." prefix))))
-
-(defn block-label
-  "Return a stable representative label basis for a block."
-  [members]
-  (or (common-prefix members)
-      (->> members (map str) sort first)))
-
-(defn index-of
+(defn- index-of
   "Map ordered namespaces to 0-based positions."
   [ordered]
   (zipmap ordered (range)))
 
-(defn ordered-edges
+(defn- ordered-edges
   "Return project-internal edges as sorted index pairs [from to]."
   [graph ordered]
   (let [idx        (index-of ordered)
@@ -330,33 +176,6 @@
                          :when (project-ns to)]
                      [(idx from) (idx to)])))
          vec)))
-
-(defn interval?
-  "True when index i lies within inclusive interval [a,b]."
-  [a b i]
-  (<= a i b))
-
-(defn interval-internal-edge-count
-  "Count ordered edges whose endpoints both lie within inclusive interval [a,b]."
-  [ordered-edges a b]
-  (count (filter (fn [[from to]]
-                   (and (interval? a b from)
-                        (interval? a b to)))
-                 ordered-edges)))
-
-(defn interval-cross-edge-count
-  "Count ordered edges with exactly one endpoint inside inclusive interval [a,b]."
-  [ordered-edges a b _n]
-  (count (filter (fn [[from to]]
-                   (let [from-in? (interval? a b from)
-                         to-in?   (interval? a b to)]
-                     (not= from-in? to-in?)))
-                 ordered-edges)))
-
-(defn pow-cost
-  "Return x^alpha as double for DSM block scoring."
-  [x alpha]
-  (Math/pow (double x) (double alpha)))
 
 (defn- prefix-sums
   [xs]
@@ -435,20 +254,6 @@
           missing-internal (max 0.0 (- target-internal internal))]
       missing-internal)))
 
-(defn block-cost
-  "Score inclusive interval block [a,b] with prefix-sum-friendly terms.
-  Crossing marks are penalized directly.
-  Block size incurs a quadratic penalty beta*|B|^2.
-  Weakly cohesive multi-namespace blocks incur an additional sparsity penalty."
-  [ordered-edges n beta a b]
-  (let [{:keys [internal crossing]} (interval-stats (ordered-edge-stats ordered-edges n) a b)
-        block-size                  (inc (- b a))
-        size-penalty                (* beta block-size block-size)
-        weak-penalty                (weak-cohesion-penalty block-size internal)]
-    (+ crossing
-       size-penalty
-       weak-penalty)))
-
 (defn- interval-endpoints
   [n]
   (for [a (range n)
@@ -470,7 +275,7 @@
                        weak-penalty)])))
           (interval-endpoints n))))
 
-(defn reconstruct-partition
+(defn- reconstruct-partition
   "Reconstruct inclusive intervals from backpointer map ending at end-idx."
   [back end-idx]
   (loop [t end-idx
@@ -512,7 +317,7 @@
                  (assoc dp t best-cost)
                  (assoc back t best-a)))))))
 
-(defn optimal-partition
+(defn- optimal-partition
   "Return optimal contiguous inclusive interval partition for fixed order.
   Dynamic programming over split points with deterministic leftmost tie-break."
   [graph ordered beta]
@@ -520,37 +325,12 @@
             (fn []
               (optimal-partition-from-costs (ordering-costs graph ordered beta)))))
 
-(defn transitive-consumers
-  "Return {ns -> #{project namespaces that transitively depend on ns}}."
-  [graph]
-  (let [project   (project-graph graph)
-        reversed  (reverse-graph project)
-        closed    (close/close reversed)]
-    (into {}
-          (map (fn [ns]
-                 [ns (disj (get closed ns #{}) ns)]))
-          (keys project))))
-
-(defn jaccard
-  "Jaccard similarity of two sets. Empty/empty = 1.0."
-  [a b]
-  (let [u (count (set/union a b))]
-    (if (zero? u)
-      1.0
-      (/ (count (set/intersection a b))
-         (double u)))))
-
-(defn co-usage-similarity
-  "Return transitive-consumer Jaccard similarity for namespace pair."
-  [obs a b]
-  (jaccard (get obs a #{}) (get obs b #{})))
-
-(defn block-members
+(defn- block-members
   "Map inclusive interval partitions back to ordered namespace member vectors."
   [ordered intervals]
   (mapv (fn [[a b]] (subvec (vec ordered) a (inc b))) intervals))
 
-(defn block-swap-valid?
+(defn- block-swap-valid?
   "True when adjacent partition blocks are pairwise incomparable in the dependency graph."
   ([graph blocks idx]
    (let [project-graph' (project-graph graph)]
@@ -565,12 +345,12 @@
                     (and (not (contains? (get closed x #{}) y))
                          (not (contains? (get closed y #{}) x)))))))))
 
-(defn block-edge-counts
+(defn- block-edge-counts
   "Return counted inter-block edges for a partition-defined block set."
   [graph blocks]
   (collapsed-edges graph blocks))
 
-(defn induced-subgraph
+(defn- induced-subgraph
   "Return the project-induced subgraph over members, preserving member order as keys.
   Dependency targets outside members are removed."
   [graph members]
@@ -580,7 +360,7 @@
                  [ns (into #{} (filter member-set) (get graph ns #{}))]))
           members)))
 
-(defn block-detail
+(defn- block-detail
   "Return one detail record for a block."
   [graph {:keys [id members] :as _block}]
   (let [members' (vec members)]
@@ -591,12 +371,12 @@
      :internal-edge-count (internal-edge-count graph members')
      :density (block-density graph members')}))
 
-(defn block-details
+(defn- block-details
   "Return detail records for all blocks in block-id order."
   [graph blocks]
   (mapv (partial block-detail graph) blocks))
 
-(defn block-summary
+(defn- block-summary
   "Return top-level summary metrics for partitioned DSM blocks."
   [blocks edges]
   (let [block-count            (count blocks)
@@ -613,7 +393,7 @@
      :inter-block-edge-count inter-block-edge-count
      :density density}))
 
-(defn partition-cost
+(defn- partition-cost
   "Return total cost of the optimal partition for ordered namespaces."
   [graph ordered beta]
   (profiled :partition-cost
@@ -625,7 +405,7 @@
                         0.0
                         parts)))))
 
-(defn valid-adjacent-swap?
+(defn- valid-adjacent-swap?
   "True when adjacent nodes at idx and idx+1 are incomparable in the dependency graph."
   ([graph ordered idx]
    (let [project (project-graph graph)]
@@ -745,7 +525,7 @@
                       (recur candidate)
                       ordered)))))))
 
-(defn refine-order
+(defn- refine-order
   "Deterministically improve order by accepting cost-lowering valid adjacent swaps.
   First refine at node granularity, then refine at adjacent block granularity."
   [graph ordered beta]
@@ -763,7 +543,7 @@
 (def ^:private max-recursive-depth
   3)
 
-(defn should-refine-order?
+(defn- should-refine-order?
   "Return true when local adjacent-swap refinement should run.
   Refinement is intentionally skipped for larger graphs because it scales
   poorly and can dominate end-to-end DSM runtime without improving the

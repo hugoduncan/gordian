@@ -2,6 +2,12 @@
   (:require [clojure.test :refer [deftest is testing]]
             [gordian.explain :as sut]))
 
+(def shortest-path #'gordian.explain/shortest-path)
+(def direct-deps #'gordian.explain/direct-deps)
+(def direct-dependents #'gordian.explain/direct-dependents)
+(def ns-pairs #'gordian.explain/ns-pairs)
+(def verdict #'gordian.explain/verdict)
+
 ;;; ── test graph ───────────────────────────────────────────────────────────
 
 (def ^:private graph
@@ -15,36 +21,36 @@
 
 (deftest shortest-path-test
   (testing "direct edge → 2-element path"
-    (is (= ['a.core 'c.util] (sut/shortest-path graph 'a.core 'c.util))))
+    (is (= ['a.core 'c.util] (shortest-path graph 'a.core 'c.util))))
 
   (testing "multi-hop path"
     ;; d.leaf → a.core → c.util (shortest)
-    (let [path (sut/shortest-path graph 'd.leaf 'c.util)]
+    (let [path (shortest-path graph 'd.leaf 'c.util)]
       (is (= 'd.leaf (first path)))
       (is (= 'c.util (last path)))
       (is (<= (count path) 3))))
 
   (testing "no reverse path → nil"
-    (is (nil? (sut/shortest-path graph 'c.util 'a.core))))
+    (is (nil? (shortest-path graph 'c.util 'a.core))))
 
   (testing "self path → nil"
-    (is (nil? (sut/shortest-path graph 'a.core 'a.core))))
+    (is (nil? (shortest-path graph 'a.core 'a.core))))
 
   (testing "target not in graph → nil"
-    (is (nil? (sut/shortest-path graph 'a.core 'nonexistent))))
+    (is (nil? (shortest-path graph 'a.core 'nonexistent))))
 
   (testing "source not in graph → nil"
-    (is (nil? (sut/shortest-path graph 'nonexistent 'a.core))))
+    (is (nil? (shortest-path graph 'nonexistent 'a.core))))
 
   (testing "handles cycle without hang"
     (let [cyclic {'x #{'y} 'y #{'x}}]
-      (is (= ['x 'y] (sut/shortest-path cyclic 'x 'y)))
-      (is (= ['y 'x] (sut/shortest-path cyclic 'y 'x)))))
+      (is (= ['x 'y] (shortest-path cyclic 'x 'y)))
+      (is (= ['y 'x] (shortest-path cyclic 'y 'x)))))
 
   (testing "skips external deps (not in graph keys)"
     ;; a.core has ext.lib in deps, but ext.lib is not a graph key
     ;; so path a.core→ext.lib is nil
-    (is (nil? (sut/shortest-path graph 'a.core 'ext.lib)))))
+    (is (nil? (shortest-path graph 'a.core 'ext.lib)))))
 
 ;;; ── direct-deps ──────────────────────────────────────────────────────────
 
@@ -52,17 +58,17 @@
 
 (deftest direct-deps-test
   (testing "splits project and external deps"
-    (let [deps (sut/direct-deps graph project-nss 'a.core)]
+    (let [deps (direct-deps graph project-nss 'a.core)]
       (is (= #{'b.svc 'c.util} (set (:project deps))))
       (is (= ['ext.lib] (:external deps)))))
 
   (testing "ns with no deps → both empty"
-    (let [deps (sut/direct-deps graph project-nss 'c.util)]
+    (let [deps (direct-deps graph project-nss 'c.util)]
       (is (empty? (:project deps)))
       (is (empty? (:external deps)))))
 
   (testing "ns not in graph → both empty"
-    (let [deps (sut/direct-deps graph project-nss 'nonexistent)]
+    (let [deps (direct-deps graph project-nss 'nonexistent)]
       (is (empty? (:project deps)))
       (is (empty? (:external deps))))))
 
@@ -70,16 +76,16 @@
 
 (deftest direct-dependents-test
   (testing "c.util depended on by a.core and b.svc"
-    (is (= #{'a.core 'b.svc} (set (sut/direct-dependents graph 'c.util)))))
+    (is (= #{'a.core 'b.svc} (set (direct-dependents graph 'c.util)))))
 
   (testing "a.core depended on by d.leaf"
-    (is (= ['d.leaf] (sut/direct-dependents graph 'a.core))))
+    (is (= ['d.leaf] (direct-dependents graph 'a.core))))
 
   (testing "d.leaf — nobody depends on it"
-    (is (empty? (sut/direct-dependents graph 'd.leaf))))
+    (is (empty? (direct-dependents graph 'd.leaf))))
 
   (testing "nonexistent ns → empty"
-    (is (empty? (sut/direct-dependents graph 'nonexistent)))))
+    (is (empty? (direct-dependents graph 'nonexistent)))))
 
 ;;; ── ns-pairs ────────────────────────────────────────────────────────────
 
@@ -90,71 +96,71 @@
 
 (deftest ns-pairs-test
   (testing "filters pairs involving ns"
-    (is (= 2 (count (sut/ns-pairs sample-pairs 'a))))
-    (is (= 2 (count (sut/ns-pairs sample-pairs 'b))))
-    (is (= 2 (count (sut/ns-pairs sample-pairs 'c)))))
+    (is (= 2 (count (ns-pairs sample-pairs 'a))))
+    (is (= 2 (count (ns-pairs sample-pairs 'b))))
+    (is (= 2 (count (ns-pairs sample-pairs 'c)))))
 
   (testing "ns not in any pair → empty"
-    (is (empty? (sut/ns-pairs sample-pairs 'z))))
+    (is (empty? (ns-pairs sample-pairs 'z))))
 
   (testing "empty pairs → empty"
-    (is (empty? (sut/ns-pairs [] 'a)))))
+    (is (empty? (ns-pairs [] 'a)))))
 
 ;;; ── verdict ──────────────────────────────────────────────────────────────
 
 (deftest verdict-test
   (testing "1. direct structural edge → :expected-structural"
-    (let [v (sut/verdict {:direct-edge? true :shortest-path ['a 'b]}
-                         {:score 0.30 :same-family? true :independent-terms ["x"]}
-                         {:score 0.40})]
+    (let [v (verdict {:direct-edge? true :shortest-path ['a 'b]}
+                     {:score 0.30 :same-family? true :independent-terms ["x"]}
+                     {:score 0.40})]
       (is (= :expected-structural (:category v)))))
 
   (testing "2. hidden + same-family + no independent → :family-naming-noise"
-    (let [v (sut/verdict {:direct-edge? false :shortest-path nil}
-                         {:score 0.25 :same-family? true
-                          :family-terms ["agent" "session"]
-                          :independent-terms []}
-                         nil)]
+    (let [v (verdict {:direct-edge? false :shortest-path nil}
+                     {:score 0.25 :same-family? true
+                      :family-terms ["agent" "session"]
+                      :independent-terms []}
+                     nil)]
       (is (= :family-naming-noise (:category v)))))
 
   (testing "3. hidden + same-family + independent terms → :family-siblings"
-    (let [v (sut/verdict {:direct-edge? false :shortest-path nil}
-                         {:score 0.30 :same-family? true
-                          :family-terms ["session"]
-                          :independent-terms ["mutation"]}
-                         nil)]
+    (let [v (verdict {:direct-edge? false :shortest-path nil}
+                     {:score 0.30 :same-family? true
+                      :family-terms ["session"]
+                      :independent-terms ["mutation"]}
+                     nil)]
       (is (= :family-siblings (:category v)))))
 
   (testing "4. hidden + conceptual + change + cross-family → :likely-missing-abstraction"
-    (let [v (sut/verdict {:direct-edge? false :shortest-path nil}
-                         {:score 0.35 :same-family? false
-                          :independent-terms ["data"]}
-                         {:score 0.40 :co-changes 5})]
+    (let [v (verdict {:direct-edge? false :shortest-path nil}
+                     {:score 0.35 :same-family? false
+                      :independent-terms ["data"]}
+                     {:score 0.40 :co-changes 5})]
       (is (= :likely-missing-abstraction (:category v)))))
 
   (testing "5. hidden + conceptual only + cross-family → :hidden-conceptual"
-    (let [v (sut/verdict {:direct-edge? false :shortest-path nil}
-                         {:score 0.25 :same-family? false
-                          :independent-terms ["file"]}
-                         nil)]
+    (let [v (verdict {:direct-edge? false :shortest-path nil}
+                     {:score 0.25 :same-family? false
+                      :independent-terms ["file"]}
+                     nil)]
       (is (= :hidden-conceptual (:category v)))))
 
   (testing "6. hidden + change only → :hidden-change"
-    (let [v (sut/verdict {:direct-edge? false :shortest-path nil}
-                         nil
-                         {:score 0.50 :co-changes 3})]
+    (let [v (verdict {:direct-edge? false :shortest-path nil}
+                     nil
+                     {:score 0.50 :co-changes 3})]
       (is (= :hidden-change (:category v)))))
 
   (testing "7. transitive path, no coupling → :transitive-only"
-    (let [v (sut/verdict {:direct-edge? false :shortest-path ['a 'b 'c]}
-                         nil
-                         nil)]
+    (let [v (verdict {:direct-edge? false :shortest-path ['a 'b 'c]}
+                     nil
+                     nil)]
       (is (= :transitive-only (:category v)))))
 
   (testing "8. nothing → :unrelated"
-    (let [v (sut/verdict {:direct-edge? false :shortest-path nil}
-                         nil
-                         nil)]
+    (let [v (verdict {:direct-edge? false :shortest-path nil}
+                     nil
+                     nil)]
       (is (= :unrelated (:category v)))))
 
   (testing "all verdicts have :explanation string"
@@ -166,7 +172,7 @@
                      [{:direct-edge? false} nil {:score 0.4}]
                      [{:direct-edge? false :shortest-path ['a 'b]} nil nil]
                      [{:direct-edge? false} nil nil]]]
-      (let [v (sut/verdict s c x)]
+      (let [v (verdict s c x)]
         (is (keyword? (:category v)) (str "category for " s))
         (is (string? (:explanation v)) (str "explanation for " s))))))
 

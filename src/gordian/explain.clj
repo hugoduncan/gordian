@@ -6,7 +6,7 @@
 
 ;;; ── graph queries ────────────────────────────────────────────────────────
 
-(defn shortest-path
+(defn- shortest-path
   "BFS with parent tracking from `from` to `to` over directed graph.
   Returns [from ... to] or nil if no path exists.
   Only traverses project-internal edges (keys of graph).
@@ -36,7 +36,7 @@
                        new-visited
                        (into parents (map (fn [n] [n node]) neighbors)))))))))))
 
-(defn direct-deps
+(defn- direct-deps
   "Direct dependencies of ns-sym, split into project and external.
   project-nss — set of all project namespace symbols (keys of graph)."
   [graph project-nss ns-sym]
@@ -44,14 +44,14 @@
     {:project  (vec (sort-by str (filter project-nss deps)))
      :external (vec (sort-by str (remove project-nss deps)))}))
 
-(defn direct-dependents
+(defn- direct-dependents
   "Project namespaces that directly require ns-sym."
   [graph ns-sym]
   (vec (sort-by str
                 (keep (fn [[k deps]] (when (contains? deps ns-sym) k))
                       graph))))
 
-(defn ns-pairs
+(defn- ns-pairs
   "Filter pairs to those involving ns-sym (as :ns-a or :ns-b)."
   [pairs ns-sym]
   (filterv (fn [p] (or (= ns-sym (:ns-a p))
@@ -60,7 +60,7 @@
 
 ;;; ── verdict ──────────────────────────────────────────────────────────────
 
-(defn verdict
+(defn- verdict
   "Derive an opinionated interpretation from explain-pair signals.
   Returns {:category keyword :explanation string}.
   Rules evaluated top-down, first match wins.
