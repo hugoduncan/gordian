@@ -2,6 +2,12 @@
   (:require [clojure.test :refer [deftest is testing]]
             [gordian.compare :as compare]))
 
+(def compare-health #'gordian.compare/compare-health)
+(def compare-nodes #'gordian.compare/compare-nodes)
+(def compare-cycles #'gordian.compare/compare-cycles)
+(def compare-pairs #'gordian.compare/compare-pairs)
+(def compare-findings #'gordian.compare/compare-findings)
+
 ;;; ── test data ────────────────────────────────────────────────────────────
 
 (def before-report
@@ -61,7 +67,7 @@
 
 (deftest compare-health-test
   (testing "computes before, after, and delta"
-    (let [result (compare/compare-health before-report after-report)]
+    (let [result (compare-health before-report after-report)]
       (is (= 0.21 (:propagation-cost (:before result))))
       (is (= 0.15 (:propagation-cost (:after result))))
       (is (< (abs (- -0.06 (:propagation-cost (:delta result)))) 0.001))
@@ -74,7 +80,7 @@
 
 (deftest compare-health-empty-test
   (testing "handles empty reports"
-    (let [result (compare/compare-health {} {})]
+    (let [result (compare-health {} {})]
       (is (= 0.0 (:propagation-cost (:before result))))
       (is (= 0 (:cycle-count (:delta result)))))))
 
@@ -82,7 +88,7 @@
 
 (deftest compare-nodes-test
   (testing "detects added, removed, and changed nodes"
-    (let [result (compare/compare-nodes before-report after-report)]
+    (let [result (compare-nodes before-report after-report)]
       ;; d.new added
       (is (= 1 (count (:added result))))
       (is (= :d.new (:ns (first (:added result)))))
@@ -95,7 +101,7 @@
 
 (deftest compare-nodes-metric-delta-test
   (testing "delta contains correct numeric differences"
-    (let [result  (compare/compare-nodes before-report after-report)
+    (let [result  (compare-nodes before-report after-report)
           a-diff  (first (filter #(= :a.core (:ns %)) (:changed result)))]
       ;; reach: 0.30 → 0.25 = -0.05
       (is (< (abs (- -0.05 (:reach (:delta a-diff)))) 0.001))
@@ -108,7 +114,7 @@
   (testing "unchanged nodes are not reported"
     (let [same {:nodes [{:ns :x :reach 0.1 :ca 1 :ce 1 :instability 0.5 :role :core
                          :fan-in 0.0 :ca-family 0 :ca-external 1 :ce-family 0 :ce-external 1}]}
-          result (compare/compare-nodes same same)]
+          result (compare-nodes same same)]
       (is (empty? (:added result)))
       (is (empty? (:removed result)))
       (is (empty? (:changed result))))))
@@ -117,7 +123,7 @@
 
 (deftest compare-cycles-test
   (testing "detects added and removed cycles"
-    (let [result (compare/compare-cycles before-report after-report)]
+    (let [result (compare-cycles before-report after-report)]
       ;; #{:a.core :b.core} was removed
       (is (= 1 (count (:removed result))))
       (is (= #{:a.core :b.core} (first (:removed result))))
@@ -126,7 +132,7 @@
 
 (deftest compare-cycles-added-test
   (testing "detects newly added cycles"
-    (let [result (compare/compare-cycles
+    (let [result (compare-cycles
                   {:cycles []}
                   {:cycles [#{:x :y}]})]
       (is (= 1 (count (:added result))))
@@ -136,7 +142,7 @@
 
 (deftest compare-conceptual-pairs-test
   (testing "detects added, removed, and changed conceptual pairs"
-    (let [result (compare/compare-pairs before-report after-report :conceptual)]
+    (let [result (compare-pairs before-report after-report :conceptual)]
       ;; a.core ↔ d.new is new
       (is (= 1 (count (:added result))))
       (is (= :d.new (:ns-b (first (:added result)))))
@@ -152,14 +158,14 @@
 
 (deftest compare-change-pairs-test
   (testing "change pairs with small delta are not reported"
-    (let [result (compare/compare-pairs before-report after-report :change)]
+    (let [result (compare-pairs before-report after-report :change)]
       ;; 0.55 → 0.50 = -0.05, which exceeds 0.01 threshold
       (is (= 1 (count (:changed result)))))))
 
 (deftest compare-pairs-no-change-test
   (testing "identical pairs produce empty diff"
     (let [report {:conceptual-pairs [{:ns-a :a :ns-b :b :score 0.30}]}
-          result (compare/compare-pairs report report :conceptual)]
+          result (compare-pairs report report :conceptual)]
       (is (empty? (:added result)))
       (is (empty? (:removed result)))
       (is (empty? (:changed result))))))
@@ -168,7 +174,7 @@
 
 (deftest compare-findings-test
   (testing "detects added and removed findings"
-    (let [result (compare/compare-findings before-report after-report)]
+    (let [result (compare-findings before-report after-report)]
       ;; cycle finding removed
       (is (= 1 (count (filter #(= :cycle (:category %)) (:removed result)))))
       ;; hidden-conceptual a.core ↔ c.util removed
@@ -178,7 +184,7 @@
 
 (deftest compare-findings-empty-test
   (testing "no findings in either report"
-    (let [result (compare/compare-findings {} {})]
+    (let [result (compare-findings {} {})]
       (is (empty? (:added result)))
       (is (empty? (:removed result))))))
 

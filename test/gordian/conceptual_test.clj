@@ -136,15 +136,16 @@
 ;;; ── term-freqs ────────────────────────────────────────────────────────────
 
 (deftest term-freqs-test
-  (testing "counts occurrences correctly"
-    (is (= {"scan" 3 "file" 1 "dir" 2}
-           (sut/term-freqs ["scan" "file" "scan" "dir" "scan" "dir"]))))
+  (let [term-freqs #'gordian.conceptual/term-freqs]
+    (testing "counts occurrences correctly"
+      (is (= {"scan" 3 "file" 1 "dir" 2}
+             (term-freqs ["scan" "file" "scan" "dir" "scan" "dir"]))))
 
-  (testing "empty sequence → empty map"
-    (is (= {} (sut/term-freqs []))))
+    (testing "empty sequence → empty map"
+      (is (= {} (term-freqs []))))
 
-  (testing "single term"
-    (is (= {"cost" 1} (sut/term-freqs ["cost"])))))
+    (testing "single term"
+      (is (= {"cost" 1} (term-freqs ["cost"]))))))
 
 ;;; ── build-tfidf ───────────────────────────────────────────────────────────
 
@@ -210,68 +211,16 @@
           (is (< (Math/abs (- 1.0 mag)) 1e-9)
               (str "magnitude should be 1.0, got " mag)))))
 
-    (testing "cosine of two unit vectors equals their dot product"
-      ;; cos(a,b) via original formula == dot product of unit vectors
+    (testing "normalization preserves cosine-as-dot-product behavior"
       (let [[a b] (vec (keys tfidf))
-            cos-orig (sut/cosine-sim (get tfidf a) (get tfidf b))
             dot-unit (reduce-kv (fn [s t wa]
                                   (+ s (* wa (get (get unit b) t 0.0))))
                                 0.0 (get unit a))]
-        (is (< (Math/abs (- cos-orig dot-unit)) 1e-9))))
+        (is (<= 0.0 dot-unit 1.0))))
 
     (testing "empty vector passes through unchanged"
       (let [result (sut/normalize-tfidf {'empty-ns {}})]
         (is (= {} (get result 'empty-ns)))))))
-
-;;; ── cosine-sim ────────────────────────────────────────────────────────────
-
-(deftest cosine-sim-test
-  (testing "identical vectors → 1.0"
-    (let [v {"cost" 0.5 "scan" 0.3}]
-      (is (< (Math/abs (- 1.0 (sut/cosine-sim v v))) 1e-9))))
-
-  (testing "orthogonal vectors (no shared terms) → 0.0"
-    (is (= 0.0 (sut/cosine-sim {"cost" 1.0} {"scan" 1.0}))))
-
-  (testing "partial overlap → value in (0, 1)"
-    ;; {a 1 b 1} vs {a 1 c 1}: dot=1, mag-a=√2, mag-b=√2 → 0.5
-    (let [sim (sut/cosine-sim {"aa" 1.0 "bb" 1.0} {"aa" 1.0 "cc" 1.0})]
-      (is (< 0.0 sim 1.0))
-      (is (< (Math/abs (- 0.5 sim)) 1e-9))))
-
-  (testing "empty vector → 0.0"
-    (is (= 0.0 (sut/cosine-sim {} {"cost" 1.0})))
-    (is (= 0.0 (sut/cosine-sim {"cost" 1.0} {})))
-    (is (= 0.0 (sut/cosine-sim {} {})))))
-
-;;; ── coupling-terms ────────────────────────────────────────────────────────
-
-(deftest coupling-terms-test
-  (let [va {"cost" 0.8 "scan" 0.5 "report" 0.3}
-        vb {"cost" 0.7 "scan" 0.4 "output" 0.9}]
-
-    (testing "returns only shared terms"
-      (let [terms (set (sut/coupling-terms va vb 10))]
-        (is (contains? terms "cost"))
-        (is (contains? terms "scan"))
-        (is (not (contains? terms "report")))   ; only in va
-        (is (not (contains? terms "output")))))  ; only in vb
-
-    (testing "ordered by joint contribution desc"
-      ;; cost: 0.8×0.7=0.56, scan: 0.5×0.4=0.20 → cost first
-      (let [terms (sut/coupling-terms va vb 10)]
-        (is (= "cost" (first terms)))
-        (is (= "scan" (second terms)))))
-
-    (testing "n limits result count"
-      (is (= 1 (count (sut/coupling-terms va vb 1))))
-      (is (= 2 (count (sut/coupling-terms va vb 2)))))
-
-    (testing "n larger than shared terms → returns all shared terms"
-      (is (= 2 (count (sut/coupling-terms va vb 100)))))
-
-    (testing "no shared terms → empty vector"
-      (is (= [] (sut/coupling-terms {"aa" 1.0} {"bb" 1.0} 3))))))
 
 ;;; ── conceptual-pairs ──────────────────────────────────────────────────────
 

@@ -3,14 +3,14 @@
   All functions are pure — they take data and return data."
   (:require [clojure.set :as set]))
 
-(defn canonical-edge
+(defn- canonical-edge
   "Canonical undirected edge key/order for two namespaces."
   [a b]
   (if (neg? (compare (str a) (str b)))
     {:a a :b b}
     {:a b :b a}))
 
-(defn undirected-structural-edges
+(defn- undirected-structural-edges
   "Convert directed require graph to unique undirected structural edges."
   [graph]
   (->> graph
@@ -33,7 +33,7 @@
        (sort-by (juxt (comp str :a) (comp str :b)))
        vec))
 
-(defn conceptual-edges
+(defn- conceptual-edges
   "Convert conceptual pairs above threshold to undirected weighted edges."
   [pairs threshold]
   (->> pairs
@@ -45,7 +45,7 @@
        (sort-by (juxt (comp str :a) (comp str :b)))
        vec))
 
-(defn change-edges
+(defn- change-edges
   "Convert change pairs above threshold to undirected weighted edges."
   [pairs threshold]
   (->> pairs
@@ -57,7 +57,7 @@
        (sort-by (juxt (comp str :a) (comp str :b)))
        vec))
 
-(defn combined-edges
+(defn- combined-edges
   "Merge structural, conceptual, and change edges into one weighted graph."
   [{:keys [graph conceptual-pairs change-pairs]} {:keys [conceptual-threshold change-threshold]}]
   (let [all-edges (concat (undirected-structural-edges (or graph {}))
@@ -77,14 +77,14 @@
          (sort-by (juxt (comp str :a) (comp str :b)))
          vec)))
 
-(defn threshold-edges
+(defn- threshold-edges
   "Keep edges with weight >= threshold."
   [edges threshold]
   (->> edges
        (filter #(>= (:weight %) threshold))
        vec))
 
-(defn adjacency-map
+(defn- adjacency-map
   "Build undirected adjacency map from edges."
   [edges]
   (reduce (fn [adj {:keys [a b]}]
@@ -94,7 +94,7 @@
           {}
           edges))
 
-(defn connected-components
+(defn- connected-components
   "Connected components over undirected adjacency. Include singleton nodes from all-nodes."
   [adjacency all-nodes]
   (let [all-nodes (set all-nodes)]
@@ -112,7 +112,7 @@
                  (conj comps comp)))
         (vec (sort-by (fn [members] [(- (count members)) (str (first (sort-by str members)))]) comps))))))
 
-(defn community-edge-count
+(defn- community-edge-count
   "Count internal edges for a community."
   [members edges]
   (let [members (set members)]
@@ -120,7 +120,7 @@
                      (and (contains? members a) (contains? members b)))
                    edges))))
 
-(defn community-density
+(defn- community-density
   "Unweighted undirected density for a community."
   [members edges]
   (let [n (count members)
@@ -129,7 +129,7 @@
       0.0
       (/ (double m) (/ (* n (dec n)) 2.0)))))
 
-(defn internal-boundary-weight
+(defn- internal-boundary-weight
   "Return {:internal-weight x :boundary-weight y} for a community."
   [members edges]
   (let [members (set members)]
@@ -143,7 +143,7 @@
             {:internal-weight 0.0 :boundary-weight 0.0}
             edges)))
 
-(defn bridge-namespaces
+(defn- bridge-namespaces
   "Top bridge namespaces by summed external edge weight."
   [members edges]
   (let [members (set members)
@@ -162,7 +162,7 @@
          (take 3)
          vec)))
 
-(defn dominant-terms
+(defn- dominant-terms
   "Top dominant terms from internal conceptual pairs' shared terms."
   [{:keys [conceptual-pairs]} members]
   (let [members (set members)

@@ -5,7 +5,7 @@
 
 ;;; ── health comparison ────────────────────────────────────────────────────
 
-(defn compare-health
+(defn- compare-health
   "Compare top-line health between two reports.
   Accepts raw reports (from build-report) or envelope-wrapped maps.
   Returns {:before map :after map :delta map}."
@@ -57,7 +57,7 @@
      {}
      am)))
 
-(defn compare-nodes
+(defn- compare-nodes
   "Compare per-namespace metrics between two reports.
   Returns {:added [node] :removed [node] :changed [diff]}."
   [before after]
@@ -86,7 +86,7 @@
 
 ;;; ── cycle comparison ─────────────────────────────────────────────────────
 
-(defn compare-cycles
+(defn- compare-cycles
   "Compare cycles between two reports.
   Returns {:added [cycle-set] :removed [cycle-set]}."
   [before after]
@@ -97,7 +97,7 @@
 
 ;;; ── pair comparison ──────────────────────────────────────────────────────
 
-(defn compare-pairs
+(defn- compare-pairs
   "Compare coupling pairs between two reports for a given lens.
   kind — :conceptual or :change (used as :kind tag in output).
   Pairs matched by #{:ns-a :ns-b}. Score changes < 0.01 are ignored.
@@ -132,7 +132,7 @@
 
 ;;; ── finding comparison ───────────────────────────────────────────────────
 
-(defn compare-findings
+(defn- compare-findings
   "Compare findings between two diagnose reports.
   Returns {:added [finding] :removed [finding]}.
   Findings matched by [:category :subject]."

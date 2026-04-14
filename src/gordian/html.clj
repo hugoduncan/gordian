@@ -1,7 +1,7 @@
 (ns gordian.html
   (:require [clojure.string :as str]))
 
-(defn escape-html
+(defn- escape-html
   "Escape a string for safe HTML text/attribute rendering."
   [s]
   (-> (str s)
@@ -11,12 +11,12 @@
       (str/replace "\"" "&quot;")
       (str/replace "'" "&#39;")))
 
-(defn join-html
+(defn- join-html
   "Concatenate HTML fragments in order."
   [xs]
   (apply str xs))
 
-(defn tag
+(defn- tag
   "Render an HTML element string.
   Attrs are emitted in deterministic key order."
   ([tag-name body] (tag tag-name {} body))
@@ -30,7 +30,7 @@
           body
           "</" tag-name ">"))))
 
-(defn page
+(defn- page
   "Render a complete HTML document."
   [title body]
   (str "<!DOCTYPE html>"
@@ -42,7 +42,7 @@
                            (tag "title" (escape-html title))))
                  (tag "body" body)))))
 
-(defn summary-cards
+(defn- summary-cards
   [summary]
   (tag "section" {:class "summary-cards"}
        (join-html
@@ -84,7 +84,7 @@
             (tag "td" (format "%.2f" (double density)))
             (tag "td" (str/join ", " (map str members))))))
 
-(defn block-table
+(defn- block-table
   [blocks]
   (tag "table" {:class "block-table"}
        (str (tag "thead"
@@ -102,7 +102,7 @@
             (tag "td" (str "B" to))
             (tag "td" edge-count))))
 
-(defn edge-table
+(defn- edge-table
   [edges]
   (tag "table" {:class "edge-table"}
        (str (tag "thead"
@@ -116,7 +116,7 @@
                    (tag "tr"
                         (tag "td" {:colspan 3} "(none)")))))))
 
-(defn edge-intensity-class
+(defn- edge-intensity-class
   [edge-count]
   (cond
     (<= edge-count 0) "empty"
@@ -132,7 +132,7 @@
                [[from to] edge-count]))
         edges))
 
-(defn collapsed-matrix
+(defn- collapsed-matrix
   [blocks edges]
   (let [ids         (mapv :id blocks)
         block-by-id (into {} (map (juxt :id identity) blocks))
@@ -174,7 +174,7 @@
                                         (join-html (map (fn [col-id] (body-cell row-id col-id)) ids))))))
                           ids))))))))
 
-(defn mini-matrix
+(defn- mini-matrix
   [{:keys [members internal-edges]}]
   (let [members  (vec members)
         size     (count members)
@@ -207,7 +207,7 @@
                                        idxs)))))
                      idxs)))))))
 
-(defn block-detail-section
+(defn- block-detail-section
   [{:keys [id size members internal-edge-count density] :as detail}]
   (tag "details" {:class "scc-detail"
                   :id (block-anchor-id id)}
@@ -280,7 +280,7 @@
                      (edge-table edges)))
            details-section)))))
 
-(defn block-details-section
+(defn- block-details-section
   [details]
   (when (seq details)
     (tag "section" {:class "scc-details"}

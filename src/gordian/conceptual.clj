@@ -19,7 +19,7 @@
 
 ;;; ── TF-IDF ────────────────────────────────────────────────────────────────
 
-(defn term-freqs
+(defn- term-freqs
   "Return {term → count} for a sequence of terms."
   [terms]
   (frequencies terms))
@@ -54,15 +54,6 @@
 
 ;;; ── similarity ────────────────────────────────────────────────────────────
 
-(defn cosine-sim
-  "Cosine similarity between two TF-IDF weight maps {term → float}.
-  Returns a value in [0.0, 1.0].  Returns 0.0 when either vector is empty."
-  [va vb]
-  (let [dot   (reduce-kv (fn [s t w] (+ s (* w (get vb t 0.0)))) 0.0 va)
-        mag-a (Math/sqrt (reduce-kv (fn [s _ w] (+ s (* w w))) 0.0 va))
-        mag-b (Math/sqrt (reduce-kv (fn [s _ w] (+ s (* w w))) 0.0 vb))]
-    (if (zero? (* mag-a mag-b)) 0.0 (/ dot (* mag-a mag-b)))))
-
 (defn normalize-tfidf
   "Normalize each TF-IDF vector to unit length.
   Returns {ns → {term → normalized-weight}}.
@@ -77,19 +68,6 @@
                         v
                         (into {} (map (fn [[t w]] [t (/ w mag)]) v)))]))
               tfidf)))
-
-(defn coupling-terms
-  "Return the top-n terms driving the similarity between two TF-IDF vectors.
-  Ranks shared terms by their joint contribution (weight-a × weight-b) desc.
-  Terms absent from either vector contribute zero and are omitted."
-  [va vb n]
-  (->> (keys va)
-       (keep (fn [t]
-               (when-let [wb (get vb t)]
-                 [t (* (get va t) wb)])))
-       (sort-by second >)
-       (take n)
-       (mapv first)))
 
 ;;; ── pairs ─────────────────────────────────────────────────────────────────
 

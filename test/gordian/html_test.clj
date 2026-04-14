@@ -2,37 +2,50 @@
   (:require [clojure.test :refer [deftest is testing]]
             [gordian.html :as sut]))
 
+(def escape-html #'gordian.html/escape-html)
+(def join-html #'gordian.html/join-html)
+(def tag #'gordian.html/tag)
+(def page #'gordian.html/page)
+(def summary-cards #'gordian.html/summary-cards)
+(def block-table #'gordian.html/block-table)
+(def edge-table #'gordian.html/edge-table)
+(def edge-intensity-class #'gordian.html/edge-intensity-class)
+(def collapsed-matrix #'gordian.html/collapsed-matrix)
+(def mini-matrix #'gordian.html/mini-matrix)
+(def block-detail-section #'gordian.html/block-detail-section)
+(def block-details-section #'gordian.html/block-details-section)
+
 (deftest escape-html-test
   (testing "escapes five special characters"
     (is (= "&amp;&lt;&gt;&quot;&#39;"
-           (sut/escape-html "&<>\"'"))))
+           (escape-html "&<>\"'"))))
 
   (testing "plain text unchanged"
-    (is (= "hello" (sut/escape-html "hello")))))
+    (is (= "hello" (escape-html "hello")))))
 
 (deftest join-html-test
   (is (= "<a></a><b></b>"
-         (sut/join-html ["<a></a>" "<b></b>"]))))
+         (join-html ["<a></a>" "<b></b>"]))))
 
 (deftest tag-test
   (testing "renders element with no attrs"
     (is (= "<div>x</div>"
-           (sut/tag "div" "x"))))
+           (tag "div" "x"))))
 
   (testing "renders attrs in deterministic order"
     (is (= "<div a=\"1\" b=\"2\">x</div>"
-           (sut/tag "div" {:b 2 :a 1} "x"))))
+           (tag "div" {:b 2 :a 1} "x"))))
 
   (testing "escapes attribute values"
     (is (= "<div title=\"a&amp;b\">x</div>"
-           (sut/tag "div" {:title "a&b"} "x"))))
+           (tag "div" {:title "a&b"} "x"))))
 
   (testing "preserves nested body content"
     (is (= "<div><span>x</span></div>"
-           (sut/tag "div" "<span>x</span>")))))
+           (tag "div" "<span>x</span>")))))
 
 (deftest page-test
-  (let [html (sut/page "DSM" "<main>body</main>")]
+  (let [html (page "DSM" "<main>body</main>")]
     (is (.startsWith html "<!DOCTYPE html>"))
     (is (.contains html "<title>DSM</title>"))
     (is (.contains html "<body><main>body</main></body>"))))
@@ -62,7 +75,7 @@
     :density 0.5}])
 
 (deftest summary-cards-test
-  (let [html (sut/summary-cards summary)]
+  (let [html (summary-cards summary)]
     (is (.contains html "Blocks"))
     (is (.contains html ">12<"))
     (is (.contains html "Singleton blocks"))
@@ -71,7 +84,7 @@
     (is (.contains html "0.1364"))))
 
 (deftest block-table-test
-  (let [html (sut/block-table blocks)]
+  (let [html (block-table blocks)]
     (is (.contains html "<th>Block</th>"))
     (is (.contains html "B0 · gordian.aggregate"))
     (is (.contains html "B1 · foo.a +2"))
@@ -81,7 +94,7 @@
 
 (deftest edge-table-test
   (testing "includes headers and counted edges"
-    (let [html (sut/edge-table edges)]
+    (let [html (edge-table edges)]
       (is (.contains html "<th>From</th>"))
       (is (.contains html "<th>To</th>"))
       (is (.contains html "<th>Edge count</th>"))
@@ -90,18 +103,18 @@
       (is (.contains html ">2<"))))
 
   (testing "renders empty state"
-    (let [html (sut/edge-table [])]
+    (let [html (edge-table [])]
       (is (.contains html "(none)")))))
 
 (deftest edge-intensity-class-test
-  (is (= "empty" (sut/edge-intensity-class 0)))
-  (is (= "edge-1" (sut/edge-intensity-class 1)))
-  (is (= "edge-2" (sut/edge-intensity-class 2)))
-  (is (= "edge-3" (sut/edge-intensity-class 3)))
-  (is (= "edge-4plus" (sut/edge-intensity-class 4))))
+  (is (= "empty" (edge-intensity-class 0)))
+  (is (= "edge-1" (edge-intensity-class 1)))
+  (is (= "edge-2" (edge-intensity-class 2)))
+  (is (= "edge-3" (edge-intensity-class 3)))
+  (is (= "edge-4plus" (edge-intensity-class 4))))
 
 (deftest collapsed-matrix-test
-  (let [html (sut/collapsed-matrix blocks edges)]
+  (let [html (collapsed-matrix blocks edges)]
     (testing "includes row and column block headers with namespace labels"
       (is (.contains html ">B0 · gordian.aggregate<"))
       (is (.contains html ">B1 · foo.a +2<")))
@@ -121,13 +134,13 @@
       (is (.contains html "title=\"B1 -&gt; B0: 2 edges\"")))
 
     (testing "renders deterministically"
-      (is (= html (sut/collapsed-matrix blocks edges))))
+      (is (= html (collapsed-matrix blocks edges))))
 
     (testing "single-block input handled"
-      (is (.contains (sut/collapsed-matrix [{:id 0 :size 1 :cyclic? false :members ['a]}] []) ">B0 · a<")))))
+      (is (.contains (collapsed-matrix [{:id 0 :size 1 :cyclic? false :members ['a]}] []) ">B0 · a<")))))
 
 (deftest mini-matrix-test
-  (let [html (sut/mini-matrix (first details))]
+  (let [html (mini-matrix (first details))]
     (is (.contains html "<table"))
     (is (.contains html ">foo.a<"))
     (is (.contains html ">foo.b<"))
@@ -135,7 +148,7 @@
     (is (.contains html ">X<"))))
 
 (deftest block-detail-section-test
-  (let [html (sut/block-detail-section (first details))]
+  (let [html (block-detail-section (first details))]
     (is (.contains html "<details"))
     (is (.contains html "id=\"block-B1\""))
     (is (.contains html "<summary>"))
@@ -145,13 +158,13 @@
 
 (deftest block-details-section-test
   (testing "omits empty detail section"
-    (is (nil? (sut/block-details-section []))))
+    (is (nil? (block-details-section []))))
 
   (testing "multiple details preserve order"
-    (let [html (sut/block-details-section (conj details
-                                                {:id 3 :members ['z.a 'z.b] :size 2
-                                                 :internal-edges [[0 1] [1 0]]
-                                                 :internal-edge-count 2 :density 1.0}))]
+    (let [html (block-details-section (conj details
+                                            {:id 3 :members ['z.a 'z.b] :size 2
+                                             :internal-edges [[0 1] [1 0]]
+                                             :internal-edge-count 2 :density 1.0}))]
       (is (< (.indexOf html "Block B1")
              (.indexOf html "Block B3"))))))
 

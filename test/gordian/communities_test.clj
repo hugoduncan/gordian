@@ -2,6 +2,20 @@
   (:require [clojure.test :refer [deftest is]]
             [gordian.communities :as sut]))
 
+(def canonical-edge #'gordian.communities/canonical-edge)
+(def undirected-structural-edges #'gordian.communities/undirected-structural-edges)
+(def conceptual-edges #'gordian.communities/conceptual-edges)
+(def change-edges #'gordian.communities/change-edges)
+(def combined-edges #'gordian.communities/combined-edges)
+(def threshold-edges #'gordian.communities/threshold-edges)
+(def adjacency-map #'gordian.communities/adjacency-map)
+(def connected-components #'gordian.communities/connected-components)
+(def community-edge-count #'gordian.communities/community-edge-count)
+(def community-density #'gordian.communities/community-density)
+(def internal-boundary-weight #'gordian.communities/internal-boundary-weight)
+(def bridge-namespaces #'gordian.communities/bridge-namespaces)
+(def dominant-terms #'gordian.communities/dominant-terms)
+
 (def graph
   {'a #{'b}
    'b #{'c}
@@ -18,43 +32,43 @@
                   {:ns-a 'd :ns-b 'e :score 0.35}]})
 
 (deftest canonical-edge-test
-  (is (= {:a 'a :b 'b} (sut/canonical-edge 'a 'b)))
-  (is (= {:a 'a :b 'b} (sut/canonical-edge 'b 'a))))
+  (is (= {:a 'a :b 'b} (canonical-edge 'a 'b)))
+  (is (= {:a 'a :b 'b} (canonical-edge 'b 'a))))
 
 (deftest undirected-structural-edges-test
-  (let [edges (sut/undirected-structural-edges graph)]
+  (let [edges (undirected-structural-edges graph)]
     (is (= 3 (count edges)))
     (is (= #{:structural} (:sources (first edges))))
     (is (= 1.0 (:weight (first edges))))))
 
 (deftest conceptual-edges-test
-  (let [edges (sut/conceptual-edges (:conceptual-pairs report) 0.25)]
+  (let [edges (conceptual-edges (:conceptual-pairs report) 0.25)]
     (is (= 1 (count edges)))
     (is (= #{:conceptual} (:sources (first edges))))))
 
 (deftest change-edges-test
-  (let [edges (sut/change-edges (:change-pairs report) 0.30)]
+  (let [edges (change-edges (:change-pairs report) 0.30)]
     (is (= 2 (count edges)))
     (is (= #{:change} (:sources (first edges))))))
 
 (deftest combined-edges-test
-  (let [edges (sut/combined-edges report {:conceptual-threshold 0.15 :change-threshold 0.30})
+  (let [edges (combined-edges report {:conceptual-threshold 0.15 :change-threshold 0.30})
         ab    (first (filter #(and (= 'a (:a %)) (= 'b (:b %))) edges))]
     (is ab)
     (is (> (:weight ab) 1.0))
     (is (= #{:structural :change} (:sources ab)))))
 
 (deftest threshold-edges-test
-  (is (= 1 (count (sut/threshold-edges [{:weight 0.2} {:weight 0.8}] 0.5)))))
+  (is (= 1 (count (threshold-edges [{:weight 0.2} {:weight 0.8}] 0.5)))))
 
 (deftest adjacency-map-test
-  (let [adj (sut/adjacency-map [{:a 'a :b 'b} {:a 'b :b 'c}])]
+  (let [adj (adjacency-map [{:a 'a :b 'b} {:a 'b :b 'c}])]
     (is (= #{'b} (get adj 'a)))
     (is (= #{'a 'c} (get adj 'b)))))
 
 (deftest connected-components-test
   (let [adj {'a #{'b} 'b #{'a} 'd #{'e} 'e #{'d}}
-        comps (sut/connected-components adj ['a 'b 'd 'e 'solo])]
+        comps (connected-components adj ['a 'b 'd 'e 'solo])]
     (is (= 3 (count comps)))
     (is (some #(= #{'a 'b} %) comps))
     (is (some #(= #{'d 'e} %) comps))
@@ -65,21 +79,21 @@
                {:a 'b :b 'c :weight 1.0}
                {:a 'a :b 'x :weight 0.5}]
         members ['a 'b 'c]
-        w (sut/internal-boundary-weight members edges)]
-    (is (= 2 (sut/community-edge-count members edges)))
+        w (internal-boundary-weight members edges)]
+    (is (= 2 (community-edge-count members edges)))
     (is (= 2.0 (:internal-weight w)))
     (is (= 0.5 (:boundary-weight w)))
-    (is (= 0.6666666666666666 (sut/community-density members edges)))))
+    (is (= 0.6666666666666666 (community-density members edges)))))
 
 (deftest bridge-namespaces-test
   (let [edges [{:a 'a :b 'x :weight 0.2}
                {:a 'a :b 'y :weight 0.7}
                {:a 'b :b 'z :weight 0.4}]
-        bridges (sut/bridge-namespaces ['a 'b] edges)]
+        bridges (bridge-namespaces ['a 'b] edges)]
     (is (= ['a 'b] bridges))))
 
 (deftest dominant-terms-test
-  (is (= ["x" "y"] (sut/dominant-terms report ['a 'c]))))
+  (is (= ["x" "y"] (dominant-terms report ['a 'c]))))
 
 (deftest community-report-test
   (let [r (sut/community-report report {:lens :structural})]
