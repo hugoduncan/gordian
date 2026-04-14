@@ -69,9 +69,9 @@
 ;;; ── discover-dirs — no layout ───────────────────────────────────────────
 
 (deftest discover-dirs-no-layout-test
-  (let [tmp (str (fs/create-temp-dir {:prefix "gordian-empty"}))]
+  (fs/with-temp-dir [tmp {:prefix "gordian-empty"}]
     (testing "dir with no standard layout → empty"
-      (let [{:keys [src-dirs test-dirs]} (sut/discover-dirs tmp)]
+      (let [{:keys [src-dirs test-dirs]} (sut/discover-dirs (str tmp))]
         (is (empty? src-dirs))
         (is (empty? test-dirs))))))
 

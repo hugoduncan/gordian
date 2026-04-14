@@ -609,9 +609,9 @@
 
 (deftest resolve-opts-empty-project-test
   (testing "project root with no src dirs → error"
-    (let [tmp (str (fs/create-temp-dir {:prefix "gordian-empty-proj"}))
-          _   (spit (str tmp "/deps.edn") "{}")]
-      (is (contains? (sut/resolve-opts {:src-dirs [tmp]}) :error)))))
+    (fs/with-temp-dir [tmp {:prefix "gordian-empty-proj"}]
+      (spit (str tmp "/deps.edn") "{}")
+      (is (contains? (sut/resolve-opts {:src-dirs [(str tmp)]}) :error)))))
 
 ;;; ── build-report with --exclude ──────────────────────────────────────────
 

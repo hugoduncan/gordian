@@ -7,33 +7,33 @@
 
 (deftest load-config-test
   (testing "dir with valid .gordian.edn → parsed map"
-    (let [tmp (str (fs/create-temp-dir {:prefix "gordian-cfg"}))]
+    (fs/with-temp-dir [tmp {:prefix "gordian-cfg"}]
       (spit (str tmp "/.gordian.edn") "{:conceptual 0.20 :change true}")
-      (is (= {:conceptual 0.20 :change true} (sut/load-config tmp)))))
+      (is (= {:conceptual 0.20 :change true} (sut/load-config (str tmp))))))
 
   (testing "dir without .gordian.edn → nil"
-    (let [tmp (str (fs/create-temp-dir {:prefix "gordian-nocfg"}))]
-      (is (nil? (sut/load-config tmp)))))
+    (fs/with-temp-dir [tmp {:prefix "gordian-nocfg"}]
+      (is (nil? (sut/load-config (str tmp))))))
 
   (testing "malformed .gordian.edn → nil"
-    (let [tmp (str (fs/create-temp-dir {:prefix "gordian-bad"}))]
+    (fs/with-temp-dir [tmp {:prefix "gordian-bad"}]
       (spit (str tmp "/.gordian.edn") "{:broken")
-      (is (nil? (sut/load-config tmp)))))
+      (is (nil? (sut/load-config (str tmp))))))
 
   (testing "empty .gordian.edn → nil (empty string is not a map)"
-    (let [tmp (str (fs/create-temp-dir {:prefix "gordian-empty"}))]
+    (fs/with-temp-dir [tmp {:prefix "gordian-empty"}]
       (spit (str tmp "/.gordian.edn") "")
-      (is (nil? (sut/load-config tmp)))))
+      (is (nil? (sut/load-config (str tmp))))))
 
   (testing ".gordian.edn with {} → empty map"
-    (let [tmp (str (fs/create-temp-dir {:prefix "gordian-mt"}))]
+    (fs/with-temp-dir [tmp {:prefix "gordian-mt"}]
       (spit (str tmp "/.gordian.edn") "{}")
-      (is (= {} (sut/load-config tmp)))))
+      (is (= {} (sut/load-config (str tmp))))))
 
   (testing ".gordian.edn with non-map value → nil"
-    (let [tmp (str (fs/create-temp-dir {:prefix "gordian-vec"}))]
+    (fs/with-temp-dir [tmp {:prefix "gordian-vec"}]
       (spit (str tmp "/.gordian.edn") "[1 2 3]")
-      (is (nil? (sut/load-config tmp))))))
+      (is (nil? (sut/load-config (str tmp)))))))
 
 ;;; ── merge-opts ───────────────────────────────────────────────────────────
 
