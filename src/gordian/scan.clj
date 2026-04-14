@@ -73,7 +73,7 @@
 
 ;;; ── directory scan ───────────────────────────────────────────────────────
 
-(defn scan
+(defn- scan
   "Recursively scan src-dir for .clj files.
   Returns {ns-sym → #{dep-syms}} for all parseable files.
   Files are parsed in parallel (pmap)."

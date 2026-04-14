@@ -9,7 +9,7 @@
 ;;; namespaces that all mutually reach each other — i.e. a dependency cycle.
 ;;; Tarjan produces SCCs in reverse topological order.
 
-(defn tarjan
+(defn- tarjan
   "Return all SCCs of `graph` as a vector of sets.
   `graph` — adjacency map {node → #{direct-deps}}.
   Nodes referenced as deps but absent as keys are ignored as sinks."

@@ -189,7 +189,7 @@
                     :test-members test-members}))))
        vec))
 
-(defn invariants
+(defn- invariants
   "Assemble test-architecture invariants and edge categories from a full report."
   [full-report origins profiles]
   {:src->test-edges                     (src->test-edges (:graph full-report) origins profiles)
@@ -199,7 +199,7 @@
    :shared-test-support                 (shared-test-support (:graph full-report) origins profiles)
    :mixed-cycles                        (mixed-cycles (:cycles full-report) origins)})
 
-(defn core-coverage
+(defn- core-coverage
   "Compare source-only vs src+test Ca for core source namespaces.
   Returns {:tested-core [...] :untested-core [...]}, where tested means
   the namespace gained incoming direct dependents when tests were included."
@@ -224,7 +224,7 @@
     {:tested-core   (vec (filter #(pos? (:ca-delta %)) rows))
      :untested-core (vec (filter #(zero? (:ca-delta %)) rows))}))
 
-(defn pc-summary
+(defn- pc-summary
   "Compare propagation cost of src-only vs src+test views.
   Interpretation follows the practical-guide / skill guidance:
     small delta   -> targeted tests

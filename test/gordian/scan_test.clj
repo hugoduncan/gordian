@@ -6,6 +6,7 @@
 
 (def deps-from-ns-form #'gordian.scan/deps-from-ns-form)
 (def parse-file #'gordian.scan/parse-file)
+(def scan #'gordian.scan/scan)
 (def scan-path #'gordian.scan/scan-path)
 (def parse-file-all #'gordian.scan/parse-file-all)
 (def scan-all #'gordian.scan/scan-all)
@@ -78,23 +79,23 @@
     (is (= {'alpha #{}
             'beta  '#{alpha}
             'gamma '#{alpha beta}}
-           (sut/scan fixture-dir))))
+           (scan fixture-dir))))
 
   (testing "reader-cond fixture directory"
     (is (= {'portable '#{alpha beta}}
-           (sut/scan "resources/fixture-cljc"))))
+           (scan "resources/fixture-cljc"))))
 
   (testing "empty directory"
     (let [tmp (str (java.io.File/createTempFile "gordian-dir" ""))
           dir (doto (java.io.File. (str tmp "-dir")) .mkdirs)]
-      (is (= {} (sut/scan (str dir))))
+      (is (= {} (scan (str dir))))
       (io/delete-file dir))))
 
 ;;; ── scan-dirs ────────────────────────────────────────────────────────────
 
 (deftest scan-dirs-test
   (testing "single dir — same as scan"
-    (is (= (sut/scan fixture-dir)
+    (is (= (scan fixture-dir)
            (sut/scan-dirs [fixture-dir]))))
 
   (testing "merges two dirs into one graph"
@@ -190,7 +191,7 @@
       (is (contains? result :ns->terms))))
 
   (testing ":graph matches scan"
-    (is (= (sut/scan fixture-dir)
+    (is (= (scan fixture-dir)
            (:graph (scan-all conceptual/extract-terms fixture-dir)))))
 
   (testing ":ns->terms contains expected namespaces and term vectors"

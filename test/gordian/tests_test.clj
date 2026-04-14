@@ -8,6 +8,9 @@
 (def test-style #'gordian.tests/test-style)
 (def classify-test-styles #'gordian.tests/classify-test-styles)
 (def shared-test-support #'gordian.tests/shared-test-support)
+(def invariants #'gordian.tests/invariants)
+(def core-coverage #'gordian.tests/core-coverage)
+(def pc-summary #'gordian.tests/pc-summary)
 
 (deftest support-test-ns?-test
   (testing "support-like namespace names are detected"
@@ -132,7 +135,7 @@
                   {:ns 'app.test-support :test-role :support :ca 2}]
         report {:graph graph
                 :cycles [#{'app.core 'app.test-support} #{'app.core-test 'app.other-test}]}
-        inv (sut/invariants report origins profiles)]
+        inv (invariants report origins profiles)]
     (testing "src->test edges are detected"
       (is (= [{:src 'app.core :test 'app.test-support :test-role :support}]
              (:src->test-edges inv))))
@@ -193,7 +196,7 @@
                  'app.db :src
                  'app.main :src
                  'app.core-test :test}
-        coverage (sut/core-coverage src-report full-report origins)]
+        coverage (core-coverage src-report full-report origins)]
     (is (= [{:ns 'app.core :role :core :ca-src 2 :ca-with-tests 4 :ca-delta 2}]
            (:tested-core coverage)))
     (is (= [{:ns 'app.db :role :core :ca-src 1 :ca-with-tests 1 :ca-delta 0}]
@@ -202,18 +205,18 @@
 (deftest pc-summary-test
   (testing "large delta => :over-coupled"
     (is (= {:pc-src 0.10 :pc-with-tests 0.25 :pc-delta 0.15 :interpretation :over-coupled}
-           (sut/pc-summary {:propagation-cost 0.10}
-                           {:propagation-cost 0.25}))))
+           (pc-summary {:propagation-cost 0.10}
+                       {:propagation-cost 0.25}))))
 
   (testing "near-zero delta => :no-integration-pressure"
     (is (= {:pc-src 0.10 :pc-with-tests 0.11 :pc-delta 0.009999999999999995 :interpretation :no-integration-pressure}
-           (sut/pc-summary {:propagation-cost 0.10}
-                           {:propagation-cost 0.11}))))
+           (pc-summary {:propagation-cost 0.10}
+                       {:propagation-cost 0.11}))))
 
   (testing "middle delta => :targeted"
     (is (= {:pc-src 0.10 :pc-with-tests 0.14 :pc-delta 0.04000000000000001 :interpretation :targeted}
-           (sut/pc-summary {:propagation-cost 0.10}
-                           {:propagation-cost 0.14})))))
+           (pc-summary {:propagation-cost 0.10}
+                       {:propagation-cost 0.14})))))
 
 (deftest tests-findings-test
   (let [profiles [{:ns 'app.core-test
