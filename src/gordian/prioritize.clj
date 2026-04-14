@@ -61,7 +61,7 @@
   (let [score (double (finding/finding-score finding))]
     (* 2.0 score)))
 
-(defn actionability-score
+(defn- actionability-score
   "Compute relative actionability score for a finding.
   Higher means more likely to be high-leverage to investigate or fix."
   [finding context]
@@ -74,7 +74,7 @@
      (family-noise-penalty finding)
      (same-family-hidden-penalty finding)))
 
-(defn annotate-actionability
+(defn- annotate-actionability
   "Attach :actionability-score to each finding."
   [findings context]
   (mapv (fn [f]

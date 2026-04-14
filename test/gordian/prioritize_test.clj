@@ -3,6 +3,9 @@
             [gordian.finding :as finding]
             [gordian.prioritize :as sut]))
 
+(def actionability-score #'gordian.prioritize/actionability-score)
+(def annotate-actionability #'gordian.prioritize/annotate-actionability)
+
 (def high-cross
   {:severity :high
    :category :cross-lens-hidden
@@ -36,15 +39,15 @@
 (deftest actionability-score-test
   (let [ctx (sut/cluster-context [{:findings [high-cross medium-same-family]}] [])]
     (testing "cross-lens cross-family scores high"
-      (is (> (sut/actionability-score high-cross ctx) 10.0)))
+      (is (> (actionability-score high-cross ctx) 10.0)))
     (testing "same-family naming noise is penalized"
-      (is (< (sut/actionability-score low-noise ctx) 2.0)))
+      (is (< (actionability-score low-noise ctx) 2.0)))
     (testing "hub is low actionability"
-      (is (< (sut/actionability-score hub ctx) 2.0)))))
+      (is (< (actionability-score hub ctx) 2.0)))))
 
 (deftest annotate-actionability-test
   (let [ctx (sut/cluster-context [] [])
-        xs  (sut/annotate-actionability [hub] ctx)]
+        xs  (annotate-actionability [hub] ctx)]
     (is (number? (:actionability-score (first xs))))))
 
 (deftest rank-findings-severity-test

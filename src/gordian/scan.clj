@@ -20,7 +20,7 @@
 (defn- require-clause? [clause]
   (and (seq? clause) (= :require (first clause))))
 
-(defn deps-from-ns-form
+(defn- deps-from-ns-form
   "Return #{dep-syms} mentioned in (:require ...) clauses of a (ns ...) form."
   [ns-form]
   (let [req-clauses (filter require-clause? (drop 2 ns-form))]
@@ -58,7 +58,7 @@
                (= 'ns (first form))) form
           :else               (recur))))))
 
-(defn parse-file
+(defn- parse-file
   "Read a .clj file and return {:ns sym :deps #{sym}}, or nil on failure.
   Uses edamame's incremental reader so only the ns form is parsed;
   the file body (which may contain reader syntax edamame mishandles,
@@ -93,7 +93,7 @@
        (map scan)
        (apply merge {})))
 
-(defn scan-path
+(defn- scan-path
   "Scan one typed path entry {:dir string :kind :src|:test}.
   Returns {:graph {ns → #{deps}} :origins {ns → kind}}."
   [{:keys [dir kind]}]
@@ -148,7 +148,7 @@
 
 ;;; ── combined single-pass scan ────────────────────────────────────────────
 
-(defn parse-file-all
+(defn- parse-file-all
   "Read a .clj file once and return {:ns sym :deps #{sym} :terms [term]}, or nil.
   `terms-fn` extracts terms from the fully-parsed file (see section comment).
   Single-pass: reads and parses the file once, extracting both the structural
@@ -160,7 +160,7 @@
        :deps  (deps-from-ns-form ns-form)
        :terms (terms-fn ns forms)})))
 
-(defn scan-all
+(defn- scan-all
   "Recursively scan src-dir for .clj files in a single pass per file.
   `terms-fn` extracts terms per file (see section comment).
   Returns {:graph {ns → #{deps}} :ns->terms {ns → [term]}}.

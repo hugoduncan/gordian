@@ -19,7 +19,7 @@
   (let [s (str ns-sym)]
     (boolean (some #(str/includes? s %) support-fragments))))
 
-(defn integration-cue?
+(defn- integration-cue?
   "True when the namespace name suggests an integration/system style test."
   [ns-sym]
   (let [s (str ns-sym)]
@@ -30,7 +30,7 @@
   [ns-sym]
   (if (support-test-ns? ns-sym) :support :executable))
 
-(defn src-only-graph
+(defn- src-only-graph
   "Restrict graph to source namespaces only, preserving only src→src edges."
   [graph origins]
   (let [src-ns (set (keep (fn [[ns-sym kind]] (when (= :src kind) ns-sym)) origins))]
@@ -39,7 +39,7 @@
                  [ns-sym (set (filter src-ns deps))]))
           (filter (fn [[ns-sym _]] (contains? src-ns ns-sym)) graph))))
 
-(defn incoming-index
+(defn- incoming-index
   "Build {ns -> #{incoming-dependents}} from a direct dependency graph."
   [graph]
   (reduce-kv (fn [acc ns-sym deps]
@@ -56,7 +56,7 @@
     (/ (reduce + 0.0 xs) (count xs))
     0.0))
 
-(defn test-style
+(defn- test-style
   "Classify one test profile as :support, :unit-ish, :integration-ish, or :mixed.
   Thresholds map accepts :high-reach, :high-ce, :low-reach, :low-ce."
   [{:keys [test-role reach ce integration-cue?]} {:keys [high-reach high-ce low-reach low-ce]}]
@@ -69,7 +69,7 @@
          (<= (or ce 0) low-ce)) :unit-ish
     :else :mixed))
 
-(defn classify-test-styles
+(defn- classify-test-styles
   "Attach :test-style to test profiles.
   Thresholds are derived from executable-test distributions with conservative
   floors/caps so small fixtures remain deterministic.
@@ -101,7 +101,7 @@
                         nodes)]
     (classify-test-styles profiles)))
 
-(defn src->test-edges
+(defn- src->test-edges
   "Return direct src→test dependency edges."
   [graph origins profiles]
   (let [role-by-ns (into {} (map (juxt :ns :test-role)) profiles)]
@@ -112,7 +112,7 @@
            :when (= :test (get origins dep))]
        {:src src :test dep :test-role (get role-by-ns dep)}))))
 
-(defn test->test-edges
+(defn- test->test-edges
   "Return direct test→test dependency edges annotated with target test role."
   [graph origins profiles]
   (let [role-by-ns (into {} (map (juxt :ns :test-role)) profiles)]
@@ -123,7 +123,7 @@
            :when (= :test (get origins dep))]
        {:from from :to dep :to-role (get role-by-ns dep)}))))
 
-(defn executable-tests-with-incoming-deps
+(defn- executable-tests-with-incoming-deps
   "Executable test namespaces with any incoming project deps. Incoming source
   deps are more severe, but plain test reuse is still surfaced here."
   [graph origins profiles]
@@ -144,7 +144,7 @@
                       :from-executable (vec (filter #(= :executable (:test-role (get profile-by %))) incoming-test))}))))
          vec)))
 
-(defn support-leaked-to-src
+(defn- support-leaked-to-src
   "Support test namespaces that have incoming source deps."
   [graph origins profiles]
   (let [incoming (incoming-index graph)]
@@ -159,7 +159,7 @@
                       :incoming-src incoming-src}))))
          vec)))
 
-(defn shared-test-support
+(defn- shared-test-support
   "Support test namespaces with incoming deps only from tests. Usually healthy,
   but surfaced for visibility."
   [graph origins profiles]
@@ -176,7 +176,7 @@
                       :incoming-test incoming-test}))))
          vec)))
 
-(defn mixed-cycles
+(defn- mixed-cycles
   "Return SCCs that span both source and test namespaces."
   [cycles origins]
   (->> cycles

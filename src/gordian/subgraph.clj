@@ -8,14 +8,14 @@
             [gordian.scc :as scc]
             [gordian.cluster :as cluster]))
 
-(defn match-prefix?
+(defn- match-prefix?
   "True when ns-sym matches prefix exactly or as a dotted child namespace."
   [prefix ns-sym]
   (let [s (str ns-sym)]
     (or (= s prefix)
         (str/starts-with? s (str prefix ".")))))
 
-(defn members-by-prefix
+(defn- members-by-prefix
   "Return sorted vector of namespaces in graph matching prefix."
   [graph prefix]
   (->> (keys graph)
@@ -23,7 +23,7 @@
        (sort-by str)
        vec))
 
-(defn induced-graph
+(defn- induced-graph
   "Return graph induced by members: only member nodes with internal edges."
   [graph members]
   (let [members (set members)]
@@ -31,7 +31,7 @@
           (map (fn [n] [n (set/intersection members (get graph n #{}))]))
           members)))
 
-(defn graph-density
+(defn- graph-density
   "Directed graph density in [0,1]. 0.0 when fewer than 2 nodes."
   [graph]
   (let [n (count graph)
@@ -40,7 +40,7 @@
       0.0
       (/ (double m) (* n (dec n))))))
 
-(defn boundary-edges
+(defn- boundary-edges
   "Compute incoming/outgoing edges crossing the member boundary."
   [graph members]
   (let [members   (set members)
@@ -68,7 +68,7 @@
      :external-deps external-deps
      :dependents dependents}))
 
-(defn pair-membership
+(defn- pair-membership
   "Classify pair wrt members: :internal, :touching, or nil."
   [{:keys [ns-a ns-b]} members]
   (let [members (set members)
@@ -79,7 +79,7 @@
       (or a? b?)  :touching
       :else       nil)))
 
-(defn filter-pairs
+(defn- filter-pairs
   "Filter pairs by membership class.
   membership — :internal | :touching"
   [pairs members membership]
@@ -92,7 +92,7 @@
        (sort-by (juxt (comp str :ns-a) (comp str :ns-b)))
        vec))
 
-(defn finding-touches-members?
+(defn- finding-touches-members?
   "True if finding subject mentions any member namespace."
   [{:keys [subject]} members]
   (let [members (set members)]
@@ -111,7 +111,7 @@
        (filter #(finding-touches-members? % members))
        vec))
 
-(defn summary-counts
+(defn- summary-counts
   "Build summary counts for filtered findings/pairs and boundary."
   [findings conceptual-internal conceptual-touching change-internal change-touching boundary]
   {:finding-counts (into {} (map (fn [[k v]] [k (count v)])) (group-by :category findings))

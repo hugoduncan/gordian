@@ -50,7 +50,7 @@
           (visit v))))
     @result))
 
-(defn cycles
+(defn- cycles
   "Filter `sccs` to only non-trivial SCCs — those that represent real cycles.
   A trivial SCC is a single node with no self-loop in `graph`."
   [graph sccs]

@@ -2,6 +2,13 @@
   (:require [clojure.test :refer [deftest is testing]]
             [gordian.tests :as sut]))
 
+(def integration-cue? #'gordian.tests/integration-cue?)
+(def src-only-graph #'gordian.tests/src-only-graph)
+(def incoming-index #'gordian.tests/incoming-index)
+(def test-style #'gordian.tests/test-style)
+(def classify-test-styles #'gordian.tests/classify-test-styles)
+(def shared-test-support #'gordian.tests/shared-test-support)
+
 (deftest support-test-ns?-test
   (testing "support-like namespace names are detected"
     (is (true? (sut/support-test-ns? 'app.test-support)))
@@ -14,12 +21,12 @@
 
 (deftest integration-cue?-test
   (testing "common integration cues are detected"
-    (is (true? (sut/integration-cue? 'app.integration-test)))
-    (is (true? (sut/integration-cue? 'app.api-test)))
-    (is (true? (sut/integration-cue? 'app.system-smoke-test))))
+    (is (true? (integration-cue? 'app.integration-test)))
+    (is (true? (integration-cue? 'app.api-test)))
+    (is (true? (integration-cue? 'app.system-smoke-test))))
 
   (testing "ordinary unit-ish names have no integration cue"
-    (is (false? (sut/integration-cue? 'app.core-test)))))
+    (is (false? (integration-cue? 'app.core-test)))))
 
 (deftest test-role-test
   (testing "support-like names become :support"
@@ -36,7 +43,7 @@
                  'app.test-support :test}]
     (is (= {'app.core #{'app.db}
             'app.db   #{}}
-           (sut/src-only-graph graph origins)))))
+           (src-only-graph graph origins)))))
 
 (deftest incoming-index-test
   (let [graph {'app.core #{'app.db}
@@ -44,34 +51,34 @@
                'app.test #{'app.core}}]
     (is (= {'app.db   #{'app.core 'app.api}
             'app.core #{'app.api 'app.test}}
-           (sut/incoming-index graph)))))
+           (incoming-index graph)))))
 
 (deftest test-style-test
   (testing "support profiles stay :support"
     (is (= :support
-           (sut/test-style {:test-role :support :reach 0.5 :ce 9}
-                           {:high-reach 0.25 :high-ce 4 :low-reach 0.08 :low-ce 2}))))
+           (test-style {:test-role :support :reach 0.5 :ce 9}
+                       {:high-reach 0.25 :high-ce 4 :low-reach 0.08 :low-ce 2}))))
 
   (testing "low reach + low ce => :unit-ish"
     (is (= :unit-ish
-           (sut/test-style {:test-role :executable :reach 0.03 :ce 1}
-                           {:high-reach 0.25 :high-ce 4 :low-reach 0.08 :low-ce 2}))))
+           (test-style {:test-role :executable :reach 0.03 :ce 1}
+                       {:high-reach 0.25 :high-ce 4 :low-reach 0.08 :low-ce 2}))))
 
   (testing "high reach => :integration-ish"
     (is (= :integration-ish
-           (sut/test-style {:test-role :executable :reach 0.40 :ce 2}
-                           {:high-reach 0.25 :high-ce 4 :low-reach 0.08 :low-ce 2}))))
+           (test-style {:test-role :executable :reach 0.40 :ce 2}
+                       {:high-reach 0.25 :high-ce 4 :low-reach 0.08 :low-ce 2}))))
 
   (testing "middle case => :mixed"
     (is (= :mixed
-           (sut/test-style {:test-role :executable :reach 0.12 :ce 3}
-                           {:high-reach 0.25 :high-ce 4 :low-reach 0.08 :low-ce 2})))))
+           (test-style {:test-role :executable :reach 0.12 :ce 3}
+                       {:high-reach 0.25 :high-ce 4 :low-reach 0.08 :low-ce 2})))))
 
 (deftest classify-test-styles-test
   (let [profiles [{:ns 'app.core-test :test-role :executable :reach 0.02 :ce 1}
                   {:ns 'app.api-test :test-role :executable :reach 0.40 :ce 5}
                   {:ns 'app.test-support :test-role :support :reach 0.01 :ce 0}]
-        by-ns    (into {} (map (juxt :ns identity)) (sut/classify-test-styles profiles))]
+        by-ns    (into {} (map (juxt :ns identity)) (classify-test-styles profiles))]
     (is (= :unit-ish (get-in by-ns ['app.core-test :test-style])))
     (is (= :integration-ish (get-in by-ns ['app.api-test :test-style])))
     (is (= :support (get-in by-ns ['app.test-support :test-style])))))
@@ -172,7 +179,7 @@
     (is (= [{:ns 'app.test-support
              :ca 2
              :incoming-test ['app.api-test 'app.core-test]}]
-           (sut/shared-test-support graph origins profiles)))))
+           (shared-test-support graph origins profiles)))))
 
 (deftest core-coverage-test
   (let [src-report {:nodes [{:ns 'app.core :role :core :ca 2}
