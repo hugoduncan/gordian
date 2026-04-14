@@ -130,6 +130,26 @@ Interpretation notes:
 bbin install io.github.hugoduncan/gordian
 ```
 
+## Development tasks
+
+A few useful Babashka tasks for working on gordian itself:
+
+```bash
+bb test         # run test suite
+bb kondo        # lint src/ and test/
+bb fmt          # check formatting
+bb fmt-fix      # apply formatting
+bb ref-report   # report public fns used only by tests and fns that could be private
+```
+
+`bb ref-report` uses `clojure-lsp` analysis to separate references from `src/`
+and `test/`, then prints three sections:
+- functions used only in tests
+- functions that look like privatization candidates
+- unreferenced public functions
+
+This is intended as a maintenance aid for tightening module API surfaces over time.
+
 ## What it measures
 
 ### Propagation cost
