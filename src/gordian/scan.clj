@@ -112,11 +112,11 @@
                   :origins (merge (:origins a) (:origins b))})
                {:graph {} :origins {}})))
 
-;;; ── full-file term scanning ───────────────────────────────────────────────
+;;; ── single-pass full-file scanning ───────────────────────────────────────
 ;;;
 ;;; Functions in this section accept a `terms-fn` as their first argument.
 ;;; `terms-fn` is called as (terms-fn ns-sym all-forms) → [term] for each
-;;; file parsed.  The caller supplies the extraction logic; scan supplies
+;;; file parsed. The caller supplies the extraction logic; scan supplies
 ;;; only the IO and parsing.
 
 (defn- read-all-forms
@@ -133,39 +133,18 @@
           (= ::skip  form) (recur forms)
           :else            (recur (conj forms form)))))))
 
-(defn parse-file-terms
-  "Read a .clj file and return [ns-sym [term]], or nil on failure.
-  `terms-fn` extracts terms from the fully-parsed file (see section comment).
+(defn- parse-file-all-forms
+  "Read a .clj file and return {:ns sym :forms [form]}, or nil on failure.
   Reads the full file body so that def names and docstrings are captured."
-  [terms-fn path]
+  [path]
   (try
     (let [content (slurp (str path))
           forms   (read-all-forms content)
           ns-form (first (filter #(and (seq? %) (= 'ns (first %))) forms))
           ns-sym  (when ns-form (second ns-form))]
       (when ns-sym
-        [ns-sym (terms-fn ns-sym forms)]))
+        {:ns ns-sym :forms forms}))
     (catch Exception _ nil)))
-
-(defn scan-terms
-  "Recursively scan src-dir for .clj files.
-  `terms-fn` extracts terms per file (see section comment).
-  Returns {ns-sym → [term]} for all parseable files.
-  Files are parsed in parallel (pmap)."
-  [terms-fn src-dir]
-  (->> (fs/glob src-dir "**.clj")
-       (pmap (partial parse-file-terms terms-fn))
-       (keep identity)
-       (into {})))
-
-(defn scan-terms-dirs
-  "Scan multiple src directories and merge their term maps.
-  `terms-fn` extracts terms per file (see section comment).
-  Later directories win on namespace collision."
-  [terms-fn src-dirs]
-  (->> src-dirs
-       (map (partial scan-terms terms-fn))
-       (apply merge {})))
 
 ;;; ── combined single-pass scan ────────────────────────────────────────────
 
@@ -175,16 +154,11 @@
   Single-pass: reads and parses the file once, extracting both the structural
   dependency graph (deps) and the term list in one shot."
   [terms-fn path]
-  (try
-    (let [content (slurp (str path))
-          forms   (read-all-forms content)
-          ns-form (first (filter #(and (seq? %) (= 'ns (first %))) forms))
-          ns-sym  (when ns-form (second ns-form))]
-      (when ns-sym
-        {:ns    ns-sym
-         :deps  (deps-from-ns-form ns-form)
-         :terms (terms-fn ns-sym forms)}))
-    (catch Exception _ nil)))
+  (when-let [{:keys [ns forms]} (parse-file-all-forms path)]
+    (let [ns-form (first (filter #(and (seq? %) (= 'ns (first %))) forms))]
+      {:ns    ns
+       :deps  (deps-from-ns-form ns-form)
+       :terms (terms-fn ns forms)})))
 
 (defn scan-all
   "Recursively scan src-dir for .clj files in a single pass per file.

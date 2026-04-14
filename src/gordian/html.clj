@@ -114,7 +114,7 @@
                  (if (seq edges)
                    (join-html (map edge-row edges))
                    (tag "tr"
-                        (str (tag "td" {:colspan 3} "(none)"))))))))
+                        (tag "td" {:colspan 3} "(none)")))))))
 
 (defn edge-intensity-class
   [edge-count]

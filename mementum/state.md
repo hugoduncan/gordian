@@ -759,7 +759,7 @@ HTML report includes:
 - header/cell tooltips and embedded CSS
 
 Cleanup/feature:
-- Remove zombie API `scan-terms` / `scan-terms-dirs`
+- Removed zombie term-scan API `scan-terms` / `scan-terms-dirs` and the test-only helper they kept alive; `scan-all*` is now the canonical full-file conceptual scan path
 - Shared `gordian.test-fixtures` ns
 - Keyword literal extraction
 - `--conceptual-terms N`

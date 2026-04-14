@@ -271,7 +271,7 @@
           {:severity :high
            :category :test-support-leaked-to-src
            :subject  {:ns ns}
-           :reason   (str "test support namespace is depended on by source namespaces")
+           :reason   "test support namespace is depended on by source namespaces"
            :evidence {:ns ns :ca ca :incoming-src incoming-src}})
         rows))
 
@@ -282,8 +282,8 @@
            :category :test-executable-has-incoming-deps
            :subject  {:ns ns}
            :reason   (if (seq incoming-src)
-                       (str "executable test has incoming source deps")
-                       (str "executable test is reused by other tests"))
+                       "executable test has incoming source deps"
+                       "executable test is reused by other tests")
            :evidence {:ns ns
                       :ca ca
                       :incoming-src incoming-src
@@ -298,7 +298,7 @@
           {:severity :high
            :category :mixed-cycle
            :subject  {:members members}
-           :reason   (str "cycle spans production and test namespaces")
+           :reason   "cycle spans production and test namespaces"
            :evidence {:members members
                       :src-members src-members
                       :test-members test-members
@@ -317,7 +317,7 @@
                {:severity :medium
                 :category :unit-test-too-broad
                 :subject  {:ns ns}
-                :reason   (str "test may be broader than a focused unit test")
+                :reason   "test may be broader than a focused unit test"
                 :evidence {:ns ns :reach reach :ce ce :role role}}))))
 
 (defn find-integration-test-very-broad
@@ -332,7 +332,7 @@
                {:severity :low
                 :category :integration-test-very-broad
                 :subject  {:ns ns}
-                :reason   (str "integration-style test pulls in a very broad slice of the system")
+                :reason   "integration-style test pulls in a very broad slice of the system"
                 :evidence {:ns ns :reach reach :ce ce :role role}}))))
 
 (defn find-untested-core
@@ -341,7 +341,7 @@
           {:severity :medium
            :category :untested-core
            :subject  {:ns ns}
-           :reason   (str "core namespace gains no direct test dependents")
+           :reason   "core namespace gains no direct test dependents"
            :evidence {:ns ns
                       :role role
                       :ca-src ca-src
@@ -356,14 +356,14 @@
     [{:severity :medium
       :category :over-coupled-tests
       :subject  {:suite :tests}
-      :reason   (str "adding tests substantially increases propagation cost")
+      :reason   "adding tests substantially increases propagation cost"
       :evidence pc}]
 
     :no-integration-pressure
     [{:severity :low
       :category :tests-miss-coupling-core
       :subject  {:suite :tests}
-      :reason   (str "adding tests barely changes propagation cost; suite may miss broader integration pressure")
+      :reason   "adding tests barely changes propagation cost; suite may miss broader integration pressure"
       :evidence pc}]
 
     []))
