@@ -15,17 +15,23 @@ Built prefix: `./components/agent-session/src/`
 Git path:      `components/agent-session/src/...`
 `str/starts-with?` → false → path never stripped → ns never matched project graph → 0 pairs.
 
-## Fix (ea994f9)
-Add `(str/replace d #"^\./" "")` before stripping trailing slash:
+## Fix
+Two-layer fix:
+
+**ea994f9** — defence-in-depth in `git.clj`'s `path->ns`:
 ```clojure
-(let [prefix (-> d
-                 (str/replace #"^\./" "")
-                 (str/replace #"/$" "")
-                 (str "/"))]
+(-> d (str/replace #"^\./" "") (str/replace #"/$" "") (str "/"))
 ```
+
+**0b9aea0** — systematic fix at the source:
+- `discover.clj`'s `existing-dir`: `(str (fs/normalize path))` instead of `(str path)`
+- `main.clj`'s `resolve-opts`: `normalize-src-dirs` helper runs `fs/normalize` on
+  all `:src-dirs` before returning, covering explicit paths and config-sourced paths too
+- Wrong docstring "All paths are absolute strings" corrected
 
 ## Result
 1294 candidate pairs, 54 reported change pairs, 24 hidden-change findings unlocked.
+src-dirs in EDN output now show `components/agent-session/src` not `./components/agent-session/src`.
 
 ## Signal
 Symptom is silent: `:candidate-pairs 0` in `:lenses :change` of EDN output.

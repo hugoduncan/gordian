@@ -666,19 +666,31 @@ Potential follow-ups:
 - compare / gate integration for DSM block metrics
 - drilldown on one block or one inter-block relation
 
-## Session 23 commits — bug fix
+## Session 23 commits — bug fix + path normalization
 
 ```
 ea994f9  fix: strip leading ./ from src-dirs in path->ns — change coupling broken on auto-discovered Polylith paths
+0b9aea0  refactor: normalize src-dir paths via fs/normalize at discover + resolve-opts boundaries
 ```
 
-317 tests, 2068 assertions, 0 failures.
+317 tests, 2072 assertions, 0 failures.
 
 Bug: `path->ns` in `git.clj` stripped trailing `/` from src-dirs but not
 leading `./`. Auto-discovery always returns `./components/*/src` style paths.
 Git log returns `components/*/src/...` (no `./`). Prefix never matched →
 0 candidate pairs for change coupling on any auto-discovered Polylith project.
-Fix: `(str/replace d #"^\./" "")` before building the prefix.
+
+Layer 1 fix (ea994f9): `(str/replace d #"^\./" "")` in `git.clj`'s `path->ns`
+— defence-in-depth at the consumer.
+
+Layer 2 fix (0b9aea0): `fs/normalize` at the sources:
+- `discover.clj`'s `existing-dir` now returns `(str (fs/normalize path))`
+- `main.clj`'s `resolve-opts` runs `normalize-src-dirs` before returning,
+  covering explicit paths and config-sourced paths
+- Fixed wrong docstring "All paths are absolute strings" in `discover.clj`
+
+Result: src-dirs are now `components/agent-session/src` not `./components/agent-session/src`
+everywhere — in output, in EDN snapshots, and in path matching.
 
 ## Session 22 — DSM quality tuning
 
