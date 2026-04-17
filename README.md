@@ -130,6 +130,24 @@ Interpretation notes:
 bbin install io.github.hugoduncan/gordian
 ```
 
+## Skills
+
+The `skills/` directory contains AI agent skill definitions for working with gordian and for reasoning about Clojure namespace architecture generally.
+
+| Skill | Description |
+|---|---|
+| `skills/gordian/` | How to invoke and interpret gordian — commands, flags, metrics, findings, workflow |
+| `skills/gordian-plain/` | Same content in plain English (no lambda notation) |
+| `skills/namespace-structure/` | Ideal Clojure namespace architecture principles (tool-agnostic) |
+| `skills/namespace-structure-plain/` | Same content in plain English |
+
+Skills can be installed into an AI agent using [Skills](https://github.com/vercel-labs/skills):
+
+```bash
+npx skills add https://github.com/hugoduncan/gordian/tree/master/skills/gordian
+npx skills add https://github.com/hugoduncan/gordian/tree/master/skills/namespace-structure
+```
+
 ## Development tasks
 
 A few useful Babashka tasks for working on gordian itself:
