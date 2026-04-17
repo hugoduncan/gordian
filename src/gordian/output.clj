@@ -159,7 +159,7 @@
 (defn- format-finding-subject [{:keys [category subject]}]
   (case category
     :cycle          (str/join " → " (sort (map str (:members subject))))
-    (:cross-lens-hidden :hidden-conceptual :hidden-change)
+    (:cross-lens-hidden :hidden-conceptual :hidden-change :vestigial-edge)
     (str (:ns-a subject) " ↔ " (:ns-b subject))
     (or (some-> (:ns subject) str)
         (some-> (:suite subject) name)
@@ -240,6 +240,11 @@
      [(str "  $ " ns)])
    [""]))
 
+(defn- indent-finding-lines
+  "Indent every non-blank line from format-finding-lines by prefix."
+  [prefix f]
+  (map #(if (str/blank? %) "" (str prefix %)) (format-finding-lines f)))
+
 (defn- format-cluster-section
   "Format clusters as lines. Returns nil when no clusters."
   [clusters]
@@ -252,13 +257,7 @@
                       "  cluster: " (str/join ", " (sort-by str namespaces)))
                  (str "  " summary)
                  ""]
-                (mapcat (fn [f]
-                          [(str "    " (severity-marker (:severity f))
-                                "  " (format-finding-subject f)
-                                (when-let [a (:actionability-score f)]
-                                  (str "  [act=" (format "%.1f" a) "]")))
-                           (str "    " (:reason f))])
-                        findings)
+                (mapcat (partial indent-finding-lines "    ") findings)
                 [""]))
              clusters))))
 
