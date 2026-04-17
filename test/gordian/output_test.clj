@@ -398,6 +398,84 @@
     (testing "naming similarity appears in reason"
       (is (some #(str/includes? % "naming similarity") lines)))))
 
+;;; ── format-finding-lines: action + next-step ────────────────────────────
+
+(deftest format-finding-action-test
+  (let [report {:src-dirs ["src/"]}]
+
+    (testing "finding with known :action → output contains action line"
+      (let [f     {:severity :high :category :cross-lens-hidden
+                   :action :extract-abstraction :next-step nil
+                   :subject {:ns-a 'a.core :ns-b 'b.util}
+                   :reason "hidden in 2 lenses"
+                   :evidence {:conceptual-score 0.35 :shared-terms []
+                              :change-score 0.40 :co-changes 4
+                              :confidence-a 0.8 :confidence-b 0.6}}
+            lines (sut/format-diagnose report diagnose-health [f])]
+        (is (some #(str/includes? % "→ extract abstraction") lines))))
+
+    (testing "finding with :action :none → no action line"
+      (let [f     {:severity :low :category :facade
+                   :action :none :next-step nil
+                   :subject {:ns 'foo.main}
+                   :reason "likely façade"
+                   :evidence {:reach 0.5 :fan-in 0.2 :ca 3 :ce 0 :role :shared
+                              :ca-family 2 :ca-external 1 :ce-family 1 :ce-external 0
+                              :family "foo"}}
+            lines (sut/format-diagnose report diagnose-health [f])]
+        (is (not (some #(str/includes? % "→") lines)))))
+
+    (testing "finding with nil :action → no action line"
+      (let [f     {:severity :low :category :hub
+                   :action nil :next-step nil
+                   :subject {:ns 'foo.main}
+                   :reason "high-reach hub"
+                   :evidence {:reach 0.9 :ce 5 :instability 1.0 :role :peripheral}}
+            lines (sut/format-diagnose report diagnose-health [f])]
+        (is (not (some #(str/includes? % "→") lines)))))
+
+    (testing "finding with :next-step → output contains $ command line"
+      (let [f     {:severity :high :category :cross-lens-hidden
+                   :action :extract-abstraction
+                   :next-step "gordian explain-pair a.core b.util"
+                   :subject {:ns-a 'a.core :ns-b 'b.util}
+                   :reason "hidden in 2 lenses"
+                   :evidence {:conceptual-score 0.35 :shared-terms []
+                              :change-score 0.40 :co-changes 4
+                              :confidence-a 0.8 :confidence-b 0.6}}
+            lines (sut/format-diagnose report diagnose-health [f])]
+        (is (some #(str/includes? % "$ gordian explain-pair a.core b.util") lines))))
+
+    (testing "finding with nil :next-step → no $ line"
+      (let [f     {:severity :high :category :cross-lens-hidden
+                   :action :extract-abstraction :next-step nil
+                   :subject {:ns-a 'a.core :ns-b 'b.util}
+                   :reason "hidden in 2 lenses"
+                   :evidence {:conceptual-score 0.35 :shared-terms []
+                              :change-score 0.40 :co-changes 4
+                              :confidence-a 0.8 :confidence-b 0.6}}
+            lines (sut/format-diagnose report diagnose-health [f])]
+        (is (not (some #(str/includes? % "$ ") lines)))))))
+
+(deftest format-diagnose-suppressed-count-test
+  (let [report {:src-dirs ["src/"]}]
+
+    (testing "suppressed-count > 0 → summary mentions noise suppressed"
+      (let [lines (sut/format-diagnose report diagnose-health [] nil :severity 7)]
+        (is (some #(str/includes? % "7 noise suppressed") lines))))
+
+    (testing "suppressed-count 0 → no suppressed mention"
+      (let [lines (sut/format-diagnose report diagnose-health [] nil :severity 0)]
+        (is (not (some #(str/includes? % "noise suppressed") lines)))))
+
+    (testing "suppressed-count nil → no suppressed mention"
+      (let [lines (sut/format-diagnose report diagnose-health [] nil :severity nil)]
+        (is (not (some #(str/includes? % "noise suppressed") lines)))))
+
+    (testing "suppressed message includes --show-noise hint"
+      (let [lines (sut/format-diagnose report diagnose-health [] nil :severity 3)]
+        (is (some #(str/includes? % "--show-noise") lines))))))
+
 ;;; ── format-explain-ns ────────────────────────────────────────────────────
 
 (def ^:private explain-ns-data

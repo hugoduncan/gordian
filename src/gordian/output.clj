@@ -1,5 +1,6 @@
 (ns gordian.output
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [gordian.finding :as finding]))
 
 ;;; ── formatting helpers ───────────────────────────────────────────────────
 
@@ -233,6 +234,10 @@
            (str "  [act=" (format "%.1f" a) "]")))
     (str "  " (:reason f))]
    (format-evidence-lines f)
+   (when-let [disp (some-> (:action f) finding/action-display)]
+     [(str "  → " disp)])
+   (when-let [ns (:next-step f)]
+     [(str "  $ " ns)])
    [""]))
 
 (defn- format-cluster-section
@@ -259,21 +264,29 @@
 
 (defn format-diagnose
   "Format findings as human-readable lines.
-  health    — map from diagnose/health.
-  findings  — sorted vec of finding maps.
-  clusters  — optional {:clusters [...] :unclustered [...]} from cluster/cluster-findings.
-  rank      — :severity or :actionability."
+  health           — map from diagnose/health.
+  findings         — sorted vec of finding maps.
+  clusters-data    — optional {:clusters [...] :unclustered [...]} from cluster/cluster-findings.
+  rank             — :severity or :actionability.
+  suppressed-count — optional count of noise findings suppressed from display."
   ([report health findings]
-   (format-diagnose report health findings nil :severity))
+   (format-diagnose report health findings nil :severity nil))
   ([report health findings clusters-data]
-   (format-diagnose report health findings clusters-data :severity))
-  ([{:keys [src-dirs]} health findings clusters-data rank]
+   (format-diagnose report health findings clusters-data :severity nil))
+  ([report health findings clusters-data rank]
+   (format-diagnose report health findings clusters-data rank nil))
+  ([{:keys [src-dirs]} health findings clusters-data rank suppressed-count]
    (let [count-sev (fn [s] (count (filter #(= s (:severity %)) findings)))
          n-high    (count-sev :high)
          n-medium  (count-sev :medium)
          n-low     (count-sev :low)
          n-total   (count findings)
-         has-clusters? (seq (:clusters clusters-data))]
+         has-clusters? (seq (:clusters clusters-data))
+         summary   (str n-total " finding" (when (not= 1 n-total) "s")
+                        " (" n-high " high, " n-medium " medium, " n-low " low)"
+                        (when (pos? (or suppressed-count 0))
+                          (str " — " suppressed-count
+                               " noise suppressed (--show-noise to include)")))]
      (into
       [(str "gordian diagnose — " n-total " finding" (when (not= 1 n-total) "s"))
        (str "src: " (str/join " " src-dirs))
@@ -299,8 +312,7 @@
              (mapcat format-finding-lines (:unclustered clusters-data)))))
          ;; No clustering: flat list as before
          (mapcat format-finding-lines findings))
-       [(str n-total " finding" (when (not= 1 n-total) "s")
-             " (" n-high " high, " n-medium " medium, " n-low " low)")])))))
+       [summary])))))
 
 ;;; ── explain output ───────────────────────────────────────────────────────
 
@@ -575,6 +587,10 @@
     (:reason f)
     ""]
    (md-evidence-lines f)
+   (when-let [disp (some-> (:action f) finding/action-display)]
+     [(str "**→** " disp) ""])
+   (when-let [ns (:next-step f)]
+     [(str "`$ " ns "`") ""])
    [""]))
 
 (defn- md-format-cluster-section [clusters]
@@ -594,13 +610,16 @@
 
 (defn format-diagnose-md
   "Markdown rendering of findings.
-  clusters-data — optional {:clusters [...] :unclustered [...]}.
-  rank — :severity or :actionability."
+  clusters-data    — optional {:clusters [...] :unclustered [...]}.
+  rank             — :severity or :actionability.
+  suppressed-count — optional count of noise findings suppressed from display."
   ([report health findings]
-   (format-diagnose-md report health findings nil :severity))
+   (format-diagnose-md report health findings nil :severity nil))
   ([report health findings clusters-data]
-   (format-diagnose-md report health findings clusters-data :severity))
-  ([{:keys [src-dirs]} health findings clusters-data rank]
+   (format-diagnose-md report health findings clusters-data :severity nil))
+  ([report health findings clusters-data rank]
+   (format-diagnose-md report health findings clusters-data rank nil))
+  ([{:keys [src-dirs]} health findings clusters-data rank suppressed-count]
    (let [count-sev (fn [s] (count (filter #(= s (:severity %)) findings)))
          n-high    (count-sev :high)
          n-medium  (count-sev :medium)
@@ -644,7 +663,10 @@
        ["---"
         ""
         (str "**" n-total " finding" (when (not= 1 n-total) "s")
-             "** (" n-high " high, " n-medium " medium, " n-low " low)")])))))
+             "** (" n-high " high, " n-medium " medium, " n-low " low)"
+             (when (pos? (or suppressed-count 0))
+               (str " — " suppressed-count
+                    " noise suppressed (--show-noise to include)")))])))))
 
 (defn format-explain-ns-md
   "Markdown rendering of explain-ns data."
@@ -1373,7 +1395,9 @@
   ([report health findings clusters]
    (run! println (format-diagnose report health findings clusters)))
   ([report health findings clusters rank]
-   (run! println (format-diagnose report health findings clusters rank))))
+   (run! println (format-diagnose report health findings clusters rank)))
+  ([report health findings clusters rank suppressed-count]
+   (run! println (format-diagnose report health findings clusters rank suppressed-count))))
 
 (defn print-explain-ns
   "Print a human-readable explain-ns report to stdout."
