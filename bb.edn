@@ -1,5 +1,5 @@
 {:min-bb-version "1.3.0"
- :paths ["src"]
+ :paths ["src" ".bbum/lib"]
  :bbin/bin {gordian {:main-opts ["-m" "gordian.main"]}}
 
  :tasks
@@ -28,9 +28,6 @@
 
   fmt-fix {:doc  "Fix formatting with cljfmt (src/ and test/)"
            :task (shell "cljfmt fix src test")}
-
-  ref-report {:doc  "Report public fns used only by tests and fns that could be private"
-              :task (ref-report/run)}
 
   install-hooks {:doc  "Install pre-commit hooks (cljfmt fix + clj-kondo)"
                  :task (shell "pre-commit install")}
