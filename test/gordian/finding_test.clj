@@ -2,6 +2,14 @@
   (:require [clojure.test :refer [deftest is testing]]
             [gordian.finding :as sut]))
 
+(deftest severity-rank-test
+  (testing "known severities rank in priority order"
+    (is (< (sut/severity-rank :high) (sut/severity-rank :medium)))
+    (is (< (sut/severity-rank :medium) (sut/severity-rank :low))))
+  (testing "unknown severity returns 3"
+    (is (= 3 (sut/severity-rank :unknown)))
+    (is (= 3 (sut/severity-rank nil)))))
+
 (deftest action-for-category-test
   (testing "all defined categories return a keyword"
     (is (keyword? (sut/action-for-category :cycle)))

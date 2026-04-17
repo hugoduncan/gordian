@@ -386,18 +386,9 @@
 
 ;;; ── main diagnose function ──────────────────────────────────────────────
 
-(defn- severity-rank [s]
-  (case s :high 0 :medium 1 :low 2 3))
-
-(defn- finding-sort-key
-  "Sort key: severity first (high→low), then highest score within severity."
-  [f]
-  [(severity-rank (:severity f))
-   (- (finding/finding-magnitude f))])
-
 (defn diagnose
   "Generate all findings from a complete report map.
-  Returns findings sorted by severity then score descending.
+  Returns findings in generation order — callers are responsible for sorting.
   Destructures :graph for vestigial-edge detection; safe when absent."
   [{:keys [cycles nodes conceptual-pairs change-pairs graph] :as _report}]
   (let [nodes*  (or nodes [])
@@ -405,14 +396,13 @@
         xpairs  (or change-pairs [])
         {:keys [findings cross-keys]}
         (find-cross-lens-hidden cpairs xpairs)]
-    (->> (concat
-          (find-cycles (or cycles []) xpairs cpairs nodes*)
-          findings
-          (find-hidden-conceptual cpairs cross-keys)
-          (find-hidden-change xpairs cross-keys)
-          (find-sdp-violations nodes*)
-          (find-god-modules nodes*)
-          (find-hubs nodes*)
-          (find-vestigial-edges (or graph {}) nodes* conceptual-pairs change-pairs))
-         (sort-by finding-sort-key)
-         vec)))
+    (vec
+     (concat
+      (find-cycles (or cycles []) xpairs cpairs nodes*)
+      findings
+      (find-hidden-conceptual cpairs cross-keys)
+      (find-hidden-change xpairs cross-keys)
+      (find-sdp-violations nodes*)
+      (find-god-modules nodes*)
+      (find-hubs nodes*)
+      (find-vestigial-edges (or graph {}) nodes* conceptual-pairs change-pairs)))))

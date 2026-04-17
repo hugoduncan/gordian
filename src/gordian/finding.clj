@@ -108,6 +108,13 @@
 
     nil))
 
+;;; ── ordering ─────────────────────────────────────────────────────────────
+
+(defn severity-rank
+  "Numeric rank for severity, lower = higher priority. Unknown → 3."
+  [s]
+  (case s :high 0 :medium 1 :low 2 3))
+
 ;;; ── magnitude ────────────────────────────────────────────────────────────
 
 (defn finding-magnitude

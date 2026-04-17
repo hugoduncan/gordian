@@ -81,16 +81,13 @@
           (assoc f :actionability-score (actionability-score f context)))
         findings))
 
-(defn- severity-rank [s]
-  (case s :high 0 :medium 1 :low 2 3))
-
 (defn- severity-sort-key [f]
-  [(severity-rank (:severity f))
+  [(finding/severity-rank (:severity f))
    (- (finding/finding-magnitude f))])
 
 (defn- actionability-sort-key [f]
   [(- (:actionability-score f))
-   (severity-rank (:severity f))
+   (finding/severity-rank (:severity f))
    (- (finding/finding-score f))])
 
 (defn rank-findings

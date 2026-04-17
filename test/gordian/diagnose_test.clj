@@ -440,10 +440,6 @@
     (testing "returns a vector"
       (is (vector? findings)))
 
-    (testing "sorted: all :high before :medium before :low"
-      (let [severities (map :severity findings)]
-        (is (= severities (sort-by (fn [s] (case s :high 0 :medium 1 :low 2)) severities)))))
-
     (testing "cycle finding present"
       (is (some #(= :cycle (:category %)) findings)))
 

@@ -50,7 +50,7 @@
    :max-new-high-findings {:desc "Maximum newly introduced high-severity findings" :coerce :long}
    :max-new-medium-findings {:desc "Maximum newly introduced medium-severity findings" :coerce :long}
    :fail-on               {:desc "Comma-separated strict gate checks e.g. new-cycles,new-high-findings"}
-   :rank                  {:desc "Diagnose ranking: severity or actionability" :coerce :keyword}
+   :rank                  {:desc "Diagnose ranking: actionability (default) or severity" :coerce :keyword}
    :lens                  {:desc "Communities lens: structural | conceptual | change | combined" :coerce :keyword}
    :threshold             {:desc "Communities threshold" :coerce :double}
    :include-tests         {:desc "Include test directories in auto-discovery" :coerce :boolean}
@@ -90,7 +90,7 @@ Options:
   --max-new-high-findings <n>   Maximum newly introduced high-severity findings
   --max-new-medium-findings <n> Maximum newly introduced medium-severity findings
   --fail-on <csv>               Comma-separated strict gate checks
-  --rank <mode>                 Diagnose ranking: severity or actionability
+  --rank <mode>                 Diagnose ranking: actionability (default) or severity
   --lens <mode>                 Communities lens: structural | conceptual | change | combined
   --threshold <float>           Communities threshold
   --include-tests               Include test directories in auto-discovery
@@ -115,7 +115,7 @@ Examples:
   gordian compare before.edn after.edn --markdown
   gordian gate . --baseline baseline.edn
   gordian gate . --baseline baseline.edn --max-pc-delta 0.01
-  gordian diagnose . --rank actionability
+  gordian diagnose . --rank severity
   gordian subgraph gordian
   gordian communities . --lens combined
   gordian dsm .
@@ -378,7 +378,7 @@ Examples:
         change       (if (nil? change) true change)
         change-dir   (when change (if (string? change) change "."))
         change-opts  (when change-dir {:change change-dir :since change-since})
-        rank         (or rank :severity)
+        rank         (or rank :actionability)
         report       (build-report src-dirs conceptual change-opts exclude)
         health       (diagnose/health report)
         all-findings (diagnose/diagnose report)
@@ -412,7 +412,7 @@ Examples:
         change      (if (nil? change) true change)
         change-dir  (when change (if (string? change) change "."))
         change-opts (when change-dir {:change change-dir :since change-since})
-        rank        (or rank :severity)
+        rank        (or rank :actionability)
         report      (build-report src-dirs conceptual change-opts exclude)
         health      (diagnose/health report)
         findings0   (diagnose/diagnose report)
