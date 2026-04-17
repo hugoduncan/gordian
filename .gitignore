@@ -1,2 +1,5 @@
 gordian-report.dot
 gordian-report.json
+/.psi/project.edn
+/.clj-kondo/.cache
+/.clj-kondo/imports
