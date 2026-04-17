@@ -532,6 +532,22 @@
     (testing "nil change-pairs → returns []"
       (is (= [] (find-vestigial-edges graph nodes [] nil))))
 
+    (testing "edge from peripheral ns → not flagged"
+      (let [nodes-with-periph [{:ns 'foo.a :instability 1.0 :role :peripheral}
+                               {:ns 'foo.b :instability 0.5 :role :core}
+                               {:ns 'foo.c :instability 0.0 :role :core}]
+            findings (find-vestigial-edges graph nodes-with-periph [] [])]
+        (is (not (some #(and (= :vestigial-edge (:category %))
+                             (= 'foo.a (get-in % [:subject :ns-a])))
+                       findings)))))
+
+    (testing "edge between two core nss with no signal → flagged"
+      (let [nodes-core [{:ns 'foo.a :instability 0.5 :role :core}
+                        {:ns 'foo.b :instability 0.3 :role :core}
+                        {:ns 'foo.c :instability 0.0 :role :core}]
+            findings (find-vestigial-edges graph nodes-core [] [])]
+        (is (some #(= :vestigial-edge (:category %)) findings))))
+
     (testing "vestigial finding has :action :remove-dependency"
       (let [f (first (find-vestigial-edges graph nodes [] []))]
         (is (= :remove-dependency (:action f)))))

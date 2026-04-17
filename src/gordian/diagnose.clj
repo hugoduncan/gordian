@@ -347,20 +347,25 @@
   A remove-dependency candidate — the edge exists in code but carries no
   signal justifying it in either lens.
   Only runs when both lenses are active (both collections non-nil);
-  returns [] otherwise to avoid false positives on unscanned codebases."
+  returns [] otherwise to avoid false positives on unscanned codebases.
+  Skips edges where either endpoint has role :peripheral — wiring modules
+  are expected to depend on pure modules without shared vocabulary."
   [graph nodes conceptual-pairs change-pairs]
   (if (or (nil? conceptual-pairs) (nil? change-pairs))
     []
     (let [project-nss  (set (keys graph))
           concept-keys (into #{} (map finding/pair-key) conceptual-pairs)
           change-keys  (into #{} (map finding/pair-key) change-pairs)
-          node-map     (into {} (map (juxt :ns identity)) nodes)]
+          node-map     (into {} (map (juxt :ns identity)) nodes)
+          peripheral?  (fn [ns] (= :peripheral (:role (get node-map ns))))]
       (into []
             (mapcat
              (fn [[ns-a deps]]
                (keep
                 (fn [ns-b]
-                  (when (contains? project-nss ns-b)
+                  (when (and (contains? project-nss ns-b)
+                             (not (peripheral? ns-a))
+                             (not (peripheral? ns-b)))
                     (let [k #{ns-a ns-b}]
                       (when (and (not (contains? concept-keys k))
                                  (not (contains? change-keys k)))
