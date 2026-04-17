@@ -139,3 +139,43 @@
       (doseq [{:keys [ns-a ns-b]} pairs]
         (is (contains? graph ns-a))
         (is (contains? graph ns-b))))))
+
+;;; ── diagnose actionability integration ──────────────────────────────────
+
+(deftest diagnose-all-findings-actionable-test
+  (let [report   (main/build-report ["src/"] 0.20 {:change "." :min-co 1})
+        findings ((requiring-resolve 'gordian.diagnose/diagnose) report)]
+
+    (testing "all findings have :action key"
+      (is (every? #(contains? % :action) findings)))
+
+    (testing "all pair findings have :next-step string"
+      (let [pair-cats #{:cross-lens-hidden :hidden-conceptual :hidden-change :vestigial-edge}
+            pair-findings (filter #(contains? pair-cats (:category %)) findings)]
+        (is (every? #(string? (:next-step %)) pair-findings))))
+
+    (testing "all ns findings have :next-step string"
+      (let [ns-cats #{:sdp-violation :god-module :hub :facade}
+            ns-findings (filter #(contains? ns-cats (:category %)) findings)]
+        (is (every? #(string? (:next-step %)) ns-findings))))
+
+    (testing "cycle findings have :strategy in evidence"
+      (let [cycle-findings (filter #(= :cycle (:category %)) findings)]
+        (is (every? #(contains? (:evidence %) :strategy) cycle-findings))))
+
+    (testing "vestigial-edge findings present when both lenses active"
+      ;; gordian src/ has a stable star topology — some edges may lack lens signal
+      (let [vestigial (filter #(= :vestigial-edge (:category %)) findings)]
+        ;; Just verify the category is handled — count may be 0 on well-coupled code
+        (is (every? #(= :remove-dependency (:action %)) vestigial))))))
+
+(deftest action-display-completeness-test
+  (testing "all category-derived action keywords have display strings"
+    (let [finding-ns   (requiring-resolve 'gordian.finding/action-for-category)
+          display-map  @(requiring-resolve 'gordian.finding/action-display)
+          categories   [:cycle :cross-lens-hidden :sdp-violation :god-module
+                        :vestigial-edge :hidden-conceptual :hidden-change :hub :facade]]
+      (doseq [cat categories]
+        (let [action (finding-ns cat)]
+          (is (contains? display-map action)
+              (str "Missing display for action " action " (category " cat ")")))))))
