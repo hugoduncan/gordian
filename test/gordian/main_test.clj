@@ -207,6 +207,14 @@
       (is (= :diagnose (:command opts)))
       (is (= :actionability (:rank opts)))))
 
+  (testing "--show-noise parsed as boolean true"
+    (let [opts (sut/parse-args ["diagnose" "." "--show-noise"])]
+      (is (true? (:show-noise opts)))))
+
+  (testing "no --show-noise → :show-noise absent or nil"
+    (let [opts (sut/parse-args ["diagnose" "."])]
+      (is (not (:show-noise opts)))))
+
   (testing "plain src/ → no :command (backward compat)"
     (is (nil? (:command (sut/parse-args ["src/"])))))
 

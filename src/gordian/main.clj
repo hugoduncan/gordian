@@ -10,6 +10,7 @@
             [gordian.git         :as git]
             [gordian.cc-change   :as cc-change]
             [gordian.diagnose    :as diagnose]
+            [gordian.finding     :as finding]
             [gordian.discover    :as discover]
             [gordian.explain     :as explain]
             [gordian.compare     :as compare]
@@ -54,6 +55,7 @@
    :threshold             {:desc "Communities threshold" :coerce :double}
    :include-tests         {:desc "Include test directories in auto-discovery" :coerce :boolean}
    :exclude               {:desc "Exclude namespaces matching regex (repeatable)" :coerce [:string]}
+   :show-noise            {:desc "Include family-naming-noise findings (suppressed by default)" :coerce :boolean}
    :help                  {:desc "Show this help message" :coerce :boolean}})
 
 (def ^:private usage-summary
@@ -93,6 +95,7 @@ Options:
   --threshold <float>           Communities threshold
   --include-tests               Include test directories in auto-discovery
   --exclude <regex>             Exclude namespaces matching regex (repeatable)
+  --show-noise                  Include family-naming-noise findings (suppressed by default)
   --help                        Show this help message
 
 Examples:
@@ -367,31 +370,38 @@ Examples:
 
 (defn diagnose-cmd
   "Run diagnose with resolved opts map.
-  Auto-enables conceptual (0.15) and change (.) when not explicitly set."
-  [{:keys [src-dirs json edn markdown conceptual change change-since exclude rank]
+  Auto-enables conceptual (0.15) and change (.) when not explicitly set.
+  Family-noise findings are suppressed by default; pass --show-noise to include."
+  [{:keys [src-dirs json edn markdown conceptual change change-since exclude rank show-noise]
     :as opts}]
-  (let [conceptual  (or conceptual 0.15)
-        change      (if (nil? change) true change)
-        change-dir  (when change (if (string? change) change "."))
-        change-opts (when change-dir {:change change-dir :since change-since})
-        rank        (or rank :severity)
-        report      (build-report src-dirs conceptual change-opts exclude)
-        health      (diagnose/health report)
-        findings0   (diagnose/diagnose report)
-        clusters0   (cluster/cluster-findings findings0)
-        context     (prioritize/cluster-context (:clusters clusters0)
-                                                (:unclustered clusters0))
-        findings    (prioritize/rank-findings findings0 rank context)
-        clusters    (cluster/cluster-findings findings)
-        enriched    (assoc report :findings findings :health health
-                           :clusters (:clusters clusters)
-                           :unclustered (:unclustered clusters)
-                           :rank-by rank)]
+  (let [conceptual   (or conceptual 0.15)
+        change       (if (nil? change) true change)
+        change-dir   (when change (if (string? change) change "."))
+        change-opts  (when change-dir {:change change-dir :since change-since})
+        rank         (or rank :severity)
+        report       (build-report src-dirs conceptual change-opts exclude)
+        health       (diagnose/health report)
+        all-findings (diagnose/diagnose report)
+        ;; Noise suppression: filter before ranking/clustering for human output.
+        ;; EDN/JSON consumers receive the full unfiltered set.
+        display-findings (if show-noise
+                           all-findings
+                           (into [] (remove finding/family-noise?) all-findings))
+        suppressed   (- (count all-findings) (count display-findings))
+        clusters0    (cluster/cluster-findings display-findings)
+        context      (prioritize/cluster-context (:clusters clusters0)
+                                                 (:unclustered clusters0))
+        findings     (prioritize/rank-findings display-findings rank context)
+        clusters     (cluster/cluster-findings findings)
+        enriched     (assoc report :findings all-findings :health health
+                            :clusters (:clusters clusters)
+                            :unclustered (:unclustered clusters)
+                            :rank-by rank)]
     (cond
       json     (println (report-json/generate (envelope/wrap opts enriched :diagnose)))
       edn      (print   (report-edn/generate  (envelope/wrap opts enriched :diagnose)))
-      markdown (run! println (output/format-diagnose-md report health findings clusters rank))
-      :else    (output/print-diagnose report health findings clusters rank))))
+      markdown (run! println (output/format-diagnose-md report health findings clusters rank suppressed))
+      :else    (output/print-diagnose report health findings clusters rank suppressed))))
 
 (defn subgraph-cmd
   "Run subgraph with resolved opts map.
