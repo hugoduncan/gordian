@@ -38,7 +38,17 @@
 
   (testing "trailing slash on src-dir normalised"
     (is (= 'gordian.scan
-           (path->ns "src/gordian/scan.clj" ["src/"])))))
+           (path->ns "src/gordian/scan.clj" ["src/"]))))
+
+  (testing "leading ./ on src-dir normalised — Polylith auto-discovery case"
+    (is (= 'psi.agent-session.foo
+           (path->ns "components/agent-session/src/psi/agent_session/foo.clj"
+                     ["./components/agent-session/src"]))))
+
+  (testing "leading ./ and trailing slash on src-dir both normalised"
+    (is (= 'psi.agent-session.foo
+           (path->ns "components/agent-session/src/psi/agent_session/foo.clj"
+                     ["./components/agent-session/src/"])))))
 
 ;;; ── commits-as-ns ────────────────────────────────────────────────────────
 

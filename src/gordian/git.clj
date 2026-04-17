@@ -67,12 +67,15 @@
     (path->ns \"src/gordian/cc_change.clj\" [\"src\"])
     → 'gordian.cc-change
 
-  Trailing slashes on src-dirs are normalised before matching so that
-  both \"src\" and \"src/\" work as prefixes.
+  Trailing slashes and leading \"./\" on src-dirs are normalised before
+  matching so that \"src\", \"src/\", \"./src\", and \"./src/\" all work as prefixes.
   If no src-dir prefix matches the path is converted as-is (best effort)."
   [path src-dirs]
   (let [stripped (or (some (fn [d]
-                             (let [prefix (str (str/replace d #"/$" "") "/")]
+                             (let [prefix (-> d
+                                             (str/replace #"^\./" "")
+                                             (str/replace #"/$" "")
+                                             (str "/"))]
                                (when (str/starts-with? path prefix)
                                  (subs path (count prefix)))))
                            src-dirs)
