@@ -215,6 +215,14 @@
     (let [opts (sut/parse-args ["diagnose" "."])]
       (is (not (:show-noise opts)))))
 
+  (testing "--top N parsed as long"
+    (let [opts (sut/parse-args ["diagnose" "." "--top" "5"])]
+      (is (= 5 (:top opts)))))
+
+  (testing "no --top → :top absent or nil"
+    (let [opts (sut/parse-args ["diagnose" "."])]
+      (is (nil? (:top opts)))))
+
   (testing "plain src/ → no :command (backward compat)"
     (is (nil? (:command (sut/parse-args ["src/"])))))
 

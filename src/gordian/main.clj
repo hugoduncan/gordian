@@ -51,6 +51,7 @@
    :max-new-medium-findings {:desc "Maximum newly introduced medium-severity findings" :coerce :long}
    :fail-on               {:desc "Comma-separated strict gate checks e.g. new-cycles,new-high-findings"}
    :rank                  {:desc "Diagnose ranking: actionability (default) or severity" :coerce :keyword}
+   :top                   {:desc "Show only the top N findings after ranking" :coerce :long}
    :lens                  {:desc "Communities lens: structural | conceptual | change | combined" :coerce :keyword}
    :threshold             {:desc "Communities threshold" :coerce :double}
    :include-tests         {:desc "Include test directories in auto-discovery" :coerce :boolean}
@@ -91,6 +92,7 @@ Options:
   --max-new-medium-findings <n> Maximum newly introduced medium-severity findings
   --fail-on <csv>               Comma-separated strict gate checks
   --rank <mode>                 Diagnose ranking: actionability (default) or severity
+  --top <n>                     Show only the top N findings after ranking
   --lens <mode>                 Communities lens: structural | conceptual | change | combined
   --threshold <float>           Communities threshold
   --include-tests               Include test directories in auto-discovery
@@ -372,7 +374,7 @@ Examples:
   "Run diagnose with resolved opts map.
   Auto-enables conceptual (0.15) and change (.) when not explicitly set.
   Family-noise findings are suppressed by default; pass --show-noise to include."
-  [{:keys [src-dirs json edn markdown conceptual change change-since exclude rank show-noise]
+  [{:keys [src-dirs json edn markdown conceptual change change-since exclude rank top show-noise]
     :as opts}]
   (let [conceptual   (or conceptual 0.15)
         change       (if (nil? change) true change)
@@ -391,7 +393,11 @@ Examples:
         clusters0    (cluster/cluster-findings display-findings)
         context      (prioritize/cluster-context (:clusters clusters0)
                                                  (:unclustered clusters0))
-        findings     (prioritize/rank-findings display-findings rank context)
+        ranked       (prioritize/rank-findings display-findings rank context)
+        ;; Top-N truncation: applied after ranking, before final clustering.
+        findings     (if top (vec (take top ranked)) ranked)
+        truncated-from (when (and top (< (count findings) (count ranked)))
+                         (count ranked))
         clusters     (cluster/cluster-findings findings)
         enriched     (assoc report :findings all-findings :health health
                             :clusters (:clusters clusters)
@@ -400,8 +406,8 @@ Examples:
     (cond
       json     (println (report-json/generate (envelope/wrap opts enriched :diagnose)))
       edn      (print   (report-edn/generate  (envelope/wrap opts enriched :diagnose)))
-      markdown (run! println (output/format-diagnose-md report health findings clusters rank suppressed))
-      :else    (output/print-diagnose report health findings clusters rank suppressed))))
+      markdown (run! println (output/format-diagnose-md report health findings clusters rank suppressed truncated-from))
+      :else    (output/print-diagnose report health findings clusters rank suppressed truncated-from))))
 
 (defn subgraph-cmd
   "Run subgraph with resolved opts map.

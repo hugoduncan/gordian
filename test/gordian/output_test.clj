@@ -476,6 +476,22 @@
       (let [lines (sut/format-diagnose report diagnose-health [] nil :severity 3)]
         (is (some #(str/includes? % "--show-noise") lines))))))
 
+(deftest format-diagnose-truncated-test
+  (let [report {:src-dirs ["src/"]}]
+
+    (testing "truncated-from → header shows top N of M"
+      (let [lines (sut/format-diagnose report diagnose-health diagnose-findings nil :severity nil 10)]
+        (is (some #(str/includes? % "top 3 of 10 findings") lines))))
+
+    (testing "truncated-from → summary shows top N of M"
+      (let [lines (sut/format-diagnose report diagnose-health diagnose-findings nil :severity nil 10)]
+        (is (some #(and (str/includes? % "top 3 of 10") (str/includes? % "high")) lines))))
+
+    (testing "no truncated-from → normal count shown"
+      (let [lines (sut/format-diagnose report diagnose-health diagnose-findings nil :severity nil nil)]
+        (is (some #(str/includes? % "3 findings") lines))
+        (is (not (some #(str/includes? % "top") lines)))))))
+
 ;;; ── format-explain-ns ────────────────────────────────────────────────────
 
 (def ^:private explain-ns-data
