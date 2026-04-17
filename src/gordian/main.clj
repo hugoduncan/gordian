@@ -28,6 +28,7 @@
             [gordian.envelope    :as envelope]
             [gordian.dot         :as dot]
             [gordian.json        :as report-json]
+            [babashka.fs         :as fs]
             [gordian.edn         :as report-edn]
             [babashka.cli        :as cli]
             [clojure.edn         :as edn]))
@@ -213,13 +214,20 @@ Examples:
 
 ;;; ── discovery + config resolution ────────────────────────────────────────
 
+(defn- normalize-src-dirs
+  "Normalize src-dir strings using fs/normalize: strips leading ./ and
+  trailing / so paths are consistent regardless of how they were supplied."
+  [opts]
+  (update opts :src-dirs #(mapv (fn [d] (str (fs/normalize d))) %)))
+
 (defn resolve-opts
   "Resolve src-dirs from CLI args via auto-discovery or pass-through.
   When the sole positional arg is a project root (has deps.edn etc.),
   auto-discovers source directories and loads .gordian.edn config.
   Otherwise treats positional args as explicit src-dirs (backward compatible).
   Returns opts map with :src-dirs guaranteed to be a non-empty vector,
-  or an {:error ...} map."
+  or an {:error ...} map.
+  All :src-dirs paths are normalized via fs/normalize (no leading ./, no trailing /)."
   [{:keys [src-dirs command] :as opts}]
   (let [;; single dir that is a project root → discover + config
         project-dir    (when (and (= 1 (count src-dirs))
@@ -233,14 +241,14 @@ Examples:
     (if project-dir
       ;; auto-discovery: config :src-dirs overrides discovery, else probe
       (if-let [cfg-dirs (seq (:src-dirs cfg))]
-        (assoc merged :src-dirs (vec cfg-dirs))
+        (normalize-src-dirs (assoc merged :src-dirs (vec cfg-dirs)))
         (let [discovered (discover/discover-dirs project-dir)
               dirs       (discover/resolve-dirs discovered merged)]
           (if (seq dirs)
-            (assoc merged :src-dirs dirs)
+            (normalize-src-dirs (assoc merged :src-dirs dirs))
             {:error (str "no source directories found in " project-dir)})))
-      ;; explicit dirs — use as-is
-      merged)))
+      ;; explicit dirs — normalize and use
+      (normalize-src-dirs merged))))
 
 ;;; ── pipeline ─────────────────────────────────────────────────────────────
 

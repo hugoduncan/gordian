@@ -41,6 +41,10 @@
     (testing "all paths are strings"
       (is (every? string? (concat src-dirs test-dirs))))
 
+    (testing "paths are normalized — no leading ./ or trailing /"
+      (is (every? #(not (str/starts-with? % "./")) (concat src-dirs test-dirs)))
+      (is (every? #(not (str/ends-with? % "/")) (concat src-dirs test-dirs))))
+
     (testing "all paths exist as directories"
       (is (every? fs/directory? (concat src-dirs test-dirs))))))
 
@@ -62,6 +66,10 @@
     (testing "no duplicate entries"
       (is (= (count src-dirs) (count (distinct src-dirs))))
       (is (= (count test-dirs) (count (distinct test-dirs)))))
+
+    (testing "paths are normalized — no leading ./ or trailing /"
+      (is (every? #(not (str/starts-with? % "./")) (concat src-dirs test-dirs)))
+      (is (every? #(not (str/ends-with? % "/")) (concat src-dirs test-dirs))))
 
     (testing "all paths exist as directories"
       (is (every? fs/directory? (concat src-dirs test-dirs))))))

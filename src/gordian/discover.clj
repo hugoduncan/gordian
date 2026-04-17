@@ -18,10 +18,12 @@
 ;;; ── layout probing ──────────────────────────────────────────────────────
 
 (defn- existing-dir
-  "Return (str path) if path is an existing directory, else nil."
+  "Return normalized string path if path is an existing directory, else nil.
+  fs/normalize removes leading ./ and trailing / so paths are consistent
+  regardless of how the root was supplied (\".\", \"./\", absolute, etc.)."
   [path]
   (when (fs/directory? path)
-    (str path)))
+    (str (fs/normalize path))))
 
 (defn- subdir-dirs
   "For a parent dir like 'components', return all existing child/suffix dirs.
@@ -40,7 +42,7 @@
   "Probe standard Clojure project layouts under root.
   Returns {:src-dirs [string] :test-dirs [string]}.
   Only directories that actually exist on disk are returned.
-  All paths are absolute strings."
+  Paths are normalized (no leading ./, no trailing /) via fs/normalize."
   [root]
   (let [mono-parents ["components" "bases" "extensions" "projects"]]
     {:src-dirs  (vec (concat
