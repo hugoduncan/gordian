@@ -52,25 +52,58 @@
 
 (deftest find-cycles-test
   (testing "empty cycles → empty findings"
-    (is (= [] (find-cycles []))))
+    (is (= [] (find-cycles [] [] [] []))))
 
   (testing "one cycle → one :high finding"
-    (let [findings (find-cycles [#{'a 'b}])]
+    (let [findings (find-cycles [#{'a 'b}] [] [] [])]
       (is (= 1 (count findings)))
       (is (= :high (:severity (first findings))))
       (is (= :cycle (:category (first findings))))))
 
   (testing "finding has :members in :subject and :size in :evidence"
-    (let [f (first (find-cycles [#{'a 'b 'c}]))]
+    (let [f (first (find-cycles [#{'a 'b 'c}] [] [] []))]
       (is (= #{'a 'b 'c} (get-in f [:subject :members])))
       (is (= 3 (get-in f [:evidence :size])))))
 
   (testing "two cycles → two findings"
-    (is (= 2 (count (find-cycles [#{'a 'b} #{'c 'd}])))))
+    (is (= 2 (count (find-cycles [#{'a 'b} #{'c 'd}] [] [] [])))))
 
-  (testing "reason includes size"
-    (let [f (first (find-cycles [#{'x 'y}]))]
-      (is (= "2-namespace cycle" (:reason f))))))
+  (testing "reason starts with size"
+    (let [f (first (find-cycles [#{'x 'y}] [] [] []))]
+      (is (str/starts-with? (:reason f) "2-namespace cycle"))))
+
+  (testing "finding has :action and :next-step"
+    (let [f (first (find-cycles [#{'a 'b}] [] [] []))]
+      (is (= :fix-cycle (:action f)))
+      (is (string? (:next-step f)))))
+
+  (testing "strategy :investigate when no evidence"
+    (let [f (first (find-cycles [#{'a 'b}] [] [] []))]
+      (is (= :investigate (get-in f [:evidence :strategy])))))
+
+  (testing "strategy :merge when change Jaccard > 0.7"
+    (let [xp [{:ns-a 'a :ns-b 'b :score 0.8 :structural-edge? false}]
+          f  (first (find-cycles [#{'a 'b}] xp [] []))]
+      (is (= :merge (get-in f [:evidence :strategy])))))
+
+  (testing "strategy :extract when independent conceptual terms"
+    (let [cp [{:ns-a 'a :ns-b 'b :score 0.4 :structural-edge? false
+               :independent-terms ["queue" "worker"]}]
+          f  (first (find-cycles [#{'a 'b}] [] cp []))]
+      (is (= :extract (get-in f [:evidence :strategy])))))
+
+  (testing "strategy :invert when stable high-Ca member"
+    (let [nodes [{:ns 'a :ca 4 :instability 0.1}
+                 {:ns 'b :ca 1 :instability 0.9}]
+          f     (first (find-cycles [#{'a 'b}] [] [] nodes))]
+      (is (= :invert (get-in f [:evidence :strategy])))))
+
+  (testing "merge takes priority over extract"
+    (let [xp [{:ns-a 'a :ns-b 'b :score 0.8 :structural-edge? false}]
+          cp [{:ns-a 'a :ns-b 'b :score 0.4 :structural-edge? false
+               :independent-terms ["queue"]}]
+          f  (first (find-cycles [#{'a 'b}] xp cp []))]
+      (is (= :merge (get-in f [:evidence :strategy]))))))
 
 ;;; ── find-sdp-violations ─────────────────────────────────────────────────
 
@@ -438,4 +471,128 @@
 
   (testing "minimal report works"
     (let [report {:propagation-cost 0.05 :cycles [] :nodes []}]
-      (is (vector? (sut/diagnose report))))))
+      (is (vector? (sut/diagnose report)))))
+
+  (testing "all findings have :action"
+    (let [findings (sut/diagnose full-report)]
+      (is (every? #(contains? % :action) findings))))
+
+  (testing "all pair findings have :next-step starting with gordian"
+    (let [pair-cats #{:cross-lens-hidden :hidden-conceptual :hidden-change :vestigial-edge}
+          findings  (filter #(contains? pair-cats (:category %)) (sut/diagnose full-report))]
+      (is (seq findings))
+      (is (every? #(str/starts-with? (str (:next-step %)) "gordian") findings))))
+
+  (testing "ns findings have :next-step starting with gordian"
+    (let [ns-cats  #{:sdp-violation :god-module :hub :facade}
+          findings (filter #(contains? ns-cats (:category %)) (sut/diagnose full-report))]
+      (is (every? #(str/starts-with? (str (:next-step %)) "gordian") findings)))))
+
+;;; ── find-vestigial-edges ─────────────────────────────────────────────────
+
+(def ^:private find-vestigial-edges #'gordian.diagnose/find-vestigial-edges)
+
+(deftest find-vestigial-edges-test
+  (let [graph    {'foo.a #{'foo.b 'foo.c}
+                  'foo.b #{'foo.c}
+                  'foo.c #{}}
+        nodes    [{:ns 'foo.a :instability 0.8}
+                  {:ns 'foo.b :instability 0.5}
+                  {:ns 'foo.c :instability 0.0}]
+        cp-ab    [{:ns-a 'foo.a :ns-b 'foo.b :score 0.4 :structural-edge? true}]
+        xp-bc    [{:ns-a 'foo.b :ns-b 'foo.c :score 0.6 :structural-edge? true}]]
+
+    (testing "edge with no concept or change signal → :vestigial-edge finding"
+      ;; foo.a→foo.c has no concept or change coverage
+      (let [findings (find-vestigial-edges graph nodes [] [])]
+        (is (some #(and (= :vestigial-edge (:category %))
+                        (= #{'foo.a 'foo.c} (set (vals (select-keys (:subject %) [:ns-a :ns-b])))))
+                  findings))))
+
+    (testing "edge covered by conceptual pair → not flagged"
+      (let [findings (find-vestigial-edges graph nodes cp-ab [])]
+        (is (not (some #(and (= :vestigial-edge (:category %))
+                             (= #{'foo.a 'foo.b} (set (vals (select-keys (:subject %) [:ns-a :ns-b])))))
+                       findings)))))
+
+    (testing "edge covered by change pair → not flagged"
+      (let [findings (find-vestigial-edges graph nodes [] xp-bc)]
+        (is (not (some #(and (= :vestigial-edge (:category %))
+                             (= #{'foo.b 'foo.c} (set (vals (select-keys (:subject %) [:ns-a :ns-b])))))
+                       findings)))))
+
+    (testing "external deps (not in graph keys) → not flagged"
+      (let [g-ext {'foo.a #{'foo.b 'ext.lib}}
+            findings (find-vestigial-edges g-ext nodes [] [])]
+        (is (not (some #(= :vestigial-edge (:category %)) findings)))))
+
+    (testing "nil conceptual-pairs → returns []"
+      (is (= [] (find-vestigial-edges graph nodes nil []))))
+
+    (testing "nil change-pairs → returns []"
+      (is (= [] (find-vestigial-edges graph nodes [] nil))))
+
+    (testing "vestigial finding has :action :remove-dependency"
+      (let [f (first (find-vestigial-edges graph nodes [] []))]
+        (is (= :remove-dependency (:action f)))))
+
+    (testing "vestigial finding has :next-step with explain-pair"
+      (let [f (first (find-vestigial-edges graph nodes [] []))]
+        (is (str/starts-with? (:next-step f) "gordian explain-pair"))))))
+
+;;; ── asymmetric change coupling ───────────────────────────────────────────
+
+(def ^:private change-asymmetry #'gordian.diagnose/change-asymmetry)
+
+(deftest change-asymmetry-test
+  (testing "conf-a >> conf-b → directional with a as satellite"
+    (let [r (change-asymmetry 'foo.a 'foo.b 0.9 0.3)]
+      (is (:directional? r))
+      (is (= 'foo.a (:satellite r)))
+      (is (= 'foo.b (:anchor r)))))
+
+  (testing "conf-b >> conf-a → directional with b as satellite"
+    (let [r (change-asymmetry 'foo.a 'foo.b 0.2 0.9)]
+      (is (:directional? r))
+      (is (= 'foo.b (:satellite r)))
+      (is (= 'foo.a (:anchor r)))))
+
+  (testing "ratio ≤ 2 → not directional"
+    (let [r (change-asymmetry 'foo.a 'foo.b 0.6 0.4)]
+      (is (not (:directional? r)))))
+
+  (testing "conf-a = 0 → returns nil (no division by zero)"
+    (is (nil? (change-asymmetry 'foo.a 'foo.b 0 0.5))))
+
+  (testing "both zero → returns nil"
+    (is (nil? (change-asymmetry 'foo.a 'foo.b 0 0)))))
+
+(deftest find-hidden-change-asymmetry-test
+  (let [cross-keys #{}]
+    (testing "directional pair → :narrow-satellite-interface action"
+      (let [p        {:ns-a 'foo.a :ns-b 'foo.b :score 0.5
+                      :structural-edge? false :co-changes 5
+                      :confidence-a 0.9 :confidence-b 0.3}
+            findings (sut/find-hidden-change [p] cross-keys)
+            f        (first findings)]
+        (is (= :narrow-satellite-interface (:action f)))
+        (is (some? (get-in f [:evidence :direction])))
+        (is (= 'foo.a (get-in f [:evidence :direction :satellite])))
+        (is (= 'foo.b (get-in f [:evidence :direction :anchor])))))
+
+    (testing "symmetric pair → :investigate-contract action"
+      (let [p        {:ns-a 'foo.a :ns-b 'foo.b :score 0.5
+                      :structural-edge? false :co-changes 5
+                      :confidence-a 0.6 :confidence-b 0.5}
+            findings (sut/find-hidden-change [p] cross-keys)
+            f        (first findings)]
+        (is (= :investigate-contract (:action f)))
+        (is (nil? (get-in f [:evidence :direction])))))
+
+    (testing "zero confidence → symmetric fallback"
+      (let [p        {:ns-a 'foo.a :ns-b 'foo.b :score 0.4
+                      :structural-edge? false :co-changes 3
+                      :confidence-a 0 :confidence-b 0.5}
+            findings (sut/find-hidden-change [p] cross-keys)
+            f        (first findings)]
+        (is (= :investigate-contract (:action f)))))))
