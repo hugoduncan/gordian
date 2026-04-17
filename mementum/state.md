@@ -666,6 +666,20 @@ Potential follow-ups:
 - compare / gate integration for DSM block metrics
 - drilldown on one block or one inter-block relation
 
+## Session 23 commits — bug fix
+
+```
+ea994f9  fix: strip leading ./ from src-dirs in path->ns — change coupling broken on auto-discovered Polylith paths
+```
+
+317 tests, 2068 assertions, 0 failures.
+
+Bug: `path->ns` in `git.clj` stripped trailing `/` from src-dirs but not
+leading `./`. Auto-discovery always returns `./components/*/src` style paths.
+Git log returns `components/*/src/...` (no `./`). Prefix never matched →
+0 candidate pairs for change coupling on any auto-discovered Polylith project.
+Fix: `(str/replace d #"^\./" "")` before building the prefix.
+
 ## Session 22 — DSM quality tuning
 
 Current DSM quality investigation focused on the recurring
