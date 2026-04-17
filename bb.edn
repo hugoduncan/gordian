@@ -34,7 +34,8 @@
 
   test    {:doc         "Run all tests"
            :extra-paths ["test"]
-           :task        (do (require 'gordian.cluster-test
+           :task        (do (require 'gordian.finding-test
+                                     'gordian.cluster-test
                                      'gordian.communities-test
                                      'gordian.config-test
                                      'gordian.compare-test
