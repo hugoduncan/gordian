@@ -14,11 +14,10 @@
   analyze {:doc  "Alias for gordian"
            :task (main/run *command-line-args*)}
 
-  nrepl   {:doc  "Start nREPL server on port 1667"
-           :task (do (require '[babashka.nrepl.server :as nrepl])
-                     (println "nREPL server started on port 1667")
-                     (nrepl/start-server! {:host "127.0.0.1" :port 1667})
-                     (deref (promise)))}
+  nrepl   {:doc      "Start nREPL server"
+           :requires ([babashka.nrepl.server :as nrepl])
+           :task     (do (nrepl/start-server! {:host "127.0.0.1"})
+                         (deref (promise)))}
 
   kondo   {:doc  "Run clj-kondo on src/ and test/"
            :task (shell "clj-kondo --lint src test")}
