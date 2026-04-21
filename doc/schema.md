@@ -15,7 +15,7 @@ Every command's output includes these top-level keys:
 |-----|------|-------------|
 | `gordian/version` | string | Gordian version (e.g. `"0.2.0"`) |
 | `gordian/schema` | integer | Schema version. Bumped on breaking changes. |
-| `gordian/command` | keyword | `analyze`, `diagnose`, `compare`, `gate`, `subgraph`, `communities`, `dsm`, `tests`, `explain`, or `explain-pair` |
+| `gordian/command` | keyword | `analyze`, `diagnose`, `compare`, `gate`, `subgraph`, `communities`, `dsm`, `tests`, `cyclomatic`, `explain`, or `explain-pair` |
 | `lenses` | map | Which analysis lenses ran and their parameters |
 | `src-dirs` | vector of strings | Source directories analysed |
 | `excludes` | vector of strings | Namespace exclusion patterns applied |
@@ -254,6 +254,71 @@ current code.
  :baseline any
  :current  any}
 ```
+
+---
+
+## cyclomatic
+
+Command: `gordian cyclomatic [dirs...] --edn`
+
+Cyclomatic complexity analysis is independent of the structural/conceptual/change
+pair lenses. The standard envelope is still present, but the payload is focused
+on function and namespace complexity rollups.
+
+Payload keys (alongside envelope):
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `summary` | map | Overall complexity rollup |
+| `max-function` | map or nil | Highest-complexity function |
+| `namespaces` | vector of maps | Per-namespace complexity summaries |
+
+### Summary shape
+
+```edn
+{:namespace-count  integer
+ :function-count   integer
+ :total-complexity integer
+ :avg-complexity   double
+ :max-complexity   integer}
+```
+
+### Max-function shape
+
+```edn
+{:ns             symbol
+ :name           symbol
+ :qualified-name symbol
+ :complexity     integer
+ :file           string}
+```
+
+### Namespace summary shape
+
+```edn
+{:ns               symbol
+ :file             string
+ :function-count   integer
+ :total-complexity integer
+ :avg-complexity   double
+ :max-complexity   integer
+ :functions        [function]}
+```
+
+### Function shape
+
+```edn
+{:ns                 symbol
+ :file               string
+ :name               symbol
+ :qualified-name     symbol
+ :arity-count        integer
+ :arity-complexities [integer]
+ :complexity         integer} ; max across arities
+```
+
+For multi-arity functions, `:complexity` is currently the maximum of
+`:arity-complexities`.
 
 ---
 

@@ -1,6 +1,6 @@
 # Gordian — Working State
 
-**Last updated:** 2026-04-11
+**Last updated:** 2026-04-21
 
 ## What this project is
 
@@ -14,8 +14,9 @@ Usage: `gordian` (auto-discovers from cwd) or `gordian src/` (explicit dirs)
 
 **v0.2.0 alpha.** Schema envelope, façade detection, family-noise suppression,
 explain-pair verdicts, family-scoped metrics, auto-discovery, config,
-diagnose, explain, markdown, and dedicated `tests` mode.
-265 tests, 1723 assertions, 0 failures.
+diagnose, explain, markdown, dedicated `tests` mode, DSM, and
+`cyclomatic` complexity analysis.
+324 tests, 2119 assertions, 0 failures.
 
 ## Architecture (src/gordian/)
 
@@ -68,6 +69,7 @@ Commands:
   diagnose     Ranked findings (auto-enables all lenses) + clusters
   compare      Compare two EDN snapshots (before.edn after.edn)
   tests        Test architecture analysis
+  cyclomatic   Function cyclomatic complexity with namespace rollups
   explain      Everything about a namespace
   explain-pair Everything about a pair
 
@@ -674,6 +676,38 @@ ea994f9  fix: strip leading ./ from src-dirs in path->ns — change coupling bro
 ```
 
 317 tests, 2072 assertions, 0 failures.
+
+## Session 24 commits — cyclomatic complexity command
+
+```
+67050ee  feat: add cyclomatic complexity command
+```
+
+324 tests, 2119 assertions, 0 failures.
+
+New command:
+- `gordian cyclomatic`
+
+Implemented:
+- pure cyclomatic analysis in `cyclomatic.clj`
+- CLI wiring for `cyclomatic` subcommand
+- text / markdown / EDN / JSON output
+- per-function and per-namespace rollups
+- per-arity complexity reporting for multi-arity functions
+
+Current rules:
+- base complexity 1 per function arity
+- `if` family adds 1 (`if`, `if-not`, `if-let`, `if-some`, `when`, `when-not`, `when-let`, `when-some`, `when-first`)
+- loop forms add 1 (`doseq`, `for`, `while`)
+- `cond` / `condp` count non-default branches
+- `case` counts explicit branches, ignoring default
+- `and` / `or` add `operand-count - 1`
+- each `catch` in `try` adds 1
+
+Notes:
+- currently scans `.clj` files
+- uses full-file edamame parsing via `scan/parse-file-all-forms`
+- report records `:max-function`, namespace summaries, and per-function arity vectors
 
 Bug: `path->ns` in `git.clj` stripped trailing `/` from src-dirs but not
 leading `./`. Auto-discovery always returns `./components/*/src` style paths.

@@ -16,7 +16,7 @@ just hard to read.
 ## Usage
 
 ```bash
-gordian [analyze] [<dir-or-src>...] [options]
+gordian [analyze|diagnose|compare|gate|subgraph|communities|dsm|tests|cyclomatic|explain|explain-pair] [<dir-or-src>...] [options]
 ```
 
 When given a project root (a directory containing `deps.edn`, `bb.edn`,
@@ -29,6 +29,7 @@ Options:
   --dot  <file>              Write Graphviz DOT graph to <file>
   --json                     Output JSON to stdout (suppresses human-readable table)
   --edn                      Output EDN to stdout (suppresses human-readable table)
+  --markdown                 Output Markdown to stdout (suppresses human-readable table)
   --conceptual <float>       Conceptual coupling analysis at given similarity threshold
   --change [<repo-dir>]      Change coupling analysis; repo dir defaults to .
   --change-since <date>      Limit change coupling to commits after <date>
@@ -56,6 +57,12 @@ gordian . --include-tests
 # dedicated test architecture analysis
 gordian tests .
 gordian tests src/ test/
+
+# cyclomatic complexity analysis
+gordian cyclomatic .
+gordian cyclomatic src/ test/
+gordian cyclomatic . --edn > cyclomatic.edn
+gordian cyclomatic . --markdown > cyclomatic.md
 
 # exclude namespaces by pattern
 gordian . --exclude 'user|scratch'
@@ -123,6 +130,38 @@ Interpretation notes:
 - **Shared test support is normal.** Test support depended on by production code is suspicious.
 - **`Ca` delta on core namespaces is a proxy** for whether stable core code is directly exercised by tests.
 - **Propagation-cost delta** distinguishes targeted suites from over-coupled suites.
+
+## Cyclomatic complexity mode (`cyclomatic`)
+
+`gordian cyclomatic` analyzes function-level cyclomatic complexity and rolls it
+up by namespace.
+
+```bash
+gordian cyclomatic .
+gordian cyclomatic src/
+gordian cyclomatic src/ test/
+gordian cyclomatic . --edn > cyclomatic.edn
+gordian cyclomatic . --json > cyclomatic.json
+gordian cyclomatic . --markdown > cyclomatic.md
+```
+
+It reports:
+- per-function complexity
+- per-arity complexity for multi-arity functions
+- namespace totals, averages, and maxima
+- overall summary and max-complexity function
+
+Current counting rules:
+- base complexity `1` per function arity
+- `if` family adds `1`
+- `doseq`, `for`, `while` add `1`
+- `cond` and `condp` count non-default branches
+- `case` counts explicit branches, ignoring default
+- `and` / `or` add `operand-count - 1`
+- each `catch` in `try` adds `1`
+
+This mode complements Gordian's architectural analysis: it measures code-path
+branching within functions rather than namespace coupling across the system.
 
 ## Install via bbin
 
