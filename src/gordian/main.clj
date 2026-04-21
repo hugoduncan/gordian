@@ -22,6 +22,7 @@
             [gordian.communities :as communities]
             [gordian.dsm         :as dsm]
             [gordian.tests       :as tests]
+            [gordian.cyclomatic  :as cyclomatic]
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
             [gordian.family      :as family]
@@ -61,7 +62,7 @@
    :help                  {:desc "Show this help message" :coerce :boolean}})
 
 (def ^:private usage-summary
-  "Usage: gordian [analyze|diagnose|compare|gate|subgraph|communities|dsm|tests|explain|explain-pair] [<dir-or-src>...] [options]
+  "Usage: gordian [analyze|diagnose|compare|gate|subgraph|communities|dsm|tests|cyclomatic|explain|explain-pair] [<dir-or-src>...] [options]
 
 When given a project root (dir with deps.edn, bb.edn, etc.), gordian
 auto-discovers source directories. With no arguments, defaults to '.'.
@@ -75,6 +76,7 @@ Commands:
   communities  Discover latent architecture communities
   dsm          Dependency Structure Matrix view with diagonal block partitions
   tests        Analyze test architecture and test-vs-source coupling
+  cyclomatic   Analyze cyclomatic complexity of functions with namespace rollups
   explain      Everything gordian knows about a namespace
   explain-pair Everything gordian knows about a pair of namespaces
 
@@ -124,6 +126,7 @@ Examples:
   gordian dsm .
   gordian dsm . --html-file dsm.html
   gordian tests .
+  gordian cyclomatic .
   gordian explain gordian.scan        drill into a namespace
   gordian explain-pair a.core b.svc   drill into a pair")
 
@@ -147,7 +150,8 @@ Examples:
   (let [command  ({"analyze" :analyze "diagnose" :diagnose
                    "explain" :explain "explain-pair" :explain-pair
                    "compare" :compare "gate" :gate "subgraph" :subgraph
-                   "communities" :communities "dsm" :dsm "tests" :tests}
+                   "communities" :communities "dsm" :dsm "tests" :tests
+                   "cyclomatic" :cyclomatic}
                   (first raw-args))
         raw-args (if command (rest raw-args) raw-args)
         {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})]
@@ -188,6 +192,10 @@ Examples:
 
       (= :tests command)
       (assoc opts :command :tests
+             :src-dirs (if (seq args) (vec args) ["."]))
+
+      (= :cyclomatic command)
+      (assoc opts :command :cyclomatic
              :src-dirs (if (seq args) (vec args) ["."]))
 
       (= :explain command)
@@ -235,7 +243,7 @@ Examples:
                          (first src-dirs))
         cfg            (when project-dir (config/load-config project-dir))
         merged0        (if cfg (config/merge-opts cfg opts) opts)
-        merged         (if (= :tests command)
+        merged         (if (#{:tests :cyclomatic} command)
                          (assoc merged0 :include-tests true)
                          merged0)]
     (if project-dir
@@ -525,6 +533,22 @@ Examples:
           markdown (run! println (output/format-tests-md data))
           :else    (output/print-tests data))))))
 
+(defn cyclomatic-cmd
+  "Run cyclomatic complexity mode with resolved opts map."
+  [{:keys [json edn markdown src-dirs] :as opts}]
+  (let [files (->> src-dirs
+                   (mapcat #(fs/glob % "**.clj"))
+                   (map str)
+                   sort
+                   (keep scan/parse-file-all-forms))
+        data  (assoc (cyclomatic/rollup files)
+                     :src-dirs src-dirs)]
+    (cond
+      json     (println (report-json/generate (envelope/wrap opts data :cyclomatic)))
+      edn      (print   (report-edn/generate  (envelope/wrap opts data :cyclomatic)))
+      markdown (run! println (output/format-cyclomatic-md data))
+      :else    (output/print-cyclomatic data))))
+
 (defn gate-cmd
   "Run gate with resolved opts map.
   Builds a current diagnose-style report, compares against baseline,
@@ -597,6 +621,7 @@ Examples:
                               :communities  (communities-cmd opts)
                               :dsm          (dsm-cmd opts)
                               :tests        (tests-cmd opts)
+                              :cyclomatic   (cyclomatic-cmd opts)
                               :explain      (explain-cmd opts)
                               :explain-pair (explain-pair-cmd opts)
                               (analyze opts))))))))

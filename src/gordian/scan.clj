@@ -133,8 +133,8 @@
           (= ::skip  form) (recur forms)
           :else            (recur (conj forms form)))))))
 
-(defn- parse-file-all-forms
-  "Read a .clj file and return {:ns sym :forms [form]}, or nil on failure.
+(defn parse-file-all-forms
+  "Read a .clj file and return {:file string :ns sym :forms [form]}, or nil on failure.
   Reads the full file body so that def names and docstrings are captured."
   [path]
   (try
@@ -143,7 +143,9 @@
           ns-form (first (filter #(and (seq? %) (= 'ns (first %))) forms))
           ns-sym  (when ns-form (second ns-form))]
       (when ns-sym
-        {:ns ns-sym :forms forms}))
+        {:file (str path)
+         :ns ns-sym
+         :forms forms}))
     (catch Exception _ nil)))
 
 ;;; ── combined single-pass scan ────────────────────────────────────────────

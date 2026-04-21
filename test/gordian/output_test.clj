@@ -1043,3 +1043,55 @@
     (is (str/includes? text "`integration-ish`"))
     (is (str/includes? text "## Findings"))
     (is (str/includes? text "production namespace depends on test namespace"))))
+
+;;; ── cyclomatic output ───────────────────────────────────────────────────
+
+(def cyclomatic-data
+  {:gordian/command :cyclomatic
+   :src-dirs ["resources/fixture"]
+   :summary {:namespace-count 2
+             :function-count 3
+             :total-complexity 7
+             :avg-complexity (/ 7.0 3)
+             :max-complexity 3}
+   :max-function {:ns 'sample.core
+                  :name 'branchy
+                  :qualified-name 'sample.core/branchy
+                  :complexity 3
+                  :file "src/sample/core.clj"}
+   :namespaces [{:ns 'sample.core
+                 :file "src/sample/core.clj"
+                 :function-count 2
+                 :total-complexity 5
+                 :avg-complexity 2.5
+                 :max-complexity 3
+                 :functions [{:name 'branchy :complexity 3 :arity-count 1 :arity-complexities [3]}
+                             {:name 'simple :complexity 2 :arity-count 2 :arity-complexities [1 2]}]}
+                {:ns 'sample.util
+                 :file "src/sample/util.clj"
+                 :function-count 1
+                 :total-complexity 2
+                 :avg-complexity 2.0
+                 :max-complexity 2
+                 :functions [{:name 'helper :complexity 2 :arity-count 1 :arity-complexities [2]}]}]})
+
+(deftest format-cyclomatic-test
+  (let [text (str/join "\n" (sut/format-cyclomatic cyclomatic-data))]
+    (is (str/includes? text "gordian cyclomatic"))
+    (is (str/includes? text "SUMMARY"))
+    (is (str/includes? text "namespaces: 2"))
+    (is (str/includes? text "functions: 3"))
+    (is (str/includes? text "sample.core/branchy (3)"))
+    (is (str/includes? text "sample.core  functions=2"))
+    (is (str/includes? text "branchy"))
+    (is (str/includes? text "per-arity=[1 2]"))))
+
+(deftest format-cyclomatic-md-test
+  (let [text (str/join "\n" (sut/format-cyclomatic-md cyclomatic-data))]
+    (is (str/includes? text "# gordian cyclomatic"))
+    (is (str/includes? text "## Summary"))
+    (is (str/includes? text "| Metric | Value |"))
+    (is (str/includes? text "`sample.core/branchy` (3)"))
+    (is (str/includes? text "## sample.core"))
+    (is (str/includes? text "| Function | Complexity | Arities | Per-arity |"))
+    (is (str/includes? text "`branchy`"))))

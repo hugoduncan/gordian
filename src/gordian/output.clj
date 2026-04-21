@@ -1560,7 +1560,92 @@
   [result]
   (run! println (format-gate result)))
 
+;;; ── cyclomatic output ───────────────────────────────────────────────────
+
+(defn format-cyclomatic
+  "Format cyclomatic complexity report as human-readable lines."
+  [{:keys [src-dirs summary max-function namespaces]}]
+  (into
+   ["gordian cyclomatic"
+    (str "src: " (str/join " " src-dirs))
+    ""
+    "SUMMARY"
+    (str "  namespaces: " (:namespace-count summary))
+    (str "  functions: " (:function-count summary))
+    (str "  total complexity: " (:total-complexity summary))
+    (str "  avg complexity: " (format "%.2f" (double (:avg-complexity summary))))
+    (str "  max complexity: " (:max-complexity summary))
+    (str "  max function: " (if max-function
+                              (str (:qualified-name max-function)
+                                   " (" (:complexity max-function) ")")
+                              "(none)"))
+    ""
+    "NAMESPACES"]
+   (mapcat (fn [{:keys [ns function-count total-complexity avg-complexity max-complexity functions]}]
+             (concat
+              [(str "  " ns
+                    "  functions=" function-count
+                    "  total=" total-complexity
+                    "  avg=" (format "%.2f" (double avg-complexity))
+                    "  max=" max-complexity)]
+              (if (seq functions)
+                (map (fn [{:keys [name complexity arity-count arity-complexities]}]
+                       (str "    " (pad-right 24 (str name))
+                            " complexity=" (pad-left 2 complexity)
+                            "  arities=" arity-count
+                            "  per-arity=" (pr-str arity-complexities)))
+                     functions)
+                ["    (none)"])
+              [""]))
+           namespaces)))
+
+(defn format-cyclomatic-md
+  "Format cyclomatic complexity report as markdown lines."
+  [{:keys [src-dirs summary max-function namespaces]}]
+  (into
+   ["# gordian cyclomatic"
+    ""
+    (str "**Source:** `" (str/join " " src-dirs) "`")
+    ""
+    "## Summary"
+    ""
+    "| Metric | Value |"
+    "|--------|-------|"
+    (str "| Namespaces | " (:namespace-count summary) " |")
+    (str "| Functions | " (:function-count summary) " |")
+    (str "| Total complexity | " (:total-complexity summary) " |")
+    (str "| Avg complexity | " (format "%.2f" (double (:avg-complexity summary))) " |")
+    (str "| Max complexity | " (:max-complexity summary) " |")
+    (str "| Max function | " (if max-function
+                               (str "`" (:qualified-name max-function) "` (" (:complexity max-function) ")")
+                               "(none)") " |")]
+   (mapcat (fn [{:keys [ns function-count total-complexity avg-complexity max-complexity functions]}]
+             (concat
+              [""
+               (str "## " ns)
+               ""
+               (str "- **Functions:** " function-count)
+               (str "- **Total complexity:** " total-complexity)
+               (str "- **Avg complexity:** " (format "%.2f" (double avg-complexity)))
+               (str "- **Max complexity:** " max-complexity)
+               ""
+               "| Function | Complexity | Arities | Per-arity |"
+               "|----------|------------|---------|-----------|"]
+              (if (seq functions)
+                (map (fn [{:keys [name complexity arity-count arity-complexities]}]
+                       (str "| `" name "` | " complexity
+                            " | " arity-count
+                            " | `" (pr-str arity-complexities) "` |"))
+                     functions)
+                ["| (none) | 0 | 0 | `[]` |"])))
+           namespaces)))
+
 (defn print-tests
   "Print a human-readable tests report to stdout."
   [result]
   (run! println (format-tests result)))
+
+(defn print-cyclomatic
+  "Print a human-readable cyclomatic report to stdout."
+  [result]
+  (run! println (format-cyclomatic result)))

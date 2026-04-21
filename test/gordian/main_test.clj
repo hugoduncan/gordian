@@ -181,6 +181,7 @@
       (is (str/includes? out "subgraph"))
       (is (str/includes? out "communities"))
       (is (str/includes? out "tests"))
+      (is (str/includes? out "cyclomatic"))
       (is (str/includes? out "--include-tests"))
       (is (str/includes? out "--exclude")))))
 
@@ -361,6 +362,17 @@
       (is (= :tests (:command opts)))
       (is (true? (:markdown opts))))))
 
+(deftest parse-args-cyclomatic-test
+  (testing "cyclomatic -> :command :cyclomatic"
+    (let [opts (sut/parse-args ["cyclomatic"])]
+      (is (= :cyclomatic (:command opts)))
+      (is (= ["."] (:src-dirs opts)))))
+
+  (testing "cyclomatic . --json"
+    (let [opts (sut/parse-args ["cyclomatic" "." "--json"])]
+      (is (= :cyclomatic (:command opts)))
+      (is (true? (:json opts))))))
+
 ;;; ── diagnose integration ─────────────────────────────────────────────────
 
 (deftest diagnose-integration-test
@@ -532,6 +544,26 @@
       (is (contains? parsed :test-namespaces))
       (is (contains? parsed :findings)))))
 
+(deftest cyclomatic-integration-test
+  (testing "cyclomatic produces output"
+    (let [out (with-out-str
+                (sut/cyclomatic-cmd {:src-dirs ["resources/fixture"] :command :cyclomatic}))]
+      (is (str/includes? out "gordian cyclomatic"))
+      (is (str/includes? out "SUMMARY"))
+      (is (str/includes? out "NAMESPACES"))
+      (is (str/includes? out "alpha"))))
+
+  (testing "cyclomatic with --edn returns structured map"
+    (let [out (with-out-str
+                (sut/cyclomatic-cmd {:src-dirs ["resources/fixture"]
+                                     :command :cyclomatic
+                                     :edn true}))
+          parsed (read-string out)]
+      (is (= :cyclomatic (:gordian/command parsed)))
+      (is (contains? parsed :summary))
+      (is (contains? parsed :namespaces))
+      (is (contains? parsed :max-function)))))
+
 ;;; ── parse-args / --markdown ────────────────────────────────────────────────
 
 (deftest parse-args-markdown-test
@@ -569,7 +601,13 @@
                                        :explain-ns-a 'gordian.aggregate
                                        :explain-ns-b 'gordian.close
                                        :markdown true}))]
-      (is (str/includes? out "# Gordian Explain-Pair")))))
+      (is (str/includes? out "# Gordian Explain-Pair"))))
+
+  (testing "cyclomatic --markdown produces markdown"
+    (let [out (with-out-str
+                (sut/cyclomatic-cmd {:src-dirs ["resources/fixture"]
+                                     :markdown true}))]
+      (is (str/includes? out "# gordian cyclomatic")))))
 
 ;;; ── parse-args / --include-tests + --exclude ─────────────────────────────
 
