@@ -1,0 +1,14 @@
+- [ ] Write a design/implementation companion doc for cyclomatic complexity scoring rules, CLI shape, sort/top semantics, unit extraction rules, and output examples
+- [ ] Implement v1 analyzable unit extraction for arity-level top-level forms in Clojure/BB (`defn`/`defn-`, `defmethod`, top-level `def` with literal `fn`)
+- [ ] Implement exact decision-point counting rules, including `cond->`, and explicit exclusions
+- [ ] Encode the resolved loop/recursion rule: no independent `:cc` increment for `loop`, `recur`, recursion, `for`, or `doseq`; count only branches within their bodies
+- [ ] Encode the canonical report schema for units, namespace rollups, and project rollup using compact metric-qualified field names (`:metric`, `:cc`, `:cc-decision-count`, `:cc-risk`, `:total-cc`, `:avg-cc`, `:max-cc`, `:cc-risk-counts`)
+- [ ] Implement CLI scope semantics and validation rules for discovered source default, tests-only mode, source-only mode, explicit paths, output-mode exclusivity, and invalid sort/top values
+- [ ] Implement `--sort` keys (`cc`, `ns`, `var`, `cc-risk`) and section-local `--top` behavior for unit and rollup sections
+- [ ] Implement pure cyclomatic-complexity scoring and aggregation modules
+- [ ] Add `gordian complexity` CLI wiring with discovered-source default behavior
+- [ ] Add scope controls for source-only, tests-only, and explicit paths
+- [ ] Add text output with horizontal bar charts
+- [ ] Add EDN and JSON output support
+- [ ] Add tests for scoring, aggregation, sort/truncation behavior, and CLI behavior
+- [ ] Update `PLAN.md` if accepted into the near-term roadmap
