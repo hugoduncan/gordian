@@ -14,8 +14,8 @@ Usage: `gordian` (auto-discovers from cwd) or `gordian src/` (explicit dirs)
 
 **v0.2.0 alpha.** Schema envelope, façade detection, family-noise suppression,
 explain-pair verdicts, family-scoped metrics, auto-discovery, config,
-diagnose, explain, markdown, dedicated `tests` mode, DSM, and
-`cyclomatic` complexity analysis.
+diagnose, explain, markdown, dedicated `tests` mode, DSM, and a partial
+`cyclomatic` complexity implementation.
 324 tests, 2119 assertions, 0 failures.
 
 ## Architecture (src/gordian/)
@@ -681,6 +681,7 @@ ea994f9  fix: strip leading ./ from src-dirs in path->ns — change coupling bro
 
 ```
 67050ee  feat: add cyclomatic complexity command
+bf2c064  docs: close cyclomatic task loop
 ```
 
 324 tests, 2119 assertions, 0 failures.
@@ -688,7 +689,7 @@ ea994f9  fix: strip leading ./ from src-dirs in path->ns — change coupling bro
 New command:
 - `gordian cyclomatic`
 
-Implemented:
+Implemented so far:
 - pure cyclomatic analysis in `cyclomatic.clj`
 - CLI wiring for `cyclomatic` subcommand
 - text / markdown / EDN / JSON output
@@ -703,6 +704,13 @@ Current rules:
 - `case` counts explicit branches, ignoring default
 - `and` / `or` add `operand-count - 1`
 - each `catch` in `try` adds 1
+
+Correction:
+- this work does **not** yet satisfy the full Munera task `002-cyclomatic-complexity`
+- remaining checklist items include the companion design doc, canonical schema/field names,
+  broader unit extraction (`defmethod`, `def` + literal `fn`), refined scoring semantics,
+  `complexity` CLI shape, scope controls, `--sort` / section-local `--top`, and text bar charts
+- treat `002` as reopened / still active until those items are completed
 
 Notes:
 - currently scans `.clj` files
