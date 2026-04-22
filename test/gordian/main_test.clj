@@ -6,6 +6,9 @@
             [cheshire.core :as json]
             [gordian.main :as sut]))
 
+(defn- has-option-row? [out opt]
+  (boolean (re-find (re-pattern (str "(?m)^\\s*--" (java.util.regex.Pattern/quote opt) "\\b")) out)))
+
 ;;; ── parse-args ───────────────────────────────────────────────────────────
 
 (deftest parse-args-src-dirs-test
@@ -187,42 +190,42 @@
       (is (str/includes? out "diagnose"))
       (is (str/includes? out "complexity"))
       (is (str/includes? out "cyclomatic"))
-      (is (str/includes? out "--help"))
-      (is (str/includes? out "--json"))
-      (is (str/includes? out "--edn"))
-      (is (str/includes? out "--markdown"))
-      (is (not (str/includes? out "--conceptual")))
-      (is (not (str/includes? out "--change-since")))
-      (is (not (str/includes? out "--baseline")))
-      (is (not (str/includes? out "--sort")))))
+      (is (has-option-row? out "help"))
+      (is (has-option-row? out "json"))
+      (is (has-option-row? out "edn"))
+      (is (has-option-row? out "markdown"))
+      (is (not (has-option-row? out "conceptual")))
+      (is (not (has-option-row? out "change-since")))
+      (is (not (has-option-row? out "baseline")))
+      (is (not (has-option-row? out "sort")))))
 
   (testing "subcommand help is scoped to analyze"
     (let [out (with-out-str (sut/print-help :analyze))]
       (is (str/includes? out "Usage: gordian analyze [<dir-or-src>...] [options]"))
-      (is (str/includes? out "--conceptual"))
-      (is (str/includes? out "--change"))
-      (is (str/includes? out "--exclude"))
-      (is (not (str/includes? out "--baseline")))
-      (is (not (str/includes? out "--sort")))))
+      (is (has-option-row? out "conceptual"))
+      (is (has-option-row? out "change"))
+      (is (has-option-row? out "exclude"))
+      (is (not (has-option-row? out "baseline")))
+      (is (not (has-option-row? out "sort")))))
 
   (testing "subcommand help is scoped to complexity and includes alias note"
     (let [out (with-out-str (sut/print-help :cyclomatic))]
       (is (str/includes? out "Usage: gordian complexity [<dir-or-src>...] [options]"))
-      (is (str/includes? out "--sort"))
-      (is (str/includes? out "--min"))
-      (is (str/includes? out "--source-only"))
+      (is (has-option-row? out "sort"))
+      (is (has-option-row? out "min"))
+      (is (has-option-row? out "source-only"))
       (is (str/includes? out "Aliases: complexity, cyclomatic"))
-      (is (not (str/includes? out "--baseline")))
-      (is (not (str/includes? out "--conceptual")))))
+      (is (not (has-option-row? out "baseline")))
+      (is (not (has-option-row? out "conceptual")))))
 
   (testing "subcommand help is scoped to subgraph"
     (let [out (with-out-str (sut/print-help :subgraph))]
       (is (str/includes? out "Usage: gordian subgraph <prefix> [options]"))
-      (is (str/includes? out "--conceptual"))
-      (is (str/includes? out "--rank"))
-      (is (not (str/includes? out "--top")))
-      (is (not (str/includes? out "--show-noise")))
-      (is (not (str/includes? out "--baseline"))))))
+      (is (has-option-row? out "conceptual"))
+      (is (has-option-row? out "rank"))
+      (is (not (has-option-row? out "top")))
+      (is (not (has-option-row? out "show-noise")))
+      (is (not (has-option-row? out "baseline"))))))
 
 ;;; ── parse-args / subcommands ──────────────────────────────────────────────
 

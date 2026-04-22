@@ -29,5 +29,10 @@
 - [ ] Update README command/help documentation to match the scoped-help model
 - [ ] Ensure the refactor improves local comprehensibility and reduces responsibility concentration in `gordian.main`
 
-Post-review follow-up step:
-- [ ] tighten `subgraph` scoped help to only options consumed by `subgraph-cmd`; restore complexity explicit-path validation so explicit `.` still counts as an explicit path for `--source-only` / `--tests-only` rejection; trim unused `gordian.cli` helper surface
+Post-review follow-up steps:
+- [x] tighten `subgraph` scoped help to only options consumed by `subgraph-cmd`
+- [x] restore complexity explicit-path validation so explicit `.` still counts as an explicit path for `--source-only` / `--tests-only` rejection
+- [x] trim unused `gordian.cli` helper surface
+- [ ] if CLI growth continues, consider splitting `gordian.cli` into smaller helpers for registry/spec data, help rendering, and parse/validation
+- [ ] add stronger black-box help tests that assert exact option-row presence/absence rather than broad substring checks
+- [ ] reassess whether command dispatch should move closer to the registry, but only if it improves local comprehensibility

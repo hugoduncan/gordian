@@ -65,3 +65,15 @@ Post-implementation review note:
 
 Recommended follow-up:
 - add a small follow-up task to tighten `subgraph` option ownership, restore exact complexity explicit-path validation semantics, and trim unused `gordian.cli` helpers.
+
+Review summary:
+- implementation matches the task well
+- architecture is respected: `main.clj` is thinner and `gordian.cli` owns scoped CLI concerns
+- hybrid registry + explicit handlers is a good fit for the codebase
+- follow-up fixes landed for subgraph option scoping, complexity explicit-path validation, and unused CLI helper trimming
+- task is in good shape to remain closed
+
+Remaining feedback:
+- if the CLI grows further, consider splitting `gordian.cli` into smaller helpers for registry/spec data, help rendering, and parse/validation
+- add more black-box help tests that assert exact option-row presence/absence rather than broad substring checks
+- reconsider whether command dispatch should eventually move closer to the registry, but only if that improves local comprehensibility
