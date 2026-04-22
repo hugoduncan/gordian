@@ -4,6 +4,7 @@ Task created after closure of the LCC metric-definition task.
 
 Normative basis:
 - `doc/design/021-local-comprehension-complexity.md`
+- `doc/design/021b-local-comprehension-complexity-computation-rules.md`
 - `munera/closed/001-local-comprehension-complexity/`
 
 Current status:

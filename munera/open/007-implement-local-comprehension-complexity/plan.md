@@ -1,11 +1,12 @@
 Approach:
 - treat `doc/design/021-local-comprehension-complexity.md` as the normative semantic source
+- treat `doc/design/021b-local-comprehension-complexity-computation-rules.md` as the preferred v1 computation specification
 - implement LCC as a dedicated `gordian local` command over a pure analysis pipeline
 - deliberately reuse the successful `gordian complexity` CLI and output idioms where they fit the LCC workflow
 - sequence work from lowest-level invariants outward:
   1. local-unit extraction
-  2. evidence extraction
-  3. burden scoring
+  2. shared evidence extraction
+  3. burden scoring in a conservative order aligned with `021b`
   4. findings/report assembly
   5. CLI/output integration
 - prefer conservative high-confidence heuristics over speculative breadth in v1

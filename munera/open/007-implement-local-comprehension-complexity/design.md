@@ -1,4 +1,4 @@
-Implement Gordian Local Comprehension Complexity (LCC) as a new local-analysis command and pure analysis pipeline, following the converged metric definition in `doc/design/021-local-comprehension-complexity.md`.
+Implement Gordian Local Comprehension Complexity (LCC) as a new local-analysis command and pure analysis pipeline, following the converged metric definition in `doc/design/021-local-comprehension-complexity.md` and the burden computation rules in `doc/design/021b-local-comprehension-complexity-computation-rules.md`.
 
 ## Intent
 
@@ -20,6 +20,8 @@ This creates a gap:
 
 The implementation task must therefore translate the normative metric definition into a practical Gordian command without collapsing it into a simplistic scalar metric or overreaching into full semantic analysis.
 
+The semantic metric definition in `021` is complemented by `021b`, which locks the preferred v1 computation rules burden by burden. Implementation should follow `021b` when turning metric concepts into executable scoring logic.
+
 The implementation should begin with a narrow v1 slice that preserves the metric’s conceptual center:
 - burden vector primary
 - findings explanatory
@@ -36,7 +38,7 @@ The implementation should begin with a narrow v1 slice that preserves the metric
   - top-level `defn` arities
   - top-level `defmethod` bodies
   - nested local helpers folded into the enclosing top-level unit
-- implement v1 burden families:
+- implement v1 burden families using the burden-by-burden computation rules in `doc/design/021b-local-comprehension-complexity-computation-rules.md`:
   - `flow-burden`
   - `state-burden`
   - `shape-burden`
@@ -45,6 +47,7 @@ The implementation should begin with a narrow v1 slice that preserves the metric
   - `working-set`
 - defer `regularity-burden` from the first executable slice unless a clearly conservative, high-signal implementation falls out naturally after the core burden families are complete
 - implement a canonical machine-readable report for LCC results
+- omit `regularity-burden` from first-slice machine-readable payloads unless it is actually implemented with a clearly conservative, high-signal rule set
 - implement findings for high-confidence v1 finding kinds
 - implement a human-readable output mode suitable for hotspot triage
 - shape the CLI and human-readable output to resemble `gordian complexity` where the workflows are analogous
@@ -95,7 +98,7 @@ The implementation should begin with a narrow v1 slice that preserves the metric
   - `:working-set` substructure with `:peak`, `:avg`, and derived burden
   - `:lcc-total`
   - findings
-- implemented burden families cover at least:
+- implemented burden families cover at least, using the locked v1 computation rules from `021b`:
   - flow
   - state
   - shape
@@ -115,6 +118,7 @@ The implementation should begin with a narrow v1 slice that preserves the metric
   - `:working-set-overload`
   - `:opaque-pipeline` / `:helper-chasing` where supported by implemented dependency heuristics
 - the implementation follows Gordian’s pure-core / thin-IO style
+- burden-family scoring semantics follow `doc/design/021b-local-comprehension-complexity-computation-rules.md`
 - tests cover:
   - unit extraction rules
   - burden-family scoring semantics
