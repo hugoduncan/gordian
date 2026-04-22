@@ -381,7 +381,23 @@
   (testing "cyclomatic . --json"
     (let [opts (sut/parse-args ["cyclomatic" "." "--json"])]
       (is (= :cyclomatic (:command opts)))
-      (is (true? (:json opts))))))
+      (is (true? (:json opts)))))
+
+  (testing "complexity rejects conflicting scope flags"
+    (is (= "complexity rejects --source-only combined with --tests-only"
+           (:error (sut/parse-args ["complexity" "--source-only" "--tests-only"])))))
+
+  (testing "complexity rejects explicit paths with scope flags"
+    (is (= "complexity rejects explicit paths combined with --source-only or --tests-only"
+           (:error (sut/parse-args ["complexity" "src" "--tests-only"])))))
+
+  (testing "complexity rejects invalid sort key"
+    (is (= "complexity --sort must be one of: cc, ns, var, cc-risk"
+           (:error (sut/parse-args ["complexity" "--sort" "bogus"])))))
+
+  (testing "complexity rejects non-positive top"
+    (is (= "complexity --top must be a positive integer"
+           (:error (sut/parse-args ["complexity" "--top" "0"]))))))
 
 ;;; ── diagnose integration ─────────────────────────────────────────────────
 
@@ -569,10 +585,11 @@
                                      :command :cyclomatic
                                      :edn true}))
           parsed (read-string out)]
-      (is (= :cyclomatic (:gordian/command parsed)))
+      (is (= :complexity (:gordian/command parsed)))
       (is (contains? parsed :summary))
-      (is (contains? parsed :namespaces))
-      (is (contains? parsed :max-function)))))
+      (is (contains? parsed :units))
+      (is (contains? parsed :namespace-rollups))
+      (is (contains? parsed :project-rollup)))))
 
 ;;; ── parse-args / --markdown ────────────────────────────────────────────────
 
@@ -584,6 +601,19 @@
     (is (nil? (:markdown (sut/parse-args ["src/"]))))))
 
 ;;; ── markdown integration ─────────────────────────────────────────────────
+
+(deftest resolve-opts-complexity-test
+  (testing "complexity project-root default does not include tests"
+    (let [opts (sut/resolve-opts {:command :cyclomatic :src-dirs ["resources/fixture-project"]})]
+      (is (not (:include-tests opts)))))
+
+  (testing "complexity tests-only includes tests"
+    (let [opts (sut/resolve-opts {:command :cyclomatic :src-dirs ["resources/fixture-project"] :tests-only true})]
+      (is (true? (:include-tests opts)))))
+
+  (testing "complexity source-only keeps tests excluded"
+    (let [opts (sut/resolve-opts {:command :cyclomatic :src-dirs ["resources/fixture-project"] :source-only true})]
+      (is (not (:include-tests opts))))))
 
 (deftest markdown-integration-test
   (testing "analyze --markdown produces markdown"

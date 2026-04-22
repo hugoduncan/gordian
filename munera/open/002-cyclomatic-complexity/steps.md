@@ -9,12 +9,12 @@
 - [x] Replace the prototype report schema with the canonical metric-qualified schema for units, namespace rollups, and project rollup (`:metric`, `:cc`, `:cc-decision-count`, `:cc-risk`, `:total-cc`, `:avg-cc`, `:max-cc`, `:cc-risk-counts`)
 - [x] Add pure rollup assembly for namespace and project sections over canonical units
 - [x] Add pure sorting helpers for `--sort cc|ns|var|cc-risk` and pure section-local truncation for `--top`
-- [ ] Implement CLI scope semantics for discovered source default, `--source-only`, `--tests-only`, and explicit path override behavior
-- [ ] Implement CLI validation for conflicting scope flags, explicit-path/scope-flag conflicts, output-mode exclusivity, unknown sort keys, and non-positive `--top`
-- [ ] Update command wiring in `main.clj` to use the finalized command shape and finalized scope resolution semantics
+- [x] Implement CLI scope semantics for discovered source default, `--source-only`, `--tests-only`, and explicit path override behavior
+- [x] Implement CLI validation for conflicting scope flags, explicit-path/scope-flag conflicts, output-mode exclusivity, unknown sort keys, and non-positive `--top`
+- [x] Update command wiring in `main.clj` to use the finalized command shape and finalized scope resolution semantics
 - [x] Update text output to present canonical units / rollups and add horizontal bar charts
 - [x] Update EDN / JSON output to emit the finalized canonical payload shape consistently with the Gordian envelope
 - [x] Update markdown output only if retained as part of the finalized command surface; otherwise document its status explicitly
-- [ ] Expand tests for unit extraction (`defn`, multi-arity, `defmethod`, `def` + literal `fn`), scoring semantics, risk bands, canonical schema, sort/truncation behavior, scope behavior, validation, and command compatibility/alias behavior
-- [ ] Update `doc/schema.md`, README command docs, and task notes to match the finalized command name and canonical report shape
+- [x] Expand tests for unit extraction (`defn`, multi-arity, `defmethod`, `def` + literal `fn`), scoring semantics, risk bands, canonical schema, sort/truncation behavior, scope behavior, validation, and command compatibility/alias behavior
+- [x] Update `doc/schema.md`, README command docs, and task notes to match the finalized command name and canonical report shape
 - [ ] Update `munera/plan.md` wording if needed after the command naming / scope decision is finalized

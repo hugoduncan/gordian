@@ -53,10 +53,13 @@
    :max-new-medium-findings {:desc "Maximum newly introduced medium-severity findings" :coerce :long}
    :fail-on               {:desc "Comma-separated strict gate checks e.g. new-cycles,new-high-findings"}
    :rank                  {:desc "Diagnose ranking: actionability (default) or severity" :coerce :keyword}
+   :sort                  {:desc "Complexity sort: cc | ns | var | cc-risk" :coerce :keyword}
    :top                   {:desc "Show only the top N findings after ranking" :coerce :long}
    :lens                  {:desc "Communities lens: structural | conceptual | change | combined" :coerce :keyword}
    :threshold             {:desc "Communities threshold" :coerce :double}
    :include-tests         {:desc "Include test directories in auto-discovery" :coerce :boolean}
+   :source-only           {:desc "Complexity: discovered source paths only" :coerce :boolean}
+   :tests-only            {:desc "Complexity: discovered test paths only" :coerce :boolean}
    :exclude               {:desc "Exclude namespaces matching regex (repeatable)" :coerce [:string]}
    :show-noise            {:desc "Include family-naming-noise findings (suppressed by default)" :coerce :boolean}
    :help                  {:desc "Show this help message" :coerce :boolean}})
@@ -96,10 +99,13 @@ Options:
   --max-new-medium-findings <n> Maximum newly introduced medium-severity findings
   --fail-on <csv>               Comma-separated strict gate checks
   --rank <mode>                 Diagnose ranking: actionability (default) or severity
+  --sort <key>                  Complexity sort: cc | ns | var | cc-risk
   --top <n>                     Show only the top N findings after ranking
   --lens <mode>                 Communities lens: structural | conceptual | change | combined
   --threshold <float>           Communities threshold
   --include-tests               Include test directories in auto-discovery
+  --source-only                 Complexity: discovered source paths only
+  --tests-only                  Complexity: discovered test paths only
   --exclude <regex>             Exclude namespaces matching regex (repeatable)
   --show-noise                  Include family-naming-noise findings (suppressed by default)
   --help                        Show this help message
@@ -163,6 +169,24 @@ Examples:
 
       (< 1 (count (filter identity [(:json opts) (:edn opts) (:markdown opts)])))
       {:error "--json, --edn, and --markdown are mutually exclusive"}
+
+      (and (= :cyclomatic command) (:source-only opts) (:tests-only opts))
+      {:error "complexity rejects --source-only combined with --tests-only"}
+
+      (and (= :cyclomatic command)
+           (seq args)
+           (or (:source-only opts) (:tests-only opts)))
+      {:error "complexity rejects explicit paths combined with --source-only or --tests-only"}
+
+      (and (= :cyclomatic command)
+           (:sort opts)
+           (not (contains? #{:cc :ns :var :cc-risk} (:sort opts))))
+      {:error "complexity --sort must be one of: cc, ns, var, cc-risk"}
+
+      (and (= :cyclomatic command)
+           (:top opts)
+           (not (pos? (:top opts))))
+      {:error "complexity --top must be a positive integer"}
 
       (= :compare command)
       (if (and (first args) (second args))
@@ -245,8 +269,17 @@ Examples:
                          (first src-dirs))
         cfg            (when project-dir (config/load-config project-dir))
         merged0        (if cfg (config/merge-opts cfg opts) opts)
-        merged         (if (#{:tests :cyclomatic} command)
+        merged         (cond
+                         (= :tests command)
                          (assoc merged0 :include-tests true)
+
+                         (and (= :cyclomatic command) (:tests-only merged0))
+                         (assoc merged0 :include-tests true)
+
+                         (and (= :cyclomatic command) (:source-only merged0))
+                         (assoc merged0 :include-tests false)
+
+                         :else
                          merged0)]
     (if project-dir
       ;; auto-discovery: config :src-dirs overrides discovery, else probe
@@ -535,21 +568,56 @@ Examples:
           markdown (run! println (output/format-tests-md data))
           :else    (output/print-tests data))))))
 
+(defn- resolve-complexity-paths
+  "Resolve typed scan paths for complexity mode.
+  Default project-root behavior is discovered source paths only.
+  `--tests-only` switches to discovered test paths only.
+  Explicit paths override discovery and are typed heuristically."
+  [{:keys [src-dirs tests-only] :as opts}]
+  (let [project-dir (when (and (= 1 (count src-dirs))
+                               (discover/project-root? (first src-dirs)))
+                      (first src-dirs))]
+    (if project-dir
+      (let [cfg        (config/load-config project-dir)
+            discovered (discover/discover-dirs project-dir)
+            chosen-src (if tests-only [] (or (seq (:src-dirs cfg)) (:src-dirs discovered)))
+            chosen-test (if tests-only (:test-dirs discovered) [])
+            typed      (discover/resolve-paths {:src-dirs chosen-src
+                                                :test-dirs chosen-test}
+                                               (assoc opts :include-tests (boolean tests-only)))]
+        (if (seq typed)
+          typed
+          {:error (str "no source directories found in " project-dir)}))
+      (mapv (fn [dir]
+              {:dir dir :kind (if (explicit-test-path? dir) :test :src)})
+            src-dirs))))
+
 (defn cyclomatic-cmd
   "Run cyclomatic complexity mode with resolved opts map."
-  [{:keys [json edn markdown src-dirs] :as opts}]
-  (let [files (->> src-dirs
-                   (mapcat #(fs/glob % "**.clj"))
-                   (map str)
-                   sort
-                   (keep scan/parse-file-all-forms))
-        data  (assoc (cyclomatic/rollup files)
-                     :src-dirs src-dirs)]
-    (cond
-      json     (println (report-json/generate (envelope/wrap opts data :cyclomatic)))
-      edn      (print   (report-edn/generate  (envelope/wrap opts data :cyclomatic)))
-      markdown (run! println (output/format-cyclomatic-md data))
-      :else    (output/print-cyclomatic data))))
+  [{:keys [json edn markdown top] :as opts}]
+  (let [sort-key (:sort opts)
+        paths (resolve-complexity-paths opts)]
+    (if (:error paths)
+      (println (str "Error: " (:error paths)))
+      (let [files (->> paths
+                       (mapcat (fn [{:keys [dir kind]}]
+                                 (->> (fs/glob dir "**.clj")
+                                      (map str)
+                                      clojure.core/sort
+                                      (keep #(some-> (scan/parse-file-all-forms %)
+                                                     (assoc :origin kind))))))
+                       vec)
+            data  (-> (cyclomatic/rollup files)
+                      (assoc :gordian/command :complexity
+                             :src-dirs (mapv :dir paths))
+                      (update :units cyclomatic/sort-units sort-key)
+                      (update :units cyclomatic/truncate-section top)
+                      (update :namespace-rollups cyclomatic/truncate-section top))]
+        (cond
+          json     (println (report-json/generate (envelope/wrap opts data :complexity)))
+          edn      (print   (report-edn/generate  (envelope/wrap opts data :complexity)))
+          markdown (run! println (output/format-cyclomatic-md data))
+          :else    (output/print-cyclomatic data))))))
 
 (defn gate-cmd
   "Run gate with resolved opts map.

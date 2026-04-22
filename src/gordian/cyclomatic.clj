@@ -309,21 +309,22 @@
 (defn sort-units
   "Sort canonical units by one of :cc, :ns, :var, or :cc-risk."
   [units sort-key]
-  (let [sort-key (or sort-key :cc)]
-    (case sort-key
-      :ns
-      (sort-by (juxt :ns (comp - :cc) :var :kind :arity :dispatch) units)
+  (vec
+   (let [sort-key (or sort-key :cc)]
+     (case sort-key
+       :ns
+       (sort-by (juxt :ns (comp - :cc) :var :kind :arity :dispatch) units)
 
-      :var
-      (sort-by (juxt :ns :var (comp - :cc) :kind :arity :dispatch) units)
+       :var
+       (sort-by (juxt :ns :var (comp - :cc) :kind :arity :dispatch) units)
 
-      :cc-risk
-      (sort-by (juxt (comp - risk-order (comp :level :cc-risk))
-                     (comp - :cc)
-                     :ns :var :kind :arity :dispatch)
-               units)
+       :cc-risk
+       (sort-by (juxt (comp - risk-order (comp :level :cc-risk))
+                      (comp - :cc)
+                      :ns :var :kind :arity :dispatch)
+                units)
 
-      (sort-by (juxt (comp - :cc) :ns :var :kind :arity :dispatch) units))))
+       (sort-by (juxt (comp - :cc) :ns :var :kind :arity :dispatch) units)))))
 
 (defn truncate-section
   "Apply section-local top-N truncation when top is positive."
