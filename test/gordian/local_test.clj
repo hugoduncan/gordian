@@ -329,32 +329,51 @@
     (is (contains? kinds :working-set-overload))))
 
 (deftest sort-filter-and-rollup-test
-  (let [units [{:ns 'b.core :var 'z :kind :defn-arity :arity 1
+  (let [units [{:ns 'b.core :var 'z :kind :defn-arity :arity 1 :line 10
                 :flow-burden 1 :state-burden 0 :shape-burden 0 :abstraction-burden 1 :dependency-burden 0
-                :working-set {:peak 3 :avg 2.0 :burden 0.0} :lcc-total 2.4 :findings []}
-               {:ns 'a.core :var 'x :kind :defn-arity :arity 1
+                :working-set {:peak 3 :avg 2.0 :burden 0.0}
+                :normalized-burdens {:flow 0.69 :state 0.0 :shape 0.0 :abstraction 0.69 :dependency 0.0 :working-set 0.0}
+                :lcc-total 2.4 :findings []}
+               {:ns 'a.core :var 'x :kind :defn-arity :arity 1 :line 20
                 :flow-burden 3 :state-burden 1 :shape-burden 1 :abstraction-burden 2 :dependency-burden 1
-                :working-set {:peak 5 :avg 3.5 :burden 1.25} :lcc-total 10.0 :findings []}
-               {:ns 'a.core :var 'y :kind :defmethod :dispatch :json
+                :working-set {:peak 5 :avg 3.5 :burden 1.25}
+                :normalized-burdens {:flow 1.38 :state 0.69 :shape 0.69 :abstraction 1.10 :dependency 0.69 :working-set 0.81}
+                :lcc-total 10.0 :findings []}
+               {:ns 'a.core :var 'y :kind :defmethod :dispatch :json :line 30
                 :flow-burden 2 :state-burden 0 :shape-burden 3 :abstraction-burden 4 :dependency-burden 3
-                :working-set {:peak 7 :avg 4.0 :burden 3.5} :lcc-total 18.0 :findings []}]
+                :working-set {:peak 7 :avg 4.0 :burden 3.5}
+                :normalized-burdens {:flow 1.10 :state 0.0 :shape 1.38 :abstraction 1.61 :dependency 1.38 :working-set 1.50}
+                :lcc-total 18.0 :findings []}]
         mins {:total 10 :abstraction 2}
         options (report/local-options {:namespace-rollup true :project-rollup false})
         rollups (report/namespace-rollups units)]
     (is (= ['a.core 'a.core 'b.core] (mapv :ns (report/sort-units units :ns))))
     (is (= ['y 'x 'z] (mapv :var (report/sort-units units :total))))
+    (is (= ['y 'x 'z] (mapv :var (report/sort-units units :working-set.peak))))
     (is (= :total (report/effective-bar-metric {})))
     (is (= :shape (report/effective-bar-metric {:sort :shape})))
     (is (= :working-set (report/effective-bar-metric {:bar :working-set})))
+    (is (= :working-set.peak (report/effective-bar-metric {:bar :working-set.peak})))
     (is (= [:total 12] (report/parse-min-expression "total=12")))
     (is (= [:abstraction 4] (report/parse-min-expression "abstraction=4")))
+    (is (= [:working-set.peak 7] (report/parse-min-expression "working-set.peak=7")))
     (is (nil? (report/parse-min-expression "bogus=10")))
+    (is (nil? (report/parse-min-expression "ns=10")))
     (is (nil? (report/parse-min-expression "total=0")))
+    (is (= 7.0 (report/metric-value (last units) :working-set.peak)))
+    (is (= 4.0 (report/metric-value (last units) :working-set.avg)))
+    (is (= 1.5 (report/metric-value (last units) :normalized-burdens.working-set)))
     (is (= ['x 'y] (mapv :var (report/filter-units-by-mins units mins))))
+    (is (= ['y] (mapv :var (report/filter-units-by-mins units {:working-set.peak 6}))))
     (is (= {:sort nil :top nil :bar nil :namespace-rollup true :project-rollup false :mins nil} options))
     (is (= 2 (count (report/truncate-section units 2))))
     (is (= ['a.core 'b.core] (mapv :ns rollups)))
-    (is (= 3 (get-in (report/project-rollup units rollups) [:unit-count])))))
+    (is (= 3 (get-in (report/project-rollup units rollups) [:unit-count])))
+    (is (report/valid-sort-key? :working-set.peak))
+    (is (report/valid-sort-key? :normalized-burdens.working-set))
+    (is (not (report/valid-sort-key? :bogus)))
+    (is (report/valid-bar-metric? :working-set.avg))
+    (is (not (report/valid-bar-metric? :ns)))))
 
 (deftest rollup-test
   (let [tmp (java.io.File/createTempFile "gordian-local-rollup" ".clj")
@@ -405,7 +424,7 @@
         finalized (report/finalize-report report
                                           :explicit
                                           [{:dir "src" :kind :src}]
-                                          {:sort :total :top 1 :min ["total=5"] :namespace-rollup true})]
+                                          {:sort :working-set.peak :top 1 :min ["working-set.avg=4"] :namespace-rollup true})]
     (is (= ['b.core 'a.core 'a.core] (mapv :ns (:units finalized)))
         "canonical units remain intact")
     (is (= ['a.core] (mapv :ns (get-in finalized [:display :units]))))
@@ -413,6 +432,8 @@
     (is (= ['a.core] (mapv :ns (get-in finalized [:display :namespace-rollups]))))
     (is (nil? (:project-rollup finalized)))
     (is (= 'y (get-in finalized [:max-unit :var])))
-    (is (= {:total 5} (get-in finalized [:options :mins])))
+    (is (= {:working-set.avg 4} (get-in finalized [:options :mins])))
+    (is (= :working-set.peak (get-in finalized [:options :sort])))
+    (is (= :working-set.peak (:bar-metric finalized)))
     (is (true? (get-in finalized [:options :namespace-rollup])))
     (is (false? (get-in finalized [:options :project-rollup])))))

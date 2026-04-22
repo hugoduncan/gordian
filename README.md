@@ -247,11 +247,13 @@ gordian local src/
 gordian local --tests-only .
 gordian local . --sort abstraction --top 20
 gordian local . --sort ns --bar working-set
+gordian local . --sort working-set.peak --bar working-set.avg
 gordian local . --namespace-rollup
 gordian local . --project-rollup
 gordian local . --namespace-rollup --project-rollup
 gordian local . --min total=12
 gordian local . --min abstraction=4 --min working-set=3
+gordian local . --min working-set.peak=7 --min working-set.avg=4
 gordian local . --edn > local.edn
 gordian local . --json > local.json
 gordian local . --markdown > local.md
@@ -282,8 +284,10 @@ Scope and ranking controls mirror `complexity` where practical:
 - default with project discovery = source paths only
 - `--tests-only` analyzes discovered test paths only
 - explicit paths override discovery-based scope selection
-- `--sort` supports `total`, `flow`, `state`, `shape`, `abstraction`, `dependency`, `working-set`, `ns`, and `var`
-- `--bar` supports `total`, `flow`, `state`, `shape`, `abstraction`, `dependency`, and `working-set`
+- `--sort` supports built-in aliases `total`, `flow`, `state`, `shape`, `abstraction`, `dependency`, `working-set`, plus `ns` and `var`, and also dotted numeric unit keys such as `working-set.peak` or `normalized-burdens.working-set`
+- `--bar` supports built-in aliases and dotted numeric unit keys such as `working-set.avg`
+- `--min metric=value` supports built-in aliases and dotted numeric unit keys such as `working-set.peak=7`
+- built-in aliases remain supported for the core burden families; dotted keys address numeric fields directly from the canonical unit payload
 - `--namespace-rollup` includes the namespace rollup section
 - `--project-rollup` includes the project rollup section
 - repeatable `--min metric=value` filters displayed unit rows only

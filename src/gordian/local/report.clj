@@ -1,33 +1,73 @@
 (ns gordian.local.report
-  (:require [gordian.local.units :as units]
+  (:require [clojure.string :as str]
+            [gordian.local.units :as units]
             [gordian.local.evidence :as evidence]
             [gordian.local.burden :as burden]
             [gordian.local.findings :as findings]))
 
-(def ^:private min-metrics
-  #{:total :flow :state :shape :abstraction :dependency :working-set})
-
-(def ^:private bar-metrics
-  min-metrics)
-
-(def ^:private sort-keys
-  (conj min-metrics :ns :var))
-
-(def ^:private metric->field
-  {:total :lcc-total
-   :flow :flow-burden
-   :state :state-burden
-   :shape :shape-burden
-   :abstraction :abstraction-burden
-   :dependency :dependency-burden
+(def ^:private metric-aliases
+  {:total [:lcc-total]
+   :flow [:flow-burden]
+   :state [:state-burden]
+   :shape [:shape-burden]
+   :abstraction [:abstraction-burden]
+   :dependency [:dependency-burden]
    :working-set [:working-set :burden]})
+
+(def ^:private special-sort-keys
+  #{:ns :var})
+
+(def ^:private canonical-unit-numeric-shape
+  {:line 0
+   :arity 0
+   :flow-burden 0.0
+   :state-burden 0.0
+   :shape-burden 0.0
+   :abstraction-burden 0.0
+   :dependency-burden 0.0
+   :working-set {:peak 0
+                 :avg 0.0
+                 :burden 0.0}
+   :normalized-burdens {:flow 0.0
+                        :state 0.0
+                        :shape 0.0
+                        :abstraction 0.0
+                        :dependency 0.0
+                        :working-set 0.0}
+   :lcc-total 0.0})
+
+(defn- numeric-leaf-paths
+  ([x] (numeric-leaf-paths [] x))
+  ([prefix x]
+   (cond
+     (number? x) #{prefix}
+     (map? x) (into #{}
+                    (mapcat (fn [[k v]]
+                              (numeric-leaf-paths (conj prefix k) v)))
+                    x)
+     :else #{})))
+
+(def ^:private direct-numeric-metric-paths
+  (numeric-leaf-paths canonical-unit-numeric-shape))
+
+(defn metric-token->path
+  [metric]
+  (when metric
+    (or (get metric-aliases metric)
+        (let [path (mapv keyword (str/split (name metric) #"\."))]
+          (when (contains? direct-numeric-metric-paths path)
+            path)))))
+
+(defn numeric-metric-token?
+  [metric]
+  (some? (metric-token->path metric)))
 
 (defn parse-min-expression
   [expr]
-  (when-let [[_ metric n] (re-matches #"([a-z-]+)=(\d+)" (str expr))]
+  (when-let [[_ metric n] (re-matches #"([a-zA-Z0-9.-]+)=(\d+)" (str expr))]
     (let [metric (keyword metric)
           n      (parse-long n)]
-      (when (and (min-metrics metric) (pos? n))
+      (when (and (numeric-metric-token? metric) (pos? n))
         [metric n]))))
 
 (defn mins-map [{:keys [min]}]
@@ -52,15 +92,14 @@
 (defn effective-bar-metric
   [{:keys [sort bar]}]
   (or bar
-      (when (min-metrics sort) sort)
+      (when (numeric-metric-token? sort) sort)
       :total))
 
 (defn metric-value
   [unit metric]
-  (let [field (get metric->field metric)]
-    (if (vector? field)
-      (get-in unit field 0)
-      (get unit field 0))))
+  (double (or (some->> (metric-token->path metric)
+                       (get-in unit))
+              0)))
 
 (defn unit-satisfies-mins?
   [mins unit]
@@ -86,7 +125,7 @@
    (case (or sort-key :total)
      :ns (sort-by (juxt :ns (comp - double :lcc-total) :var :kind :arity :dispatch) units)
      :var (sort-by (juxt :ns :var (comp - double :lcc-total) :kind :arity :dispatch) units)
-     (sort-by (juxt (comp - double #(metric-value % (or sort-key :total)))
+     (sort-by (juxt (comp - #(metric-value % (or sort-key :total)))
                     (comp - double :lcc-total)
                     :ns :var :kind :arity :dispatch)
               units))))
@@ -214,7 +253,8 @@
       (not (:project-rollup options)) (dissoc :project-rollup))))
 
 (defn valid-sort-key? [k]
-  (contains? sort-keys k))
+  (or (contains? special-sort-keys k)
+      (numeric-metric-token? k)))
 
 (defn valid-bar-metric? [k]
-  (contains? bar-metrics k))
+  (numeric-metric-token? k))

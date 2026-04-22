@@ -74,9 +74,9 @@
 
 (def ^:private local-spec
   {:include-tests    {:desc "Include test directories in auto-discovery" :coerce :boolean}
-   :sort             {:desc "Sort by total | flow | state | shape | abstraction | dependency | working-set | ns | var" :coerce :keyword}
-   :bar              {:desc "Bar metric for human-readable histograms: total | flow | state | shape | abstraction | dependency | working-set" :coerce :keyword}
-   :min              {:desc "Display filter: repeatable metric=value, e.g. total=12 or abstraction=4" :coerce [:string]}
+   :sort             {:desc "Sort by total | flow | state | shape | abstraction | dependency | working-set | ns | var, or dotted numeric unit key e.g. working-set.peak" :coerce :keyword}
+   :bar              {:desc "Bar metric for human-readable histograms: any local numeric metric alias or dotted numeric unit key e.g. working-set.avg" :coerce :keyword}
+   :min              {:desc "Display filter: repeatable metric=value, e.g. total=12, abstraction=4, or working-set.peak=7" :coerce [:string]}
    :namespace-rollup {:desc "Include namespace rollup section" :coerce :boolean}
    :project-rollup   {:desc "Include project rollup section" :coerce :boolean}
    :top              {:desc "Show only the top N units after sorting" :coerce :long}
@@ -251,10 +251,10 @@
     :positional ["<dir-or-src>...  Project root or explicit source directories (default: .)"]
     :examples ["gordian local ."
                "gordian local . --sort abstraction"
-               "gordian local . --sort ns --bar working-set"
+               "gordian local . --sort working-set.peak --bar working-set.avg"
                "gordian local . --namespace-rollup"
                "gordian local . --project-rollup"
-               "gordian local . --min total=12 --min abstraction=4"
+               "gordian local . --min total=12 --min working-set.peak=7"
                "gordian local . --json"]
     :spec (merge-specs output-spec local-spec)
     :parse (fn [{:keys [args opts]}]
@@ -272,15 +272,15 @@
 
                   (and sort
                        (not (local/valid-sort-key? sort)))
-                  {:error "local --sort must be one of: total, flow, state, shape, abstraction, dependency, working-set, ns, var"}
+                  {:error "local --sort must be one of: total, flow, state, shape, abstraction, dependency, working-set, ns, var, or a dotted numeric unit key such as working-set.peak"}
 
                   (and bar
                        (not (local/valid-bar-metric? bar)))
-                  {:error "local --bar must be one of: total, flow, state, shape, abstraction, dependency, working-set"}
+                  {:error "local --bar must be a local numeric metric alias or dotted numeric unit key such as total, working-set, or working-set.avg"}
 
                   (and (seq min)
                        (not-every? some? (map local/parse-min-expression min)))
-                  {:error "local --min values must be metric=value with metric in {total,flow,state,shape,abstraction,dependency,working-set} and positive integer value"}
+                  {:error "local --min values must be metric=value with a local numeric metric alias or dotted numeric unit key, e.g. total=12 or working-set.peak=7"}
 
                   (and top (not (pos? top)))
                   {:error "local --top must be a positive integer"}))}

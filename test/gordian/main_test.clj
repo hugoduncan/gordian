@@ -241,6 +241,8 @@
   (testing "subcommand help is scoped to local"
     (let [out (with-out-str (sut/print-help :local))]
       (is (str/includes? out "Usage: gordian local [<dir-or-src>...] [options]"))
+      (is (str/includes? out "working-set.peak"))
+      (is (str/includes? out "working-set.avg"))
       (is (has-option-row? out "sort"))
       (is (has-option-row? out "min"))
       (is (has-option-row? out "bar"))
@@ -335,8 +337,18 @@
       (is (= :working-set (:bar opts)))
       (is (= 5 (:top opts)))))
 
+  (testing "local accepts dotted numeric keys"
+    (let [opts (sut/parse-args ["local" "." "--sort" "working-set.peak" "--min" "working-set.avg=4" "--bar" "working-set.avg"])]
+      (is (= :local (:command opts)))
+      (is (= :working-set.peak (:sort opts)))
+      (is (= ["working-set.avg=4"] (:min opts)))
+      (is (= :working-set.avg (:bar opts)))))
+
   (testing "local rejects invalid sort"
     (is (contains? (sut/parse-args ["local" "." "--sort" "bogus"]) :error)))
+
+  (testing "local rejects non-numeric special sort in min"
+    (is (contains? (sut/parse-args ["local" "." "--min" "ns=10"]) :error)))
 
   (testing "local rejects invalid bar"
     (is (contains? (sut/parse-args ["local" "." "--bar" "bogus"]) :error)))
