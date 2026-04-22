@@ -1,5 +1,6 @@
 (ns gordian.cli.registry
-  (:require [gordian.cyclomatic :as cyclomatic]))
+  (:require [gordian.cyclomatic :as cyclomatic]
+            [gordian.local.report :as local]))
 
 (def ^:private output-spec
   {:json     {:desc "Output JSON to stdout (suppresses human-readable output)" :coerce :boolean}
@@ -65,6 +66,15 @@
    :bar           {:desc "Bar metric for human-readable histograms: cc | loc" :coerce :keyword}
    :min           {:desc "Display filter: repeatable metric=value, e.g. cc=10 or loc=20" :coerce [:string]}
    :min-cc        {:desc "Deprecated: use --min cc=<n>"}
+   :top           {:desc "Show only the top N units after sorting" :coerce :long}
+   :source-only   {:desc "Discovered source paths only" :coerce :boolean}
+   :tests-only    {:desc "Discovered test paths only" :coerce :boolean}})
+
+(def ^:private local-spec
+  {:include-tests {:desc "Include test directories in auto-discovery" :coerce :boolean}
+   :sort          {:desc "Sort by total | flow | state | shape | abstraction | dependency | working-set | ns | var" :coerce :keyword}
+   :bar           {:desc "Bar metric for human-readable histograms: total | flow | state | shape | abstraction | dependency | working-set" :coerce :keyword}
+   :min           {:desc "Display filter: repeatable metric=value, e.g. total=12 or abstraction=4" :coerce [:string]}
    :top           {:desc "Show only the top N units after sorting" :coerce :long}
    :source-only   {:desc "Discovered source paths only" :coerce :boolean}
    :tests-only    {:desc "Discovered test paths only" :coerce :boolean}})
@@ -227,6 +237,45 @@
 
                   (and top (not (pos? top)))
                   {:error "complexity --top must be a positive integer"}))}
+   {:canonical :local
+    :names ["local"]
+    :summary "Analyze local comprehension complexity burden vectors with findings"
+    :description ["Analyze local executable units using Local Comprehension Complexity (LCC)."]
+    :usage "gordian local [<dir-or-src>...] [options]"
+    :positional ["<dir-or-src>...  Project root or explicit source directories (default: .)"]
+    :examples ["gordian local ."
+               "gordian local . --sort abstraction"
+               "gordian local . --sort ns --bar working-set"
+               "gordian local . --min total=12 --min abstraction=4"
+               "gordian local . --json"]
+    :spec (merge-specs output-spec local-spec)
+    :parse (fn [{:keys [args opts]}]
+             (assoc opts :command :local
+                    :explicit-paths? (boolean (seq args))
+                    :src-dirs (if (seq args) (vec args) ["."])))
+    :validate (fn [{:keys [sort bar min top source-only tests-only explicit-paths?]}]
+                (cond
+                  (and source-only tests-only)
+                  {:error "local rejects --source-only combined with --tests-only"}
+
+                  (and explicit-paths?
+                       (or source-only tests-only))
+                  {:error "local rejects explicit paths combined with --source-only or --tests-only"}
+
+                  (and sort
+                       (not (local/valid-sort-key? sort)))
+                  {:error "local --sort must be one of: total, flow, state, shape, abstraction, dependency, working-set, ns, var"}
+
+                  (and bar
+                       (not (local/valid-bar-metric? bar)))
+                  {:error "local --bar must be one of: total, flow, state, shape, abstraction, dependency, working-set"}
+
+                  (and (seq min)
+                       (not-every? some? (map local/parse-min-expression min)))
+                  {:error "local --min values must be metric=value with metric in {total,flow,state,shape,abstraction,dependency,working-set} and positive integer value"}
+
+                  (and top (not (pos? top)))
+                  {:error "local --top must be a positive integer"}))}
    {:canonical :explain
     :names ["explain"]
     :summary "Everything gordian knows about a namespace"

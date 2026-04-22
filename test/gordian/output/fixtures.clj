@@ -260,3 +260,84 @@
                     :avg-loc (/ 16.0 3)
                     :max-loc 8}
    :max-unit {:ns 'sample.core :var 'branchy :arity 1 :cc 3 :loc 8}})
+
+(def local-data
+  {:gordian/command :local
+   :metric :local-comprehension-complexity
+   :src-dirs ["resources/fixture"]
+   :options {:sort :total :bar nil :mins nil}
+   :bar-metric :total
+   :units [{:ns 'sample.core
+            :var 'branchy
+            :kind :defn-arity
+            :arity 1
+            :flow-burden 3.0
+            :state-burden 1.0
+            :shape-burden 2.0
+            :abstraction-burden 4.0
+            :dependency-burden 2.0
+            :working-set {:peak 6 :avg 4.0 :burden 2.5}
+            :lcc-total 17.5
+            :findings [{:kind :abstraction-oscillation}
+                       {:kind :working-set-overload}]}
+           {:ns 'sample.core
+            :var 'simple
+            :kind :defn-arity
+            :arity 1
+            :flow-burden 1.0
+            :state-burden 0.0
+            :shape-burden 0.0
+            :abstraction-burden 1.0
+            :dependency-burden 0.0
+            :working-set {:peak 3 :avg 2.0 :burden 1.0}
+            :lcc-total 3.9
+            :findings []}
+           {:ns 'sample.util
+            :var 'helper
+            :kind :defmethod
+            :dispatch :html
+            :flow-burden 2.0
+            :state-burden 0.0
+            :shape-burden 1.0
+            :abstraction-burden 2.0
+            :dependency-burden 3.0
+            :working-set {:peak 5 :avg 3.5 :burden 1.25}
+            :lcc-total 9.7
+            :findings [{:kind :helper-chasing}]}]
+   :namespace-rollups [{:ns 'sample.core
+                        :unit-count 2
+                        :total-lcc 21.4
+                        :avg-lcc 10.7
+                        :max-lcc 17.5
+                        :avg-flow 2.0
+                        :avg-state 0.5
+                        :avg-shape 1.0
+                        :avg-abstraction 2.5
+                        :avg-dependency 1.0
+                        :avg-working-set 1.75}
+                       {:ns 'sample.util
+                        :unit-count 1
+                        :total-lcc 9.7
+                        :avg-lcc 9.7
+                        :max-lcc 9.7
+                        :avg-flow 2.0
+                        :avg-state 0.0
+                        :avg-shape 1.0
+                        :avg-abstraction 2.0
+                        :avg-dependency 3.0
+                        :avg-working-set 1.25}]
+   :project-rollup {:unit-count 3
+                    :namespace-count 2
+                    :total-lcc 31.1
+                    :avg-lcc (/ 31.1 3)
+                    :max-lcc 17.5
+                    :avg-flow (/ 5.0 3)
+                    :avg-state (/ 1.0 3)
+                    :avg-shape 1.0
+                    :avg-abstraction (/ 7.0 3)
+                    :avg-dependency (/ 5.0 3)
+                    :avg-working-set (/ 4.75 3)
+                    :finding-counts {:abstraction-oscillation 1
+                                     :working-set-overload 1
+                                     :helper-chasing 1}}
+   :max-unit {:ns 'sample.core :var 'branchy :kind :defn-arity :arity 1 :lcc-total 17.5}})

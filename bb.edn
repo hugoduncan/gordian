@@ -69,6 +69,7 @@
                                      'gordian.git-test
                                      'gordian.text-test
                                      'gordian.tests-test
-                                     'gordian.cyclomatic-test)
+                                     'gordian.cyclomatic-test
+                                     'gordian.local-test)
                             (let [r (t/run-all-tests (re-pattern "gordian\\..*-test"))]
                               (System/exit (if (pos? (+ (:fail r) (:error r))) 1 0))))}}}

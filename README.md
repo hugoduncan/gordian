@@ -86,6 +86,14 @@ gordian complexity src/ test/
 gordian complexity . --edn > complexity.edn
 gordian complexity . --markdown > complexity.md
 
+# local comprehension complexity analysis
+gordian local .
+gordian local src/
+gordian local . --sort abstraction --top 20
+gordian local . --min total=12 --min working-set=3
+gordian local . --edn > local.edn
+gordian local . --markdown > local.md
+
 # exclude namespaces by pattern
 gordian . --exclude 'user|scratch'
 
@@ -208,6 +216,52 @@ Scope and ranking controls:
 This mode complements Gordian's architectural analysis: it measures local
 branching complexity within executable units rather than namespace coupling
 across the system.
+
+## Local comprehension complexity mode (`local`)
+
+`gordian local` analyzes local executable units using the v1 Local
+Comprehension Complexity (LCC) burden-vector model.
+
+```bash
+gordian local .
+gordian local src/
+gordian local --tests-only .
+gordian local . --sort abstraction --top 20
+gordian local . --sort ns --bar working-set
+gordian local . --min total=12
+gordian local . --min abstraction=4 --min working-set=3
+gordian local . --edn > local.edn
+gordian local . --json > local.json
+gordian local . --markdown > local.md
+```
+
+It reports:
+- per-unit burden vectors for top-level `defn` arities and `defmethod` bodies
+- burden families: flow, state, shape, abstraction, dependency, working-set
+- per-unit findings for high-signal local comprehension burdens
+- namespace rollups over burden-family averages
+- project rollup with average burdens and finding counts
+
+Current v1 semantics:
+- canonical units are top-level `defn` arities and `defmethod` bodies
+- nested local helpers are folded into their enclosing top-level unit
+- `regularity-burden` is intentionally omitted from the first executable slice
+- `:working-set` reports `:peak`, `:avg`, and derived `:burden`
+- `:lcc-total` is a weighted headline rollup over the implemented burden families
+
+Scope and ranking controls mirror `complexity` where practical:
+- default with project discovery = source paths only
+- `--tests-only` analyzes discovered test paths only
+- explicit paths override discovery-based scope selection
+- `--sort` supports `total`, `flow`, `state`, `shape`, `abstraction`, `dependency`, `working-set`, `ns`, and `var`
+- `--bar` supports `total`, `flow`, `state`, `shape`, `abstraction`, `dependency`, and `working-set`
+- repeatable `--min metric=value` filters displayed unit rows only
+- multiple `--min` constraints combine conjunctively
+- namespace and project rollups remain computed from the full analyzed unit set
+- `--top` truncates units and namespace-rollup sections independently
+
+This mode complements `gordian complexity`: it focuses on local comprehension
+burden for safe change rather than branch count and LOC alone.
 
 ## Install via bbin
 

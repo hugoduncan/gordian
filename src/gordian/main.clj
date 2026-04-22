@@ -24,6 +24,7 @@
             [gordian.dsm         :as dsm]
             [gordian.tests       :as tests]
             [gordian.cyclomatic  :as cyclomatic]
+            [gordian.local.report :as local]
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
             [gordian.family      :as family]
@@ -70,10 +71,10 @@
                          (= :tests command)
                          (assoc merged0 :include-tests true)
 
-                         (and (= :complexity command) (:tests-only merged0))
+                         (and (contains? #{:complexity :local} command) (:tests-only merged0))
                          (assoc merged0 :include-tests true)
 
-                         (and (= :complexity command) (:source-only merged0))
+                         (and (contains? #{:complexity :local} command) (:source-only merged0))
                          (assoc merged0 :include-tests false)
 
                          :else
@@ -365,8 +366,8 @@
           markdown (run! println (output/format-tests-md data))
           :else    (output/print-tests data))))))
 
-(defn- resolve-complexity-paths
-  "Resolve typed scan paths for complexity mode.
+(defn- resolve-local-analysis-paths
+  "Resolve typed scan paths for local analysis modes.
   Default project-root behavior is discovered source paths only.
   `--tests-only` switches to discovered test paths only.
   Explicit paths override discovery and are typed heuristically."
@@ -375,13 +376,13 @@
                                (discover/project-root? (first src-dirs)))
                       (first src-dirs))]
     (if project-dir
-      (let [cfg        (config/load-config project-dir)
-            discovered (discover/discover-dirs project-dir)
-            chosen-src (if tests-only [] (or (seq (:src-dirs cfg)) (:src-dirs discovered)))
+      (let [cfg         (config/load-config project-dir)
+            discovered  (discover/discover-dirs project-dir)
+            chosen-src  (if tests-only [] (or (seq (:src-dirs cfg)) (:src-dirs discovered)))
             chosen-test (if tests-only (:test-dirs discovered) [])
-            typed      (discover/resolve-paths {:src-dirs chosen-src
-                                                :test-dirs chosen-test}
-                                               (assoc opts :include-tests (boolean tests-only)))]
+            typed       (discover/resolve-paths {:src-dirs chosen-src
+                                                 :test-dirs chosen-test}
+                                                (assoc opts :include-tests (boolean tests-only)))]
         (if (seq typed)
           typed
           {:error (str "no source directories found in " project-dir)}))
@@ -396,7 +397,7 @@
                        (discover/project-root? (first (:src-dirs opts))))
                 :discovered
                 :explicit)
-        paths (resolve-complexity-paths opts)]
+        paths (resolve-local-analysis-paths opts)]
     (if (:error paths)
       (println (str "Error: " (:error paths)))
       (let [files (->> paths
@@ -416,6 +417,34 @@
           edn      (print   (report-edn/generate  (envelope/wrap opts data :complexity)))
           markdown (run! println (output/format-complexity-md data))
           :else    (output/print-complexity data))))))
+
+(defn local-cmd
+  "Run local mode with resolved opts map."
+  [{:keys [json edn markdown] :as opts}]
+  (let [mode  (if (and (= 1 (count (:src-dirs opts)))
+                       (discover/project-root? (first (:src-dirs opts))))
+                :discovered
+                :explicit)
+        paths (resolve-local-analysis-paths opts)]
+    (if (:error paths)
+      (println (str "Error: " (:error paths)))
+      (let [files (->> paths
+                       (mapcat (fn [{:keys [dir kind]}]
+                                 (->> (fs/glob dir "**.clj")
+                                      (map str)
+                                      clojure.core/sort
+                                      (keep #(some-> (scan/parse-file-all-forms %)
+                                                     (assoc :origin kind))))))
+                       vec)
+            data  (local/finalize-report (local/rollup files)
+                                         mode
+                                         paths
+                                         opts)]
+        (cond
+          json     (println (report-json/generate (envelope/wrap opts data :local)))
+          edn      (print   (report-edn/generate  (envelope/wrap opts data :local)))
+          markdown (run! println (output/format-local-md data))
+          :else    (output/print-local data))))))
 
 (defn gate-cmd
   "Run gate with resolved opts map.
@@ -473,6 +502,7 @@
    :dsm          dsm-cmd
    :tests        tests-cmd
    :complexity   complexity-cmd
+   :local        local-cmd
    :explain      explain-cmd
    :explain-pair explain-pair-cmd})
 

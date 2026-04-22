@@ -238,3 +238,48 @@
     (is (not (str/includes? text "Decisions")))
     (is (str/includes? text "| Namespace | Units | Total CC | Avg CC | Max CC | Total LOC | Avg LOC | Max LOC |"))
     (is (str/includes? text "## Project rollup"))))
+
+(deftest format-local-test
+  (let [lines (sut/format-local fx/local-data)
+        text  (str/join "\n" lines)
+        unit-rows (filter #(and (str/includes? % "[arity") (str/includes? % "█")) lines)
+        bar-cols  (map #(.indexOf % "█") unit-rows)]
+    (is (str/includes? text "gordian local"))
+    (is (str/includes? text "SUMMARY"))
+    (is (str/includes? text "total lcc: 31.1"))
+    (is (str/includes? text "bar metric: total"))
+    (is (str/includes? text "sample.core/branchy [arity 1] (total=17.5)"))
+    (is (str/includes? text "UNITS"))
+    (is (str/includes? text "flow"))
+    (is (str/includes? text "abst"))
+    (is (str/includes? text "findings: abstraction-oscillation, working-set-overload"))
+    (is (str/includes? text "NAMESPACE ROLLUP"))
+    (is (str/includes? text "PROJECT ROLLUP"))
+    (is (apply = bar-cols))))
+
+(deftest format-local-bar-metric-test
+  (let [data (assoc fx/local-data
+                    :options {:sort :ns :bar :working-set :mins nil}
+                    :bar-metric :working-set)
+        lines (sut/format-local data)
+        branchy-row (first (filter #(and (str/includes? % "sample.core/branchy")
+                                         (str/includes? % "█"))
+                                   lines))
+        simple-row (first (filter #(and (str/includes? % "sample.core/simple")
+                                        (str/includes? % "█"))
+                                  lines))
+        bar-count (fn [s] (count (re-seq #"█" s)))]
+    (is (str/includes? (str/join "\n" lines) "bar metric: working-set"))
+    (is (> (bar-count branchy-row)
+           (bar-count simple-row)))))
+
+(deftest format-local-md-test
+  (let [text (str/join "\n" (sut/format-local-md fx/local-data))]
+    (is (str/includes? text "# gordian local"))
+    (is (str/includes? text "## Summary"))
+    (is (str/includes? text "| Total LCC | 31.1 |"))
+    (is (str/includes? text "| Bar metric | `total` |"))
+    (is (str/includes? text "`sample.core/branchy [arity 1]` | 17.5 |"))
+    (is (str/includes? text "working-set-overload"))
+    (is (str/includes? text "## Namespace rollup"))
+    (is (str/includes? text "## Project rollup"))))

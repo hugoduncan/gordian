@@ -7,6 +7,7 @@
             [gordian.output.dsm :as dsm]
             [gordian.output.explain :as explain]
             [gordian.output.gate :as gate]
+            [gordian.output.local :as local]
             [gordian.output.subgraph :as subgraph]
             [gordian.output.tests :as tests]))
 
@@ -56,3 +57,7 @@
 (def format-complexity complexity/format-complexity)
 (def format-complexity-md complexity/format-complexity-md)
 (def print-complexity complexity/print-complexity)
+
+(def format-local local/format-local)
+(def format-local-md local/format-local-md)
+(def print-local local/print-local)

@@ -692,6 +692,35 @@ ea994f9  fix: strip leading ./ from src-dirs in path->ns — change coupling bro
 
 317 tests, 2072 assertions, 0 failures.
 
+## Session 28 — Munera task 007 closed
+
+Implemented Local Comprehension Complexity as a new `gordian local` command.
+
+What shipped:
+- new pure local-analysis pipeline under `src/gordian/local/`
+  - `units.clj` — top-level `defn` arities + `defmethod` unit extraction
+  - `evidence.clj` — conservative syntax-first evidence extraction
+  - `burden.clj` — burden-family scoring + weighted LCC total
+  - `findings.clj` — high-signal local findings
+  - `report.clj` — canonical report assembly, sort/min/top/bar semantics
+- new output formatter `src/gordian/output/local.clj`
+- CLI + main wiring for `gordian local`
+- README docs and scoped help
+- tests for units, evidence, burdens, findings, report shaping, output, and CLI
+
+v1 semantics implemented:
+- burden families: flow, state, shape, abstraction, dependency, working-set
+- canonical units: top-level `defn` arities and `defmethod` bodies
+- nested helpers folded into enclosing top-level units
+- `regularity-burden` intentionally omitted from first slice
+
+Validation:
+- full suite passes: 340 tests, 2794 assertions, 0 failures
+
+Task status change:
+- moved `munera/open/007-implement-local-comprehension-complexity` → `munera/closed/`
+- removed task 007 from `munera/plan.md` open-task list
+
 ## Session 27 — Munera task 006 closed
 
 Refactored `gordian.main` around scoped subcommand help and command-local parsing.

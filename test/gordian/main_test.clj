@@ -109,6 +109,26 @@
 
 ;;; ── analyze / edn output ─────────────────────────────────────────────────
 
+(deftest local-output-test
+  (testing "local --edn outputs parseable EDN to stdout"
+    (let [out    (with-out-str (sut/local-cmd {:src-dirs ["resources/fixture"] :edn true}))
+          parsed (read-string out)]
+      (is (= :local (:gordian/command parsed)))
+      (is (= :local-comprehension-complexity (:metric parsed)))
+      (is (= ["resources/fixture"] (:src-dirs parsed)))
+      (is (every? symbol? (map :ns (:units parsed))))))
+
+  (testing "local text output is human readable"
+    (let [out (with-out-str (sut/local-cmd {:src-dirs ["resources/fixture"]}))]
+      (is (str/includes? out "gordian local"))
+      (is (str/includes? out "UNITS"))
+      (is (str/includes? out "PROJECT ROLLUP"))))
+
+  (testing "local markdown output works"
+    (let [out (with-out-str (sut/local-cmd {:src-dirs ["resources/fixture"] :markdown true}))]
+      (is (str/includes? out "# gordian local"))
+      (is (str/includes? out "## Units")))))
+
 (deftest edn-output-test
   (testing "--edn outputs parseable EDN to stdout"
     (let [out    (with-out-str (sut/analyze {:src-dirs ["resources/fixture"] :edn true}))
@@ -213,6 +233,16 @@
       (is (not (has-option-row? out "baseline")))
       (is (not (has-option-row? out "conceptual")))))
 
+  (testing "subcommand help is scoped to local"
+    (let [out (with-out-str (sut/print-help :local))]
+      (is (str/includes? out "Usage: gordian local [<dir-or-src>...] [options]"))
+      (is (has-option-row? out "sort"))
+      (is (has-option-row? out "min"))
+      (is (has-option-row? out "bar"))
+      (is (has-option-row? out "source-only"))
+      (is (not (has-option-row? out "baseline")))
+      (is (not (has-option-row? out "conceptual")))))
+
   (testing "subcommand help is scoped to subgraph"
     (let [out (with-out-str (sut/print-help :subgraph))]
       (is (str/includes? out "Usage: gordian subgraph <prefix> [options]"))
@@ -266,6 +296,32 @@
 
   (testing "analyze subcommand → no :command"
     (is (nil? (:command (sut/parse-args ["analyze" "src/"]))))))
+
+(deftest parse-args-local-test
+  (testing "local . → command :local"
+    (let [opts (sut/parse-args ["local" "."])]
+      (is (= :local (:command opts)))
+      (is (= ["."] (:src-dirs opts)))))
+
+  (testing "local with burden sort and mins"
+    (let [opts (sut/parse-args ["local" "." "--sort" "abstraction" "--min" "total=12" "--min" "working-set=3" "--bar" "working-set" "--top" "5"])]
+      (is (= :local (:command opts)))
+      (is (= :abstraction (:sort opts)))
+      (is (= ["total=12" "working-set=3"] (:min opts)))
+      (is (= :working-set (:bar opts)))
+      (is (= 5 (:top opts)))))
+
+  (testing "local rejects invalid sort"
+    (is (contains? (sut/parse-args ["local" "." "--sort" "bogus"]) :error)))
+
+  (testing "local rejects invalid bar"
+    (is (contains? (sut/parse-args ["local" "." "--bar" "bogus"]) :error)))
+
+  (testing "local rejects malformed min"
+    (is (contains? (sut/parse-args ["local" "." "--min" "bogus=10"]) :error)))
+
+  (testing "local rejects explicit paths with tests-only"
+    (is (contains? (sut/parse-args ["local" "src/" "--tests-only"]) :error))))
 
 (deftest parse-args-explain-test
   (testing "explain <ns> → :command :explain"
