@@ -227,7 +227,7 @@
   {:gordian/command :complexity
    :metrics [:cyclomatic-complexity :lines-of-code]
    :src-dirs ["resources/fixture"]
-   :options {:sort :cc :bar nil :mins nil}
+   :options {:sort :cc :bar nil :namespace-rollup true :project-rollup true :mins nil}
    :bar-metric :cc
    :units [{:ns 'sample.core :var 'branchy :arity 1 :cc 3 :loc 8 :cc-decision-count 2 :cc-risk {:level :simple :label "Simple, low risk"}}
            {:ns 'sample.core :var 'simple :arity 1 :cc 1 :loc 3 :cc-decision-count 0 :cc-risk {:level :simple :label "Simple, low risk"}}
@@ -265,7 +265,7 @@
   {:gordian/command :local
    :metric :local-comprehension-complexity
    :src-dirs ["resources/fixture"]
-   :options {:sort :total :bar nil :mins nil}
+   :options {:sort :total :bar nil :namespace-rollup true :project-rollup true :mins nil}
    :bar-metric :total
    :calibration {:transform :log1p-over-scale
                  :scale-rule :p75-non-zero-with-sparse-median-fallback

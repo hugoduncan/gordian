@@ -103,24 +103,19 @@
         namespace-rollups (:namespace-rollups display)
         label-width (max 10 (apply max (concat [10] (map (comp count unit-label) units))))
         ns-width    (max 10 (apply max (concat [10] (map #(count (str (:ns %))) namespace-rollups))))
-        gap         "  "]
+        gap         "  "
+        namespace-count (or (:namespace-count project-rollup) (count (set (map :ns units))))
+        unit-count      (or (:unit-count project-rollup) (count units))]
     (into
      ["gordian local"
       (str "src: " (str/join " " src-dirs))
       ""
       "SUMMARY"
-      (str "  namespaces: " (:namespace-count project-rollup))
-      (str "  units: " (:unit-count project-rollup))
-      (str "  total lcc: " (format "%.1f" (double (:total-lcc project-rollup))))
-      (str "  avg lcc: " (format "%.2f" (double (:avg-lcc project-rollup))))
-      (str "  max lcc: " (format "%.1f" (double (:max-lcc project-rollup))))
-      (str "  avg flow: " (format "%.2f" (double (:avg-flow project-rollup))))
-      (str "  avg state: " (format "%.2f" (double (:avg-state project-rollup))))
-      (str "  avg shape: " (format "%.2f" (double (:avg-shape project-rollup))))
-      (str "  avg abstraction: " (format "%.2f" (double (:avg-abstraction project-rollup))))
-      (str "  avg dependency: " (format "%.2f" (double (:avg-dependency project-rollup))))
-      (str "  avg ws: " (format "%.2f" (double (:avg-working-set project-rollup))))
+      (str "  namespaces: " namespace-count)
+      (str "  units: " unit-count)
       (str "  mins: " (if (seq (:mins options)) (pr-str (:mins options)) "{}"))
+      (str "  namespace rollup: " (if (:namespace-rollup options) "on" "off"))
+      (str "  project rollup: " (if (:project-rollup options) "on" "off"))
       (str "  total basis: normalized burdens")
       (str "  bar metric: " (name bar-metric))
       (str "  max unit: " (if max-unit (max-unit-label max-unit) "(none)"))
@@ -134,31 +129,36 @@
                   (remove nil? (unit-row bar-metric label-width gap unit)))
                 units)
         ["  (none)"])
-      [""
-       "NAMESPACE ROLLUP"
-       (first (rollup-header ns-width gap))
-       (second (rollup-header ns-width gap))]
-      (if (seq namespace-rollups)
-        (map (partial rollup-row bar-metric ns-width gap) namespace-rollups)
-        ["  (none)"])
-      [""
-       "PROJECT ROLLUP"
-       (str "  units=" (:unit-count project-rollup)
-            " namespaces=" (:namespace-count project-rollup)
-            " total=" (format "%.1f" (double (:total-lcc project-rollup)))
-            " avg=" (format "%.2f" (double (:avg-lcc project-rollup)))
-            " max=" (format "%.1f" (double (:max-lcc project-rollup))))
-       (str "  avg-flow=" (format "%.2f" (double (:avg-flow project-rollup)))
-            " avg-state=" (format "%.2f" (double (:avg-state project-rollup)))
-            " avg-shape=" (format "%.2f" (double (:avg-shape project-rollup)))
-            " avg-abstraction=" (format "%.2f" (double (:avg-abstraction project-rollup)))
-            " avg-dependency=" (format "%.2f" (double (:avg-dependency project-rollup)))
-            " avg-ws=" (format "%.2f" (double (:avg-working-set project-rollup))))]))))
+      (when namespace-rollups
+        (concat
+         [""
+          "NAMESPACE ROLLUP"
+          (first (rollup-header ns-width gap))
+          (second (rollup-header ns-width gap))]
+         (if (seq namespace-rollups)
+           (map (partial rollup-row bar-metric ns-width gap) namespace-rollups)
+           ["  (none)"])))
+      (when project-rollup
+        [""
+         "PROJECT ROLLUP"
+         (str "  units=" (:unit-count project-rollup)
+              " namespaces=" (:namespace-count project-rollup)
+              " total=" (format "%.1f" (double (:total-lcc project-rollup)))
+              " avg=" (format "%.2f" (double (:avg-lcc project-rollup)))
+              " max=" (format "%.1f" (double (:max-lcc project-rollup))))
+         (str "  avg-flow=" (format "%.2f" (double (:avg-flow project-rollup)))
+              " avg-state=" (format "%.2f" (double (:avg-state project-rollup)))
+              " avg-shape=" (format "%.2f" (double (:avg-shape project-rollup)))
+              " avg-abstraction=" (format "%.2f" (double (:avg-abstraction project-rollup)))
+              " avg-dependency=" (format "%.2f" (double (:avg-dependency project-rollup)))
+              " avg-ws=" (format "%.2f" (double (:avg-working-set project-rollup))))])))))
 
 (defn format-local-md
   [{:keys [src-dirs project-rollup max-unit options bar-metric display]}]
   (let [units (:units display)
         namespace-rollups (:namespace-rollups display)
+        namespace-count (or (:namespace-count project-rollup) (count (set (map :ns units))))
+        unit-count      (or (:unit-count project-rollup) (count units))
         unit-lines
         (if (seq units)
           (map (fn [unit]
@@ -197,18 +197,11 @@
       ""
       "| Metric | Value |"
       "|--------|-------|"
-      (str "| Namespaces | " (:namespace-count project-rollup) " |")
-      (str "| Units | " (:unit-count project-rollup) " |")
-      (str "| Total LCC | " (format "%.1f" (double (:total-lcc project-rollup))) " |")
-      (str "| Avg LCC | " (format "%.2f" (double (:avg-lcc project-rollup))) " |")
-      (str "| Max LCC | " (format "%.1f" (double (:max-lcc project-rollup))) " |")
-      (str "| Avg flow | " (format "%.2f" (double (:avg-flow project-rollup))) " |")
-      (str "| Avg state | " (format "%.2f" (double (:avg-state project-rollup))) " |")
-      (str "| Avg shape | " (format "%.2f" (double (:avg-shape project-rollup))) " |")
-      (str "| Avg abstraction | " (format "%.2f" (double (:avg-abstraction project-rollup))) " |")
-      (str "| Avg dependency | " (format "%.2f" (double (:avg-dependency project-rollup))) " |")
-      (str "| Avg WS | " (format "%.2f" (double (:avg-working-set project-rollup))) " |")
+      (str "| Namespaces | " namespace-count " |")
+      (str "| Units | " unit-count " |")
       (str "| Mins | `" (pr-str (:mins options)) "` |")
+      (str "| Namespace rollup | `" (if (:namespace-rollup options) "on" "off") "` |")
+      (str "| Project rollup | `" (if (:project-rollup options) "on" "off") "` |")
       (str "| Total basis | `normalized burdens` |")
       (str "| Bar metric | `" (name bar-metric) "` |")
       (str "| Max unit | "
@@ -223,21 +216,24 @@
       "|------|-------|------|-------|-------|-------------|------------|----|----------|"]
      (concat
       unit-lines
-      [""
-       "## Namespace rollup"
-       ""
-       "| Namespace | Units | Total LCC | Avg LCC | Max LCC | Avg flow | Avg state | Avg shape | Avg abstraction | Avg dependency | Avg WS |"
-       "|-----------|-------|-----------|---------|---------|----------|-----------|-----------|-----------------|----------------|--------|"]
-      rollup-lines
-      [""
-       "## Project rollup"
-       ""
-       (str "- **Units:** " (:unit-count project-rollup))
-       (str "- **Namespaces:** " (:namespace-count project-rollup))
-       (str "- **Total LCC:** " (format "%.1f" (double (:total-lcc project-rollup))))
-       (str "- **Avg LCC:** " (format "%.2f" (double (:avg-lcc project-rollup))))
-       (str "- **Max LCC:** " (format "%.1f" (double (:max-lcc project-rollup))))
-       (str "- **Finding counts:** `" (pr-str (:finding-counts project-rollup)) "`")]))))
+      (when namespace-rollups
+        (concat
+         [""
+          "## Namespace rollup"
+          ""
+          "| Namespace | Units | Total LCC | Avg LCC | Max LCC | Avg flow | Avg state | Avg shape | Avg abstraction | Avg dependency | Avg WS |"
+          "|-----------|-------|-----------|---------|---------|----------|-----------|-----------|-----------------|----------------|--------|"]
+         rollup-lines))
+      (when project-rollup
+        [""
+         "## Project rollup"
+         ""
+         (str "- **Units:** " (:unit-count project-rollup))
+         (str "- **Namespaces:** " (:namespace-count project-rollup))
+         (str "- **Total LCC:** " (format "%.1f" (double (:total-lcc project-rollup))))
+         (str "- **Avg LCC:** " (format "%.2f" (double (:avg-lcc project-rollup))))
+         (str "- **Max LCC:** " (format "%.1f" (double (:max-lcc project-rollup))))
+         (str "- **Finding counts:** `" (pr-str (:finding-counts project-rollup)) "`")])))))
 
 (defn print-local [result]
   (run! println (format-local result)))

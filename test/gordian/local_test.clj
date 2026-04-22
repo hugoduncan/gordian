@@ -339,6 +339,7 @@
                 :flow-burden 2 :state-burden 0 :shape-burden 3 :abstraction-burden 4 :dependency-burden 3
                 :working-set {:peak 7 :avg 4.0 :burden 3.5} :lcc-total 18.0 :findings []}]
         mins {:total 10 :abstraction 2}
+        options (report/local-options {:namespace-rollup true :project-rollup false})
         rollups (report/namespace-rollups units)]
     (is (= ['a.core 'a.core 'b.core] (mapv :ns (report/sort-units units :ns))))
     (is (= ['y 'x 'z] (mapv :var (report/sort-units units :total))))
@@ -350,6 +351,7 @@
     (is (nil? (report/parse-min-expression "bogus=10")))
     (is (nil? (report/parse-min-expression "total=0")))
     (is (= ['x 'y] (mapv :var (report/filter-units-by-mins units mins))))
+    (is (= {:sort nil :top nil :bar nil :namespace-rollup true :project-rollup false :mins nil} options))
     (is (= 2 (count (report/truncate-section units 2))))
     (is (= ['a.core 'b.core] (mapv :ns rollups)))
     (is (= 3 (get-in (report/project-rollup units rollups) [:unit-count])))))
@@ -403,12 +405,14 @@
         finalized (report/finalize-report report
                                           :explicit
                                           [{:dir "src" :kind :src}]
-                                          {:sort :total :top 1 :min ["total=5"]})]
+                                          {:sort :total :top 1 :min ["total=5"] :namespace-rollup true})]
     (is (= ['b.core 'a.core 'a.core] (mapv :ns (:units finalized)))
         "canonical units remain intact")
     (is (= ['a.core] (mapv :ns (get-in finalized [:display :units]))))
     (is (= ['y] (mapv :var (get-in finalized [:display :units]))))
     (is (= ['a.core] (mapv :ns (get-in finalized [:display :namespace-rollups]))))
-    (is (= 3 (get-in finalized [:project-rollup :unit-count])))
+    (is (nil? (:project-rollup finalized)))
     (is (= 'y (get-in finalized [:max-unit :var])))
-    (is (= {:total 5} (get-in finalized [:options :mins])))))
+    (is (= {:total 5} (get-in finalized [:options :mins])))
+    (is (true? (get-in finalized [:options :namespace-rollup])))
+    (is (false? (get-in finalized [:options :project-rollup])))))

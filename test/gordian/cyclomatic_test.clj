@@ -69,7 +69,8 @@
   (let [units [{:ns 'b.core :var 'z :kind :defn-arity :arity 1 :dispatch nil :cc 4 :loc 8 :cc-risk (sut/cc-risk 4)}
                {:ns 'a.core :var 'x :kind :defn-arity :arity 1 :dispatch nil :cc 9 :loc 5 :cc-risk (sut/cc-risk 9)}
                {:ns 'a.core :var 'y :kind :defn-arity :arity 1 :dispatch nil :cc 11 :loc 20 :cc-risk (sut/cc-risk 11)}]
-        mins  {:cc 9 :loc 5}]
+        mins  {:cc 9 :loc 5}
+        options (sut/complexity-options {:namespace-rollup true :project-rollup false})]
     (is (= ['a.core 'a.core 'b.core] (mapv :ns (sut/sort-units units :ns))))
     (is (= ['y 'x 'z] (mapv :var (sut/sort-units units :cc-risk))))
     (is (= ['y 'z 'x] (mapv :var (sut/sort-units units :loc))))
@@ -82,6 +83,7 @@
     (is (nil? (sut/parse-min-expression "bogus=10")))
     (is (nil? (sut/parse-min-expression "cc=0")))
     (is (= ['x 'y] (mapv :var (sut/filter-units-by-mins units mins))))
+    (is (= {:sort nil :top nil :bar nil :namespace-rollup true :project-rollup false :mins nil} options))
     (is (= 2 (count (sut/truncate-section units 2))))))
 
 (deftest rollup-test

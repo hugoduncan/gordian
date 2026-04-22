@@ -124,12 +124,13 @@
     (let [out (with-out-str (sut/local-cmd {:src-dirs ["resources/fixture"]}))]
       (is (str/includes? out "gordian local"))
       (is (str/includes? out "UNITS"))
-      (is (str/includes? out "PROJECT ROLLUP"))))
+      (is (not (str/includes? out "PROJECT ROLLUP")))))
 
   (testing "local markdown output works"
     (let [out (with-out-str (sut/local-cmd {:src-dirs ["resources/fixture"] :markdown true}))]
       (is (str/includes? out "# gordian local"))
-      (is (str/includes? out "## Units")))))
+      (is (str/includes? out "## Units"))
+      (is (not (str/includes? out "## Project rollup"))))))
 
 (deftest edn-output-test
   (testing "--edn outputs parseable EDN to stdout"
@@ -231,6 +232,8 @@
       (is (str/includes? out "Usage: gordian complexity [<dir-or-src>...] [options]"))
       (is (has-option-row? out "sort"))
       (is (has-option-row? out "min"))
+      (is (has-option-row? out "namespace-rollup"))
+      (is (has-option-row? out "project-rollup"))
       (is (has-option-row? out "source-only"))
       (is (not (has-option-row? out "baseline")))
       (is (not (has-option-row? out "conceptual")))))
@@ -241,6 +244,8 @@
       (is (has-option-row? out "sort"))
       (is (has-option-row? out "min"))
       (is (has-option-row? out "bar"))
+      (is (has-option-row? out "namespace-rollup"))
+      (is (has-option-row? out "project-rollup"))
       (is (has-option-row? out "source-only"))
       (is (not (has-option-row? out "baseline")))
       (is (not (has-option-row? out "conceptual")))))
@@ -255,6 +260,18 @@
       (is (not (has-option-row? out "baseline"))))))
 
 ;;; ── parse-args / subcommands ──────────────────────────────────────────────
+
+(deftest parse-args-complexity-test
+  (testing "complexity parses explicit rollup flags"
+    (let [opts (sut/parse-args ["complexity" "." "--namespace-rollup" "--project-rollup"])]
+      (is (= :complexity (:command opts)))
+      (is (true? (:namespace-rollup opts)))
+      (is (true? (:project-rollup opts)))))
+
+  (testing "complexity defaults rollup flags off when omitted"
+    (let [opts (sut/parse-args ["complexity" "."])]
+      (is (nil? (:namespace-rollup opts)))
+      (is (nil? (:project-rollup opts))))))
 
 (deftest parse-args-diagnose-test
   (testing "diagnose . → command :diagnose"
@@ -304,6 +321,11 @@
     (let [opts (sut/parse-args ["local" "."])]
       (is (= :local (:command opts)))
       (is (= ["."] (:src-dirs opts)))))
+
+  (testing "local parses explicit rollup flags"
+    (let [opts (sut/parse-args ["local" "." "--namespace-rollup" "--project-rollup"])]
+      (is (true? (:namespace-rollup opts)))
+      (is (true? (:project-rollup opts)))))
 
   (testing "local with burden sort and mins"
     (let [opts (sut/parse-args ["local" "." "--sort" "abstraction" "--min" "total=12" "--min" "working-set=3" "--bar" "working-set" "--top" "5"])]
@@ -678,12 +700,12 @@
       (is (contains? parsed :findings)))))
 
 (deftest complexity-integration-test
-  (testing "complexity produces output"
+  (testing "complexity produces unit-focused default output"
     (let [out (with-out-str
                 (sut/complexity-cmd {:src-dirs ["resources/fixture"] :command :complexity}))]
       (is (str/includes? out "gordian complexity"))
       (is (str/includes? out "SUMMARY"))
-      (is (str/includes? out "NAMESPACE ROLLUP"))
+      (is (not (str/includes? out "NAMESPACE ROLLUP")))
       (is (str/includes? out "alpha"))))
 
   (testing "complexity with --edn returns structured map"
@@ -694,17 +716,19 @@
           parsed (read-string out)]
       (is (= :complexity (:gordian/command parsed)))
       (is (contains? parsed :units))
-      (is (contains? parsed :namespace-rollups))
-      (is (contains? parsed :project-rollup))
+      (is (not (contains? parsed :namespace-rollups)))
+      (is (not (contains? parsed :project-rollup)))
       (is (contains? parsed :max-unit))
       (is (contains? parsed :scope))
-      (is (contains? parsed :options))))
+      (is (= false (get-in parsed [:options :namespace-rollup])))
+      (is (= false (get-in parsed [:options :project-rollup])))))
 
   (testing "complexity --min filters displayed units only"
     (let [out (with-out-str
                 (sut/complexity-cmd {:src-dirs ["src"]
                                      :command :complexity
                                      :edn true
+                                     :namespace-rollup true
                                      :min ["cc=20"]}))
           parsed (read-string out)]
       (is (every? #(<= 20 (:cc %)) (:units parsed)))

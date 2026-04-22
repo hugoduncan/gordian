@@ -196,6 +196,8 @@
     (is (str/includes? text "metrics: cyclomatic-complexity, lines-of-code"))
     (is (str/includes? text "namespaces: 2"))
     (is (str/includes? text "units: 3"))
+    (is (str/includes? text "namespace rollup: on"))
+    (is (str/includes? text "project rollup: on"))
     (is (str/includes? text "bar metric: cc"))
     (is (str/includes? text "sample.core/branchy [arity 1] (cc=3, loc=8)"))
     (is (str/includes? text "UNITS"))
@@ -212,7 +214,7 @@
 
 (deftest format-complexity-bar-metric-test
   (let [data (assoc fx/cyclomatic-data
-                    :options {:sort :ns :bar :loc :mins nil}
+                    :options {:sort :ns :bar :loc :namespace-rollup true :project-rollup true :mins nil}
                     :bar-metric :loc)
         lines (sut/format-complexity data)
         helper-row (first (filter #(and (str/includes? % "sample.util/helper")
@@ -231,6 +233,8 @@
     (is (str/includes? text "# gordian complexity"))
     (is (str/includes? text "## Summary"))
     (is (str/includes? text "| Metric | Value |"))
+    (is (str/includes? text "| Namespace rollup | `on` |"))
+    (is (str/includes? text "| Project rollup | `on` |"))
     (is (str/includes? text "| Bar metric | `cc` |"))
     (is (str/includes? text "`sample.core/branchy [arity 1]` (cc=3, loc=8)"))
     (is (str/includes? text "## Units"))
@@ -246,7 +250,9 @@
         bar-cols  (map #(.indexOf % "█") unit-rows)]
     (is (str/includes? text "gordian local"))
     (is (str/includes? text "SUMMARY"))
-    (is (str/includes? text "total lcc: 10.7"))
+    (is (str/includes? text "units: 3"))
+    (is (str/includes? text "namespace rollup: on"))
+    (is (str/includes? text "project rollup: on"))
     (is (str/includes? text "total basis: normalized burdens"))
     (is (str/includes? text "bar metric: total"))
     (is (str/includes? text "sample.core/branchy [arity 1] (total=5.6)"))
@@ -260,7 +266,7 @@
 
 (deftest format-local-bar-metric-test
   (let [data (assoc fx/local-data
-                    :options {:sort :ns :bar :working-set :mins nil}
+                    :options {:sort :ns :bar :working-set :namespace-rollup true :project-rollup true :mins nil}
                     :bar-metric :working-set)
         lines (sut/format-local data)
         branchy-row (first (filter #(and (str/includes? % "sample.core/branchy")
@@ -278,7 +284,8 @@
   (let [text (str/join "\n" (sut/format-local-md fx/local-data))]
     (is (str/includes? text "# gordian local"))
     (is (str/includes? text "## Summary"))
-    (is (str/includes? text "| Total LCC | 10.7 |"))
+    (is (str/includes? text "| Namespace rollup | `on` |"))
+    (is (str/includes? text "| Project rollup | `on` |"))
     (is (str/includes? text "| Total basis | `normalized burdens` |"))
     (is (str/includes? text "| Bar metric | `total` |"))
     (is (str/includes? text "`sample.core/branchy [arity 1]` | 5.6 |"))
