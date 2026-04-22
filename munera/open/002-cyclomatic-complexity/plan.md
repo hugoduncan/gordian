@@ -1,24 +1,42 @@
 Approach:
-- add a dedicated cyclomatic-complexity command using the existing Gordian command/output conventions
-- build the feature as a pure analysis pipeline plus thin CLI wiring
-- define a conservative, deterministic v1 scoring model for Clojure syntax
-- analyze top-level executable bodies at arity granularity, classify each score into a standard risk band, then optionally aggregate by namespace and project
+- converge the existing partial `gordian cyclomatic` implementation onto the accepted `002` task design rather than treating the current code as task-complete
+- keep the feature as a pure analysis pipeline plus thin CLI wiring
+- preserve the conservative, deterministic v1 scoring model for Clojure syntax
+- make the canonical reporting unit arity-level top-level executable bodies, classify each score into a standard risk band, then aggregate by namespace and project using metric-qualified schema fields
 
-Expected shape:
+Current implementation status:
+- already implemented:
+  - pure cyclomatic scoring/rollup module in `src/gordian/cyclomatic.clj`
+  - CLI wiring for `gordian cyclomatic`
+  - text / markdown / EDN / JSON output plumbing
+  - basic tests for scoring, rollup, output, and command integration
+- known gaps against task `002`:
+  - command shape diverges: implementation is `gordian cyclomatic`, design target is `gordian complexity`
+  - canonical reporting unit not yet implemented; current report is function-level with max-over-arities
+  - unit extraction is incomplete: `defmethod` and top-level `def` + literal `fn` are missing
+  - scoring semantics do not yet match the locked v1 rules (`cond->`, default branches, loop/recursion exclusions)
+  - canonical metric-qualified schema is not yet implemented
+  - risk bands are not yet reported
+  - `--sort` and section-local `--top` are not implemented for this command
+  - scope controls / validation do not yet match the design; current default behavior includes tests for `:cyclomatic`
+  - human text output lacks the requested horizontal bar charts
+
+Expected finished shape:
 - pure analysis module(s) for:
-  - parsing / extracting analyzable units from forms
-  - counting explicit cyclomatic decision points and computing cyclomatic complexity
-  - assigning cyclomatic risk levels
-  - rollups by namespace and project
+  - extracting arity-level analyzable units from forms
+  - counting explicit cyclomatic decision points and computing `:cc`
+  - assigning `:cc-risk`
+  - rollups by namespace and project using compact metric-qualified field names
   - sorting / truncation / report assembly
 - CLI integration in `main.clj` for:
-  - `gordian complexity`
-  - default discovery behavior (source paths only)
+  - accepted public command shape (`gordian complexity`, with any compatibility decision for `cyclomatic` made explicitly)
+  - default discovery behavior = source paths only
   - source-only / tests-only / explicit path selection
   - `--json` / `--edn` / text output modes
-  - optional rollup flags
+  - optional rollup flags if retained
   - `--top`
   - `--sort`
+  - validation of conflicting scope and output options
 - output support in `output.clj` and JSON / EDN serializers via canonical report data
 
 Locked v1 decisions:
@@ -30,7 +48,7 @@ Locked v1 decisions:
 - rollups are additive sections, not alternate views
 - canonical output uses compact metric-qualified fields such as `:metric :cyclomatic-complexity`, `:cc`, `:cc-decision-count`, and `:cc-risk`, but not detailed per-decision locations
 
-Recommended v1 counted forms:
+Required v1 counted forms:
 - `if`, `if-not`, `when`, `when-not`
 - `if-let`, `if-some`, `when-let`, `when-some`
 - `cond` (including trailing `:else` branch when present)
@@ -40,7 +58,7 @@ Recommended v1 counted forms:
 - `catch`
 - `cond->`
 
-Recommended v1 exclusions:
+Required v1 exclusions:
 - threading macros except `cond->`
 - `loop`, `recur`, self-recursion, mutual recursion, `for`, and `doseq` as independent cc increments
 - higher-order sequence functions
@@ -60,8 +78,8 @@ CLI behavior for implementation:
 - combining explicit paths with `--source-only` / `--tests-only` should be rejected for clarity
 - `--source-only` combined with `--tests-only` should be rejected
 - `--json` combined with `--edn` should be rejected
-- `--top` must be a positive integer
 - unknown `--sort` keys should be rejected
+- `--top` must be a positive integer
 
 Unit extraction for implementation:
 - `defn` / `defn-` => one unit per arity body
@@ -86,18 +104,29 @@ Canonical report shape should include:
 - optional namespace rollups using compact metric-qualified aggregate field names such as `:total-cc`, `:avg-cc`, `:max-cc`, and `:cc-risk-counts`
 - optional project rollup using the same compact metric-qualified aggregate field names
 - any applied sort/top options for reproducibility
-- human output examples should be included in the implementation companion doc to lock formatting expectations
+- human output includes units, namespace rollups, project rollup, and horizontal bar charts
+
+Recommended implementation order:
+1. lock the implementation companion doc and CLI compatibility decision
+2. refactor extraction to produce canonical arity-level units
+3. align scoring semantics exactly with the accepted v1 rules
+4. emit canonical schema plus risk-band classification
+5. add sorting / section-local truncation in pure code
+6. fix CLI scope resolution and validation semantics
+7. finish text output with bar charts
+8. expand tests to cover the finalized behavior and compatibility choices
 
 Risks:
 - ambiguity in mapping classic cyclomatic complexity onto Lisp syntax
 - noise if common macros are misclassified as decision points
 - parser/source-location limitations affecting unit identity and UX
 - feature overlap/confusion with the separate Local Comprehension Complexity track
-- surprising UX around sort/top semantics if not specified tightly
+- surprising UX around command naming and sort/top semantics if not specified tightly
 
 Mitigations:
 - document the exact v1 counted constructs and exclusions
 - keep v1 conservative and syntax-based
 - emit stable machine-readable schema so heuristics can evolve later
 - position this as a standard branch-complexity lens, not a full maintainability model
-- define sort/top semantics explicitly in the implementation companion doc before coding
+- explicitly decide whether `cyclomatic` remains as an alias or is replaced by `complexity`
+- define sort/top semantics explicitly in the implementation companion doc before coding the convergence work

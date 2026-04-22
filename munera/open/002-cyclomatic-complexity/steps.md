@@ -1,14 +1,20 @@
-- [ ] Write a design/implementation companion doc for cyclomatic complexity scoring rules, CLI shape, sort/top semantics, unit extraction rules, and output examples
-- [ ] Implement v1 analyzable unit extraction for arity-level top-level forms in Clojure/BB (`defn`/`defn-`, `defmethod`, top-level `def` with literal `fn`)
-- [ ] Implement exact decision-point counting rules, including `cond->`, and explicit exclusions
-- [ ] Encode the resolved loop/recursion rule: no independent `:cc` increment for `loop`, `recur`, recursion, `for`, or `doseq`; count only branches within their bodies
-- [ ] Encode the canonical report schema for units, namespace rollups, and project rollup using compact metric-qualified field names (`:metric`, `:cc`, `:cc-decision-count`, `:cc-risk`, `:total-cc`, `:avg-cc`, `:max-cc`, `:cc-risk-counts`)
-- [ ] Implement CLI scope semantics and validation rules for discovered source default, tests-only mode, source-only mode, explicit paths, output-mode exclusivity, and invalid sort/top values
-- [ ] Implement `--sort` keys (`cc`, `ns`, `var`, `cc-risk`) and section-local `--top` behavior for unit and rollup sections
-- [ ] Implement pure cyclomatic-complexity scoring and aggregation modules
-- [ ] Add `gordian complexity` CLI wiring with discovered-source default behavior
-- [ ] Add scope controls for source-only, tests-only, and explicit paths
-- [ ] Add text output with horizontal bar charts
-- [ ] Add EDN and JSON output support
-- [ ] Add tests for scoring, aggregation, sort/truncation behavior, and CLI behavior
-- [ ] Update `PLAN.md` if accepted into the near-term roadmap
+- [ ] Write a companion implementation doc that locks command naming / compatibility (`complexity` vs `cyclomatic`), finalized scoring rules, unit extraction rules, canonical schema, sort/top semantics, scope semantics, validation rules, and output examples
+- [ ] Decide and document the public CLI shape: introduce `gordian complexity`, retain `gordian cyclomatic` as an alias or migrate it explicitly, and update help/README/schema expectations accordingly
+- [ ] Refactor pure unit extraction to emit canonical arity-level units for top-level `defn` / `defn-` forms rather than function-level max-over-arities summaries
+- [ ] Extend unit extraction to include top-level `defmethod` bodies, preserving dispatch identity where available
+- [ ] Extend unit extraction to include top-level `def` with literal `fn` value, one unit per arity body
+- [ ] Align decision-point counting with the accepted v1 rules: count `cond->`, count default branches in `cond`, `condp`, and `case`, and keep explicit exclusions documented in code/tests
+- [ ] Remove independent cyclomatic increments for `loop`, `recur`, recursion, `for`, `doseq`, and `while`; count only explicit branches appearing within their bodies
+- [ ] Add standard cyclomatic risk-band classification (`simple`, `moderate`, `high`, `untestable`) and include it in every reported unit and rollup
+- [ ] Replace the prototype report schema with the canonical metric-qualified schema for units, namespace rollups, and project rollup (`:metric`, `:cc`, `:cc-decision-count`, `:cc-risk`, `:total-cc`, `:avg-cc`, `:max-cc`, `:cc-risk-counts`)
+- [ ] Add pure rollup assembly for namespace and project sections over canonical units
+- [ ] Add pure sorting helpers for `--sort cc|ns|var|cc-risk` and pure section-local truncation for `--top`
+- [ ] Implement CLI scope semantics for discovered source default, `--source-only`, `--tests-only`, and explicit path override behavior
+- [ ] Implement CLI validation for conflicting scope flags, explicit-path/scope-flag conflicts, output-mode exclusivity, unknown sort keys, and non-positive `--top`
+- [ ] Update command wiring in `main.clj` to use the finalized command shape and finalized scope resolution semantics
+- [ ] Update text output to present canonical units / rollups and add horizontal bar charts
+- [ ] Update EDN / JSON output to emit the finalized canonical payload shape consistently with the Gordian envelope
+- [ ] Update markdown output only if retained as part of the finalized command surface; otherwise document its status explicitly
+- [ ] Expand tests for unit extraction (`defn`, multi-arity, `defmethod`, `def` + literal `fn`), scoring semantics, risk bands, canonical schema, sort/truncation behavior, scope behavior, validation, and command compatibility/alias behavior
+- [ ] Update `doc/schema.md`, README command docs, and task notes to match the finalized command name and canonical report shape
+- [ ] Update `munera/plan.md` wording if needed after the command naming / scope decision is finalized

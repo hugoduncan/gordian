@@ -2,6 +2,10 @@
 
 Task created to add a standard cyclomatic complexity lens to Gordian.
 
+Current status note:
+- there is now a partial implementation in the codebase (`src/gordian/cyclomatic.clj`, CLI wiring in `main.clj`, and output/tests), but it does not yet satisfy task `002`
+- treat the current implementation as a prototype to converge, not as the finished task
+
 Refinements agreed collaboratively:
 - canonical unit = arity-level top-level executable body
 - scoring style = strict explicit branching, with `cond->` included
@@ -31,10 +35,37 @@ Requested outcomes:
   - 21–50 High complexity, high risk
   - 51+   Untestable, very high risk
 
+Observed implementation gaps to preserve during convergence:
+- command naming mismatch:
+  - accepted design target is `gordian complexity`
+  - current code exposes `gordian cyclomatic`
+- canonical unit mismatch:
+  - accepted design requires one reported unit per arity-level executable body
+  - current code reports per-function records with `:arity-complexities` and max-over-arities summary
+- unit extraction gaps:
+  - current code handles `defn` / `defn-`
+  - current code does not yet handle `defmethod`
+  - current code does not yet handle top-level `def` with literal `fn`
+- scoring mismatches:
+  - current code counts `doseq`, `for`, and `while` as independent increments, which the accepted v1 rules reject
+  - current code does not yet count `cond->`
+  - current code does not count default branches for `cond`, `condp`, and `case` according to the accepted rules
+- schema mismatch:
+  - current code uses `:complexity`, `:total-complexity`, etc.
+  - accepted output requires metric-qualified fields such as `:cc`, `:cc-decision-count`, `:cc-risk`, `:total-cc`, `:avg-cc`, `:max-cc`, `:cc-risk-counts`
+- CLI behavior mismatch:
+  - current `:cyclomatic` path resolution includes tests by default
+  - accepted behavior requires discovered source paths only by default, with explicit `--tests-only` / `--source-only` scope semantics
+- reporting / UX gaps:
+  - no risk-band reporting yet
+  - no implemented `--sort` behavior for this command yet
+  - no section-local `--top` behavior yet
+  - no horizontal bar charts in human text output yet
+
 Notes:
 - this is intentionally separate from the existing Local Comprehension Complexity task
 - v1 should prefer deterministic syntax-first counting over semantic inference or macroexpansion
-- the task is now refined enough to begin implementation planning with exact counted forms, unit extraction rules, canonical schema, CLI validation rules, and human-output expectations all specified
+- the task is now refined enough to converge the prototype against the accepted design with exact counted forms, unit extraction rules, canonical schema, CLI validation rules, and human-output expectations all specified
 
 Implementation-ready specifics to preserve:
 - analyzable units in v1:
@@ -51,3 +82,13 @@ Implementation-ready specifics to preserve:
   - reject non-positive `--top` values
 - canonical schema should include unit identity fields (`:ns`, `:var`, `:kind`, `:arity`, `:dispatch`, `:file`, `:line`, `:origin`) plus `:cc`, `:cc-decision-count`, and `:cc-risk`
 - human output should include example-driven formatting expectations for units, namespace rollups, project rollup, and horizontal bars
+
+Recommended implementation sequence:
+1. write the companion implementation doc that locks command naming / compatibility, finalized scoring semantics, schema, sort/top semantics, and output examples
+2. refactor extraction so the pure core emits canonical arity-level units
+3. align scoring semantics exactly with the accepted v1 rules
+4. add risk classification and canonical metric-qualified schema
+5. add pure sorting / section-local truncation helpers
+6. align CLI scope resolution and validation semantics with the accepted design
+7. finish text output with horizontal bar charts
+8. expand tests to cover the final shape and compatibility decisions
