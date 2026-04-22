@@ -52,7 +52,10 @@
                                      'gordian.subgraph-test
                                      'gordian.close-test
                                      'gordian.aggregate-test
-                                     'gordian.output-test
+                                     'gordian.output.analyze-test
+                                     'gordian.output.diagnose-test
+                                     'gordian.output.explain-test
+                                     'gordian.output.other-commands-test
                                      'gordian.prioritize-test
                                      'gordian.metrics-test
                                      'gordian.scc-test
