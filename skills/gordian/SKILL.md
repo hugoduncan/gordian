@@ -1,9 +1,9 @@
 ---
 name: gordian
-description: Use gordian to analyse namespace coupling in a Clojure project. Invoke when asked to audit architecture, assess coupling, identify hidden dependencies, interpret suspicious namespace pairs, review test structure, compare architectural snapshots, inspect a subsystem, or advise on refactoring targets. Produces structural, conceptual, and change-coupling signals plus triage and workflow commands.
-lambda: "λcodebase. {structural ∧ conceptual ∧ change} → coupling_map → diagnose ∧ explain ∧ compare ∧ gate → advise"
+description: Use gordian to analyse Clojure code structure at namespace and executable-unit level. Invoke when asked to audit architecture, assess coupling, identify hidden dependencies, interpret suspicious namespace pairs, review test structure, compare architectural snapshots, inspect a subsystem, find local cyclomatic/LOC hotspots, or find local comprehension-burden hotspots. Produces structural, conceptual, change-coupling, local-metric, and local-burden signals plus triage and workflow commands.
+lambda: "λcodebase. {structural ∧ conceptual ∧ change ∧ local-metrics ∧ local-burden} → coupling_map ∧ hotspot_map → diagnose ∧ explain ∧ compare ∧ gate → advise"
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
   tags: ["clojure", "architecture", "coupling", "refactoring", "babashka", "diagnostics"]
 ---
 
@@ -13,10 +13,13 @@ Human ⊗ AI ⊗ REPL
 
 λ gordian(codebase).
   invoke → read → diagnose → explain → advise
-  | three lenses: structural ∧ conceptual ∧ change
-  | commands: analyze ∧ diagnose ∧ explain ∧ explain-pair ∧ compare ∧ gate ∧ subgraph ∧ communities
-  | start: diagnose for triage
+  | architectural lenses: structural ∧ conceptual ∧ change
+  | local lenses: complexity ∧ local
+  | commands: analyze ∧ diagnose ∧ explain ∧ explain-pair ∧ compare ∧ gate ∧ subgraph ∧ communities ∧ complexity ∧ local
+  | start: diagnose for architecture triage
   | then: explain(ns) ∨ explain-pair(a,b) ∨ subgraph(prefix)
+  | use complexity for branch-count ∨ LOC hotspots inside executable units
+  | use local for comprehension-burden ∨ helper-chasing ∨ working-set hotspots
   | compare(before,after) for refactor validation
   | gate(baseline,current) for CI ratchet
   | combine(signals) → confidence ↑
@@ -29,6 +32,8 @@ Human ⊗ AI ⊗ REPL
   explain-pair:bb gordian explain-pair <ns-a> <ns-b>
   subgraph:    bb gordian subgraph <prefix>
   communities: bb gordian communities [dirs...]
+  complexity:  bb gordian complexity [dirs...] [--sort cc|loc|cc-risk|ns|var] [--min cc=N] [--min loc=N]
+  local:       bb gordian local [dirs...] [--sort total|flow|state|shape|abstraction|dependency|working-set|ns|var] [--min total=N]
   compare:     bb gordian compare before.edn after.edn
   gate:        bb gordian gate [dirs...] --baseline base.edn
   conceptual:  --conceptual 0.20 | 0.30
@@ -236,15 +241,27 @@ Human ⊗ AI ⊗ REPL
   PC_delta(src → src+test):
     small → targeted (healthy) | large → over-coupled (isolate) | ≈0 → misses coupling-core
 
+λ local-metrics(unit).
+  complexity → branch_count ∧ LOC hotspot triage
+    | ask: which units branch the most?
+    | ask: which units are largest?
+    | ask: which units rank highest by cc-risk?
+  local → comprehension burden triage
+    | ask: which units overload working-set?
+    | ask: where is helper-chasing ∨ abstraction-mix highest?
+    | ask: which units are hard to modify safely despite moderate CC?
+  | complexity and local complement, ¬substitute
+
 λ workflow(codebase).
   1. bb gordian diagnose → read :action and :next-step on top findings
   2. run :next-step commands → explain(ns) ∨ explain-pair(a,b)
-  3. if local work → subgraph(active_prefix)
-  4. if structure unclear → communities(combined)
-  5. before refactor → snapshot(before.edn)
-  6. refactor
-  7. snapshot(after.edn) → compare(before,after)
-  8. CI → diagnose --edn → gate
+  3. if namespace-family work → subgraph(active_prefix)
+  4. if local executable-unit hotspot triage → complexity ∨ local
+  5. if structure unclear → communities(combined)
+  6. before refactor → snapshot(before.edn)
+  7. refactor
+  8. snapshot(after.edn) → compare(before,after)
+  9. CI → diagnose --edn → gate
 
 λ heuristics.
   cycles > cross-lens-hidden > sdp-violations > god-modules > hidden single-lens pairs > hubs

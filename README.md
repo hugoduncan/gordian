@@ -2,11 +2,14 @@
 
 Cut through tangled Clojure namespaces.
 
-`gordian` is a [Babashka](https://babashka.org) script that analyzes the
-`require` graph of a Clojure project and reports on how cross-coupled your
-namespaces are. It surfaces the structural complexity that line counts and
-cyclomatic metrics miss — the kind that makes a codebase hard to change, not
-just hard to read.
+`gordian` is a [Babashka](https://babashka.org) toolkit for analyzing Clojure
+code structure at two levels:
+- **architecture** — namespace coupling, hidden dependencies, and refactoring pressure
+- **local executable units** — branch/size hotspots (`complexity`) and comprehension burden hotspots (`local`)
+
+Its architectural analysis starts from the `require` graph and surfaces the
+structural complexity that line counts and cyclomatic metrics miss — the kind
+that makes a codebase hard to change, not just hard to read.
 
 ## Requirements
 
@@ -80,13 +83,15 @@ gordian . --include-tests
 gordian tests .
 gordian tests src/ test/
 
-# complexity analysis
+# local code metrics: cyclomatic complexity + LOC
+# use when you want branch-count / size hotspots inside executable units
 gordian complexity .
 gordian complexity src/ test/
 gordian complexity . --edn > complexity.edn
 gordian complexity . --markdown > complexity.md
 
-# local comprehension complexity analysis
+# local comprehension burden analysis
+# use when you want reviewability / working-set / helper-chasing hotspots
 gordian local .
 gordian local src/
 gordian local . --sort abstraction --top 20
@@ -217,6 +222,15 @@ This mode complements Gordian's architectural analysis: it measures local
 branching complexity within executable units rather than namespace coupling
 across the system.
 
+Use `complexity` when your question is:
+- which functions are branching heavily?
+- where are the largest executable units?
+- which units are risky by cyclomatic complexity bands?
+
+If the harder question is about comprehension burden rather than branch count
+alone — e.g. helper chasing, abstraction mix, shape churn, or working-set
+overload — use `gordian local` instead.
+
 ## Local comprehension complexity mode (`local`)
 
 `gordian local` analyzes local executable units using the v1 Local
@@ -269,6 +283,16 @@ Scope and ranking controls mirror `complexity` where practical:
 
 This mode complements `gordian complexity`: it focuses on local comprehension
 burden for safe change rather than branch count and LOC alone.
+
+Use `local` when your question is:
+- why is this function hard to review or modify safely?
+- where are helper-chasing and abstraction-mix hotspots?
+- which units overload the reader's working set even if cyclomatic complexity is moderate?
+
+A simple command-selection rule:
+- use `diagnose` / `explain` / `subgraph` for namespace architecture questions
+- use `complexity` for branch-count and LOC hotspots inside executable units
+- use `local` for comprehension-burden hotspots inside executable units
 
 ## Install via bbin
 

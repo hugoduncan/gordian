@@ -12,6 +12,8 @@ It covers:
 - drill-down (`explain`, `explain-pair`)
 - subsystem views (`subgraph`)
 - latent architecture groups (`communities`)
+- local executable-unit metrics (`complexity`)
+- local comprehension burden analysis (`local`)
 - before/after deltas (`compare`)
 - CI ratchets (`gate`)
 
@@ -49,6 +51,22 @@ gordian --edn > before.edn
 gordian --edn > after.edn
 gordian compare before.edn after.edn
 ```
+
+If the problem is not architecture but local code shape, switch commands:
+
+```bash
+gordian complexity .
+gordian local .
+```
+
+Use them for different questions:
+- `complexity` — which executable units are large or branch-heavy?
+- `local` — which executable units are hard to understand or modify safely?
+
+A practical rule:
+- namespace / subsystem / dependency question → `diagnose`, `explain`, `subgraph`
+- branch-count / LOC question → `complexity`
+- comprehension-burden / helper-chasing / working-set question → `local`
 
 ---
 
@@ -1008,6 +1026,63 @@ gordian gate --baseline gordian-baseline.edn
 Goal:
 - prevent regressions without demanding immediate perfection
 
+## 17.6 Local hotspot workflow (`complexity`)
+
+```bash
+gordian complexity . --sort cc-risk --top 20
+gordian complexity . --sort loc --top 20
+gordian complexity . --min cc=10 --min loc=20
+```
+
+Use this when you want to find executable units that are locally risky because
+of branch count or size.
+
+Questions it answers well:
+- which functions are the most branching-heavy?
+- which units are large enough that review and refactor cost rises?
+- which hotspots remain after filtering out small helper functions?
+
+Interpretation:
+- high `cc` with modest `loc` often means dense decision logic
+- high `loc` with modest `cc` often means long procedural bodies or broad data shaping
+- high `cc` and high `loc` together are strong candidates for extraction or simplification
+- `cc-risk` is a quick triage sort; `loc` is a useful second pass
+
+`complexity` is local and unit-oriented. It does not tell you whether the
+surrounding namespace architecture is healthy.
+
+## 17.7 Local comprehension workflow (`local`)
+
+```bash
+gordian local . --sort total --top 20
+gordian local . --sort abstraction --top 20
+gordian local . --min total=12
+gordian local . --min abstraction=4 --min working-set=3
+```
+
+Use this when cyclomatic complexity alone is not explaining why a unit feels
+hard to understand, review, or modify safely.
+
+Questions it answers well:
+- which functions overload the reader's working set?
+- where is helper chasing or abstraction mixing making comprehension harder?
+- which units have unstable return-shape or shape-churn pressure?
+- which hotspots look risky even when plain cyclomatic complexity is only moderate?
+
+Interpretation:
+- high `working-set` suggests too many live concepts must be tracked at once
+- high `abstraction` suggests level-mixing, helper hopping, or opaque stages
+- high `shape` suggests return-form or data-shape variability across branches
+- high `dependency` suggests local understanding depends on too many external helpers
+- high `total` with a balanced burden profile often marks genuinely review-hostile code
+
+`local` complements `complexity`:
+- `complexity` tells you about branch count and size
+- `local` tells you about comprehension burden
+
+For a stubborn hotspot, run both commands on the same codebase and compare what
+rises to the top.
+
 ---
 
 ## 18. How to tell healthy complexity from unhealthy coupling
@@ -1051,4 +1126,16 @@ That combination gives you:
 - local context
 - enforcement
 
-Which is usually enough to keep a codebase from quietly tangling itself.
+Add these when the question shifts from architecture to executable-unit shape:
+
+```bash
+gordian complexity . --sort cc-risk --top 20
+gordian local . --sort total --top 20
+```
+
+Those add:
+- branch/size hotspot triage
+- comprehension-burden hotspot triage
+
+Which is usually enough to keep both the architecture and the day-to-day code
+from quietly tangling itself.

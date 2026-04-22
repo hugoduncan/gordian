@@ -1,8 +1,8 @@
 # Gordian — Namespace Coupling Analysis
 
-**What it does:** Analyses Clojure project namespace graphs to surface structural coupling problems, hidden dependencies, and refactoring opportunities using three independent lenses: structural (require edges), conceptual (shared vocabulary via TF-IDF), and change (git co-evolution).
+**What it does:** Analyses Clojure code structure at two levels: namespace architecture and local executable units. It surfaces structural coupling problems, hidden dependencies, and refactoring opportunities using structural (require edges), conceptual (shared vocabulary via TF-IDF), and change (git co-evolution) lenses, and it also provides local executable-unit commands for cyclomatic/LOC hotspots (`complexity`) and comprehension-burden hotspots (`local`).
 
-**When to use:** Auditing architecture, assessing coupling, finding hidden dependencies, interpreting suspicious namespace pairs, reviewing test structure, comparing snapshots before/after refactoring, or identifying what to work on next.
+**When to use:** Auditing architecture, assessing coupling, finding hidden dependencies, interpreting suspicious namespace pairs, reviewing test structure, comparing snapshots before/after refactoring, identifying what to work on next, finding branch/LOC hotspots, or finding local comprehension hotspots.
 
 ---
 
@@ -15,6 +15,8 @@ bb gordian explain <ns>                       # everything about one namespace
 bb gordian explain-pair <ns-a> <ns-b>         # everything about a pair
 bb gordian subgraph <prefix>                  # subsystem view
 bb gordian communities [dirs]                 # discover latent architecture groups
+bb gordian complexity [dirs]                  # local cyclomatic + LOC hotspots
+bb gordian local [dirs]                       # local comprehension-burden hotspots
 bb gordian compare before.edn after.edn       # diff two snapshots
 bb gordian gate --baseline base.edn           # CI ratchet
 bb gordian tests [dirs]                       # test architecture analysis
@@ -141,16 +143,34 @@ Thresholds: 0.15 explore / 0.20 default / 0.30 audit / 0.40 strongest only
 
 ---
 
+## Local hotspot commands
+
+Use `complexity` when the question is about executable-unit branch count or size:
+- which functions branch the most?
+- which units are largest by LOC?
+- which units rank highest by cyclomatic risk?
+
+Use `local` when the question is about comprehension burden:
+- which functions overload working set?
+- where is helper chasing or abstraction mix highest?
+- which units are hard to modify safely even when cyclomatic complexity is only moderate?
+
+Rule of thumb:
+- namespace / dependency / subsystem question → `diagnose`, `explain`, `subgraph`
+- branch-count / LOC question → `complexity`
+- comprehension-burden question → `local`
+
 ## Workflow
 
 1. Run `bb gordian diagnose` — read the `:action` on top findings
 2. Run the `:next-step` commands to investigate
-3. For local work: `gordian subgraph <prefix>`
-4. If structure is unclear: `gordian communities --lens combined`
-5. Before refactoring: save `bb gordian diagnose --edn > before.edn`
-6. Refactor
-7. `bb gordian diagnose --edn > after.edn && gordian compare before.edn after.edn`
-8. For CI: `gordian gate --baseline baseline.edn`
+3. For namespace-family work: `gordian subgraph <prefix>`
+4. For executable-unit hotspot triage: `gordian complexity` or `gordian local`
+5. If structure is unclear: `gordian communities --lens combined`
+6. Before refactoring: save `bb gordian diagnose --edn > before.edn`
+7. Refactor
+8. `bb gordian diagnose --edn > after.edn && gordian compare before.edn after.edn`
+9. For CI: `gordian gate --baseline baseline.edn`
 
 ---
 
