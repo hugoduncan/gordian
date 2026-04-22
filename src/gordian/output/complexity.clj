@@ -78,8 +78,7 @@
   (let [unit-label-width (max 10 (apply max (concat [10] (map (comp count complexity-unit-label) units))))
         ns-label-width   (max 10 (apply max (concat [10] (map #(count (str (:ns %))) namespace-rollups))))
         bar-col-gap      "  "
-        namespace-count  (or (:namespace-count project-rollup) (count (set (map :ns units))))
-        unit-count       (or (:unit-count project-rollup) (count units))]
+        {:keys [namespace-count unit-count]} (common/local-summary-counts project-rollup units)]
     (into
      ["gordian complexity"
       (str "src: " (str/join " " src-dirs))
@@ -133,8 +132,7 @@
 (defn format-complexity-md
   "Format complexity report as markdown lines."
   [{:keys [src-dirs units namespace-rollups project-rollup max-unit options metrics bar-metric]}]
-  (let [namespace-count (or (:namespace-count project-rollup) (count (set (map :ns units))))
-        unit-count      (or (:unit-count project-rollup) (count units))]
+  (let [{:keys [namespace-count unit-count]} (common/local-summary-counts project-rollup units)]
     (into
      ["# gordian complexity"
       ""

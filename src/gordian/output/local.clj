@@ -104,8 +104,7 @@
         label-width (max 10 (apply max (concat [10] (map (comp count unit-label) units))))
         ns-width    (max 10 (apply max (concat [10] (map #(count (str (:ns %))) namespace-rollups))))
         gap         "  "
-        namespace-count (or (:namespace-count project-rollup) (count (set (map :ns units))))
-        unit-count      (or (:unit-count project-rollup) (count units))]
+        {:keys [namespace-count unit-count]} (common/local-summary-counts project-rollup units)]
     (into
      ["gordian local"
       (str "src: " (str/join " " src-dirs))
@@ -157,8 +156,7 @@
   [{:keys [src-dirs project-rollup max-unit options bar-metric display]}]
   (let [units (:units display)
         namespace-rollups (:namespace-rollups display)
-        namespace-count (or (:namespace-count project-rollup) (count (set (map :ns units))))
-        unit-count      (or (:unit-count project-rollup) (count units))
+        {:keys [namespace-count unit-count]} (common/local-summary-counts project-rollup units)
         unit-lines
         (if (seq units)
           (map (fn [unit]

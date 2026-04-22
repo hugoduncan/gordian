@@ -20,6 +20,15 @@
 (defn rule [n]
   (apply str (repeat n "-")))
 
+(defn local-summary-counts
+  "Return summary counts for local/unit-oriented reports.
+   Prefer canonical project-rollup data when present; otherwise derive from units."
+  [project-rollup units]
+  {:namespace-count (or (:namespace-count project-rollup)
+                        (count (set (map :ns units))))
+   :unit-count      (or (:unit-count project-rollup)
+                        (count units))})
+
 (defn format-finding-subject [{:keys [category subject]}]
   (case category
     :cycle          (str/join " → " (sort (map str (:members subject))))
