@@ -8,15 +8,16 @@
 projects. It reports structural coupling metrics that surface architectural
 complexity.
 
-Usage: `gordian` (auto-discovers from cwd) or `gordian src/` (explicit dirs)
+Usage: `gordian <command>` with scoped `--help`; no explicit command defaults to analyze. `gordian` auto-discovers from cwd; `gordian src/` remains accepted for explicit dirs.
 
 ## Current status
 
 **v0.2.0 alpha.** Schema envelope, façade detection, family-noise suppression,
 explain-pair verdicts, family-scoped metrics, auto-discovery, config,
-diagnose, explain, markdown, dedicated `tests` mode, DSM, and a completed
-`complexity` mode with cyclomatic complexity + LOC.
-328 tests, 2188 assertions, 0 failures.
+diagnose, explain, markdown, dedicated `tests` mode, DSM, completed
+`complexity` mode with cyclomatic complexity + LOC, and scoped CLI subcommand
+help with command-local parsing.
+328 tests, 2645 assertions, 0 failures.
 
 ## Architecture (src/gordian/)
 
@@ -56,28 +57,42 @@ output.clj     human-readable table + conceptual section    pure
 dot.clj        Graphviz DOT string                          pure
 json.clj       JSON string (cheshire)                       pure
 edn.clj        EDN string (clojure.pprint)                  pure
-main.clj       pipeline + CLI (babashka.cli)                IO
+main.clj       pipeline + thin CLI dispatch shell           IO
+cli.clj        command registry + scoped help + parsing     pure-ish
 ```
 
 ## CLI
 
 ```
-gordian [analyze|diagnose|compare|explain|explain-pair] [args] [options]
+gordian <command> [args] [options]
+
+gordian --help              ; top-level commands + global options only
+gordian <subcommand> --help ; scoped help for that command
 
 Commands:
-  analyze      (default) Raw metrics + coupling
+  analyze      (default) Raw metrics + optional coupling sections
   diagnose     Ranked findings (auto-enables all lenses) + clusters
   compare      Compare two EDN snapshots (before.edn after.edn)
+  gate         Compare current state against a saved baseline
+  subgraph     Family/subsystem view for a namespace prefix
+  communities  Discover latent architecture communities
+  dsm          Dependency Structure Matrix view
   tests        Test architecture analysis
-  cyclomatic   Function cyclomatic complexity with namespace rollups
+  complexity   Local code metrics (cyclomatic + LOC)
+  cyclomatic   Compatibility alias for `complexity`
   explain      Everything about a namespace
   explain-pair Everything about a pair
 
-Options:
-  --dot  <file>          Write DOT graph to <file>
-  --json                 JSON to stdout
-  --edn                  EDN to stdout
-  --markdown             Markdown to stdout
+Top-level global options:
+  --json
+  --edn
+  --markdown
+  --help
+```
+
+Implementation shape now:
+- `src/gordian/cli.clj` — command registry, scoped help assembly, command-local parse/validate
+- `src/gordian/main.clj` — thin entrypoint/dispatcher over command definitions and handlers
   --conceptual <float>   Conceptual coupling threshold
   --change [<repo-dir>]  Change coupling (git log)
   --change-since <date>  Limit change horizon
@@ -676,6 +691,36 @@ ea994f9  fix: strip leading ./ from src-dirs in path->ns — change coupling bro
 ```
 
 317 tests, 2072 assertions, 0 failures.
+
+## Session 27 — Munera task 006 closed
+
+Refactored `gordian.main` around scoped subcommand help and command-local parsing.
+
+Key implementation commits:
+- `16d3452` refactor: extract CLI command registry and alias resolution
+- `20647bd` refactor: add scoped CLI help and command-local parsing
+- `4ad7d8b` docs: document scoped CLI help and subcommands
+
+What changed:
+- new `src/gordian/cli.clj` owns:
+  - command registry
+  - alias resolution
+  - top-level help rendering
+  - subcommand help rendering
+  - command-local specs
+  - command-local parse/validation
+- `src/gordian/main.clj` now delegates help/parsing to `gordian.cli`
+- top-level `gordian --help` now shows commands + global options only
+- `gordian <subcommand> --help` now shows scoped usage, positional args, command options, and examples
+- `gordian cyclomatic --help` resolves as the compatibility alias for `complexity`
+- README updated to document the new help model
+
+Validation:
+- full suite passes: 328 tests, 2645 assertions, 0 failures
+
+Task status change:
+- moved `munera/open/006-refactor-main-to-babashka-cli-subcommands-and-scoped-help` → `munera/closed/`
+- removed task 006 from `munera/plan.md` open-task list
 
 ## Session 26 — Munera task 005 closed
 
