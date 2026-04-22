@@ -245,6 +245,11 @@ It reports:
 Current v1 semantics:
 - canonical units are top-level `defn` arities and `defmethod` bodies
 - nested local helpers are folded into their enclosing top-level unit
+- burden scoring is driven by explicit shared evidence rather than whole-tree proxy counts
+- abstraction burden uses ordered main-path step labels with level-mix plus oscillation
+- shape burden includes branch-outcome variant detection for nilability, coarse shape, and obvious map keyset differences
+- dependency burden distinguishes opaque pipeline stages from helper-count presence to avoid double-counting the same stage twice
+- working-set sampling uses explicit v1 program points: binding groups, branch entry, threaded stages, and main-path steps
 - `regularity-burden` is intentionally omitted from the first executable slice
 - `:working-set` reports `:peak`, `:avg`, and derived `:burden`
 - `:lcc-total` is a weighted headline rollup over the implemented burden families
