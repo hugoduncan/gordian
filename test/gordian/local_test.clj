@@ -129,6 +129,87 @@
     (is (= 2 (get-in ev [:state :effect-writes])))
     (is (= 1 (get-in ev [:state :temporal-dependencies])))))
 
+(deftest branch-variant-edge-cases-test
+  (testing "cond counts one variant when branch outcomes differ by nilability"
+    (let [unit {:ns 'sample.local
+                :var 'f
+                :kind :defn-arity
+                :arity 1
+                :args '[x]
+                :body '[(cond
+                          (= x :a) {:kind :a}
+                          (= x :b) nil
+                          :else {:kind :other})]}
+          ev (:evidence (evidence/extract-evidence unit))]
+      (is (= 1 (get-in ev [:shape :variant])))))
+
+  (testing "condp includes default branch in variant detection"
+    (let [unit {:ns 'sample.local
+                :var 'f
+                :kind :defn-arity
+                :arity 1
+                :args '[x]
+                :body '[(condp = x
+                          :a {:kind :a}
+                          :b {:kind :b}
+                          nil)]}
+          ev (:evidence (evidence/extract-evidence unit))]
+      (is (= 1 (get-in ev [:shape :variant])))))
+
+  (testing "case detects map keyset differences as one variant region"
+    (let [unit {:ns 'sample.local
+                :var 'f
+                :kind :defn-arity
+                :arity 1
+                :args '[x]
+                :body '[(case x
+                          :a {:kind :a :ok true}
+                          :b {:kind :b}
+                          {:kind :other})]}
+          ev (:evidence (evidence/extract-evidence unit))]
+      (is (= 1 (get-in ev [:shape :variant]))))))
+
+(deftest sentinel-and-abstraction-edge-cases-test
+  (testing "sentinel counting includes nested sentinel-bearing predicates and branch forms"
+    (let [unit {:ns 'sample.local
+                :var 'f
+                :kind :defn-arity
+                :arity 1
+                :args '[x]
+                :body '[(if (= x :ok) :ok :error)
+                        (= x :none)]}
+          ev (:evidence (evidence/extract-evidence unit))]
+      (is (= 3 (get-in ev [:shape :sentinel])))))
+
+  (testing "shape ops classify as data-shaping while opaque helpers remain domain"
+    (let [unit {:ns 'sample.local
+                :var 'f
+                :kind :defn-arity
+                :arity 1
+                :args '[x]
+                :body '[(assoc {} :x x)
+                        (helper x)]}
+          ev (:evidence (evidence/extract-evidence unit))]
+      (is (= [:data-shaping :domain]
+             (get-in ev [:abstraction :levels]))))))
+
+(deftest working-set-point-kinds-and-opaque-boundary-test
+  (let [unit {:ns 'sample.local
+              :var 'f
+              :kind :defn-arity
+              :arity 1
+              :args '[x]
+              :body '[(let [y (helper x)]
+                        (cond
+                          (valid? y) (-> y helper-a helper-b)
+                          :else (helper-c y))) ]}
+        ev (:evidence (evidence/extract-evidence unit))
+        points (:program-points ev)]
+    (is (= #{:binding-group :branch-entry :clause-entry}
+           (set (map :kind points))))
+    (is (= 0 (get-in ev [:dependency :opaque-stages])))
+    (is (= 3 (get-in ev [:dependency :helpers])))))
+
 (deftest burden-scoring-test
   (let [scored (burden/score-unit
                 {:evidence {:flow {:branch 3 :nest 2 :interrupt 1 :recursion 1 :logic 1.5 :max-depth 3}
