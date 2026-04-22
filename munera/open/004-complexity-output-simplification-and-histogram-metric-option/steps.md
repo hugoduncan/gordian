@@ -1,0 +1,14 @@
+- [ ] Add complexity CLI option `--bar cc|loc`
+- [ ] Validate unknown `--bar` values with a clear error message
+- [ ] Add `:bar` to complexity options metadata
+- [ ] Add a pure helper for effective bar metric selection with documented default semantics
+- [ ] Remove `decisions` from text complexity unit tables
+- [ ] Remove `decisions` from markdown complexity unit tables
+- [ ] Keep `:cc-decision-count` in machine-readable payloads
+- [ ] Update text output to size bars from the selected/effective bar metric
+- [ ] Update namespace-rollup bars to use the same selected/effective bar metric
+- [ ] Preserve current default bar behavior when `--bar` is absent
+- [ ] Update CLI help and README examples/documentation
+- [ ] Add tests for `--bar` parsing and validation
+- [ ] Add tests for default vs explicit bar-metric behavior
+- [ ] Add tests confirming `decisions` is removed from text/markdown output but retained in payloads

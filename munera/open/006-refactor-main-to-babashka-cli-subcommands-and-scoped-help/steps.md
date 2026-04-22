@@ -1,0 +1,30 @@
+- [ ] Inventory current commands, aliases, positional args, and option ownership in `gordian.main`
+- [ ] Define one consistent command-definition shape for command summary, aliases, option spec, help examples, parse/validation, and handler dispatch
+- [ ] Separate global options from subcommand-local options
+- [ ] Define explicit shared option groups only where genuinely shared
+- [ ] Implement command registry and canonical command/alias resolution
+- [ ] Implement `cyclomatic` as a compatibility alias to canonical `complexity` help and behavior
+- [ ] Replace the giant flat top-level usage summary with generated or assembled top-level help from the command registry
+- [ ] Implement top-level `gordian --help` showing commands and global options only
+- [ ] Implement subcommand help routing for `gordian <subcommand> --help`
+- [ ] Add subcommand-specific help content for analyze
+- [ ] Add subcommand-specific help content for diagnose
+- [ ] Add subcommand-specific help content for compare
+- [ ] Add subcommand-specific help content for gate
+- [ ] Add subcommand-specific help content for subgraph
+- [ ] Add subcommand-specific help content for communities
+- [ ] Add subcommand-specific help content for dsm
+- [ ] Add subcommand-specific help content for tests
+- [ ] Add subcommand-specific help content for complexity
+- [ ] Add subcommand-specific help content for explain
+- [ ] Add subcommand-specific help content for explain-pair
+- [ ] Refactor parse flow so command selection happens before scoped parse/validation
+- [ ] Extract subcommand-specific validation out of monolithic `parse-args`
+- [ ] Preserve output-mode exclusivity and other existing validation semantics where applicable
+- [ ] Keep `gordian.main` as a thin dispatcher over command definitions and existing handlers
+- [ ] Add tests for top-level help scoping
+- [ ] Add tests for subcommand help scoping
+- [ ] Add tests for alias help behavior (`cyclomatic` → `complexity`)
+- [ ] Add tests for representative parse/validation regressions across command families
+- [ ] Update README command/help documentation to match the scoped-help model
+- [ ] Ensure the refactor improves local comprehensibility and reduces responsibility concentration in `gordian.main`

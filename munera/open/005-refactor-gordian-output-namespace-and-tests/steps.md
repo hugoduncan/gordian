@@ -1,0 +1,27 @@
+- [ ] Inventory the public functions exported by `gordian.output`
+- [ ] Group current formatter functions by command family and target namespace
+- [ ] Extract minimal shared helpers into `gordian.output.common` only where genuinely reused
+- [ ] Extract analyze output formatting to `src/gordian/output/analyze.clj`
+- [ ] Move analyze output tests to `test/gordian/output/analyze_test.clj`
+- [ ] Extract diagnose output formatting to `src/gordian/output/diagnose.clj`
+- [ ] Move diagnose output tests to `test/gordian/output/diagnose_test.clj`
+- [ ] Extract explain output formatting to `src/gordian/output/explain.clj`
+- [ ] Move explain output tests to `test/gordian/output/explain_test.clj`
+- [ ] Extract compare output formatting to `src/gordian/output/compare.clj`
+- [ ] Move compare output tests to `test/gordian/output/compare_test.clj`
+- [ ] Extract subgraph output formatting to `src/gordian/output/subgraph.clj`
+- [ ] Move subgraph output tests to `test/gordian/output/subgraph_test.clj`
+- [ ] Extract communities output formatting to `src/gordian/output/communities.clj`
+- [ ] Move communities output tests to `test/gordian/output/communities_test.clj`
+- [ ] Extract tests-command output formatting to `src/gordian/output/tests.clj`
+- [ ] Move tests-command output tests to `test/gordian/output/tests_test.clj`
+- [ ] Extract gate output formatting to `src/gordian/output/gate.clj`
+- [ ] Move gate output tests to `test/gordian/output/gate_test.clj`
+- [ ] Extract DSM output formatting to `src/gordian/output/dsm.clj`
+- [ ] Move DSM output tests to `test/gordian/output/dsm_test.clj`
+- [ ] Extract complexity output formatting to `src/gordian/output/complexity.clj`
+- [ ] Move complexity output tests to `test/gordian/output/complexity_test.clj`
+- [ ] Reduce `src/gordian/output.clj` to a thin compatibility façade
+- [ ] Remove dead private helpers left behind by the split
+- [ ] Keep existing public behavior stable across text and markdown output
+- [ ] Run and pass the full test suite after the refactor
