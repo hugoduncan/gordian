@@ -600,7 +600,7 @@ Examples:
               {:dir dir :kind (if (explicit-test-path? dir) :test :src)})
             src-dirs))))
 
-(defn cyclomatic-cmd
+(defn complexity-cmd
   "Run complexity mode with resolved opts map.
    `cyclomatic` remains as a compatibility alias at the CLI surface."
   [{:keys [json edn markdown] :as opts}]
@@ -626,8 +626,8 @@ Examples:
         (cond
           json     (println (report-json/generate (envelope/wrap opts data :complexity)))
           edn      (print   (report-edn/generate  (envelope/wrap opts data :complexity)))
-          markdown (run! println (output/format-cyclomatic-md data))
-          :else    (output/print-cyclomatic data))))))
+          markdown (run! println (output/format-complexity-md data))
+          :else    (output/print-complexity data))))))
 
 (defn gate-cmd
   "Run gate with resolved opts map.
@@ -701,7 +701,7 @@ Examples:
                               :communities  (communities-cmd opts)
                               :dsm          (dsm-cmd opts)
                               :tests        (tests-cmd opts)
-                              :cyclomatic   (cyclomatic-cmd opts)
+                              :cyclomatic   (complexity-cmd opts)
                               :explain      (explain-cmd opts)
                               :explain-pair (explain-pair-cmd opts)
                               (analyze opts))))))))

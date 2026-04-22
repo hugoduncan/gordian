@@ -578,7 +578,7 @@
 (deftest cyclomatic-integration-test
   (testing "cyclomatic produces output"
     (let [out (with-out-str
-                (sut/cyclomatic-cmd {:src-dirs ["resources/fixture"] :command :cyclomatic}))]
+                (sut/complexity-cmd {:src-dirs ["resources/fixture"] :command :cyclomatic}))]
       (is (str/includes? out "gordian complexity"))
       (is (str/includes? out "SUMMARY"))
       (is (str/includes? out "NAMESPACE ROLLUP"))
@@ -586,7 +586,7 @@
 
   (testing "cyclomatic with --edn returns structured map"
     (let [out (with-out-str
-                (sut/cyclomatic-cmd {:src-dirs ["resources/fixture"]
+                (sut/complexity-cmd {:src-dirs ["resources/fixture"]
                                      :command :cyclomatic
                                      :edn true}))
           parsed (read-string out)]
@@ -600,7 +600,7 @@
 
   (testing "cyclomatic min-cc filters displayed units and rollups"
     (let [out (with-out-str
-                (sut/cyclomatic-cmd {:src-dirs ["src"]
+                (sut/complexity-cmd {:src-dirs ["src"]
                                      :command :cyclomatic
                                      :edn true
                                      :min-cc 20}))
@@ -636,7 +636,7 @@
 (deftest complexity-envelope-metadata-test
   (testing "complexity EDN output includes reproducibility metadata inside the payload and standard envelope"
     (let [out (with-out-str
-                (sut/cyclomatic-cmd {:src-dirs ["resources/fixture-project"]
+                (sut/complexity-cmd {:src-dirs ["resources/fixture-project"]
                                      :command :cyclomatic
                                      :edn true
                                      :sort :cc-risk
@@ -684,7 +684,7 @@
 
   (testing "cyclomatic --markdown produces markdown"
     (let [out (with-out-str
-                (sut/cyclomatic-cmd {:src-dirs ["resources/fixture"]
+                (sut/complexity-cmd {:src-dirs ["resources/fixture"]
                                      :markdown true}))]
       (is (str/includes? out "# gordian complexity")))))
 

@@ -1625,8 +1625,8 @@
        "  " (pad-left 4 max-cc)
        bar-col-gap (bar max-cc)))
 
-(defn format-cyclomatic
-  "Format cyclomatic complexity report as human-readable lines."
+(defn format-complexity
+  "Format complexity report as human-readable lines."
   [{:keys [src-dirs units namespace-rollups project-rollup max-unit]}]
   (let [unit-label-width (max 10 (apply max (concat [10] (map (comp count complexity-unit-label) units))))
         ns-label-width   (max 10 (apply max (concat [10] (map #(count (str (:ns %))) namespace-rollups))))
@@ -1673,8 +1673,8 @@
             " high=" (get-in project-rollup [:cc-risk-counts :high])
             " untestable=" (get-in project-rollup [:cc-risk-counts :untestable]))]))))
 
-(defn format-cyclomatic-md
-  "Format cyclomatic complexity report as markdown lines."
+(defn format-complexity-md
+  "Format complexity report as markdown lines."
   [{:keys [src-dirs units namespace-rollups project-rollup max-unit]}]
   (into
    ["# gordian complexity"
@@ -1733,7 +1733,7 @@
   [result]
   (run! println (format-tests result)))
 
-(defn print-cyclomatic
-  "Print a human-readable cyclomatic report to stdout."
+(defn print-complexity
+  "Print a human-readable complexity report to stdout."
   [result]
-  (run! println (format-cyclomatic result)))
+  (run! println (format-complexity result)))

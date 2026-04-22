@@ -106,8 +106,7 @@ Code-shaper cleanup checklist:
    - factored complexity text-table header/row/rule construction into small private helpers in `output.clj`
    - avoided introducing a generic table engine; used local helpers to reduce repeated inline layout code
    - result: current output preserved while formatting logic became easier to edit safely
-3. terminology tightening
-   - review command-facing names/docstrings for places where `complexity` vs `cyclomatic` terminology is drifting unintentionally
-   - keep user-facing command language centered on `complexity`
-   - keep metric-specific implementation language centered on `cyclomatic` where that distinction is helpful
-   - target effect: less convergence-history leakage and a cleaner conceptual boundary between command and metric
+3. terminology tightening ✅
+   - renamed command-facing entrypoints/renderers toward `complexity` terminology where helpful (`complexity-cmd`, `format-complexity`, `print-complexity`)
+   - kept metric-specific implementation language centered on `cyclomatic` in the analysis namespace and schema
+   - result: less convergence-history leakage and a cleaner conceptual boundary between command and metric

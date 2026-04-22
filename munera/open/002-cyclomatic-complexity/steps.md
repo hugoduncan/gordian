@@ -26,4 +26,4 @@
 - [deferred] Patch plan: decide `:line` policy — populate source lines where feasible or document the field as nullable/deferred in v1
 - [x] Cleanup plan: extract a pure complexity report finalizer (metadata + min-cc + sort + top shaping) so `main.clj` stays thinner
 - [x] Cleanup plan: factor complexity text table rendering into small private helpers to reduce inline column/layout duplication in `output.clj`
-- [ ] Cleanup plan: tighten internal naming/docstrings where helpful so command-facing `complexity` terminology and metric-facing `cyclomatic` terminology stay intentionally separated
+- [x] Cleanup plan: tighten internal naming/docstrings where helpful so command-facing `complexity` terminology and metric-facing `cyclomatic` terminology stay intentionally separated

@@ -1072,8 +1072,8 @@
                     :cc-risk-counts {:simple 3 :moderate 0 :high 0 :untestable 0}}
    :max-unit {:ns 'sample.core :var 'branchy :arity 1 :cc 3}})
 
-(deftest format-cyclomatic-test
-  (let [lines (sut/format-cyclomatic cyclomatic-data)
+(deftest format-complexity-test
+  (let [lines (sut/format-complexity cyclomatic-data)
         text  (str/join "\n" lines)
         unit-rows (filter #(and (str/includes? % "[arity") (str/includes? % "█")) lines)
         bar-cols  (map #(.indexOf % "█") unit-rows)]
@@ -1092,8 +1092,8 @@
     (is (str/includes? text "███"))
     (is (apply = bar-cols))))
 
-(deftest format-cyclomatic-md-test
-  (let [text (str/join "\n" (sut/format-cyclomatic-md cyclomatic-data))]
+(deftest format-complexity-md-test
+  (let [text (str/join "\n" (sut/format-complexity-md cyclomatic-data))]
     (is (str/includes? text "# gordian complexity"))
     (is (str/includes? text "## Summary"))
     (is (str/includes? text "| Metric | Value |"))
