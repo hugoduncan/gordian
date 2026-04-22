@@ -1059,39 +1059,48 @@
                   :qualified-name 'sample.core/branchy
                   :complexity 3
                   :file "src/sample/core.clj"}
-   :namespaces [{:ns 'sample.core
-                 :file "src/sample/core.clj"
-                 :function-count 2
-                 :total-complexity 5
-                 :avg-complexity 2.5
-                 :max-complexity 3
-                 :functions [{:name 'branchy :complexity 3 :arity-count 1 :arity-complexities [3]}
-                             {:name 'simple :complexity 2 :arity-count 2 :arity-complexities [1 2]}]}
-                {:ns 'sample.util
-                 :file "src/sample/util.clj"
-                 :function-count 1
-                 :total-complexity 2
-                 :avg-complexity 2.0
-                 :max-complexity 2
-                 :functions [{:name 'helper :complexity 2 :arity-count 1 :arity-complexities [2]}]}]})
+   :units [{:ns 'sample.core :var 'branchy :arity 1 :cc 3 :cc-decision-count 2 :cc-risk {:level :simple :label "Simple, low risk"}}
+           {:ns 'sample.core :var 'simple :arity 1 :cc 1 :cc-decision-count 0 :cc-risk {:level :simple :label "Simple, low risk"}}
+           {:ns 'sample.util :var 'helper :arity 1 :cc 3 :cc-decision-count 2 :cc-risk {:level :simple :label "Simple, low risk"}}]
+   :namespace-rollups [{:ns 'sample.core
+                        :unit-count 2
+                        :total-cc 4
+                        :avg-cc 2.0
+                        :max-cc 3
+                        :cc-risk-counts {:simple 2 :moderate 0 :high 0 :untestable 0}}
+                       {:ns 'sample.util
+                        :unit-count 1
+                        :total-cc 3
+                        :avg-cc 3.0
+                        :max-cc 3
+                        :cc-risk-counts {:simple 1 :moderate 0 :high 0 :untestable 0}}]
+   :project-rollup {:unit-count 3
+                    :namespace-count 2
+                    :total-cc 7
+                    :avg-cc (/ 7.0 3)
+                    :max-cc 3
+                    :cc-risk-counts {:simple 3 :moderate 0 :high 0 :untestable 0}}})
 
 (deftest format-cyclomatic-test
   (let [text (str/join "\n" (sut/format-cyclomatic cyclomatic-data))]
-    (is (str/includes? text "gordian cyclomatic"))
+    (is (str/includes? text "gordian complexity"))
     (is (str/includes? text "SUMMARY"))
     (is (str/includes? text "namespaces: 2"))
-    (is (str/includes? text "functions: 3"))
+    (is (str/includes? text "units: 3"))
     (is (str/includes? text "sample.core/branchy (3)"))
-    (is (str/includes? text "sample.core  functions=2"))
-    (is (str/includes? text "branchy"))
-    (is (str/includes? text "per-arity=[1 2]"))))
+    (is (str/includes? text "UNITS"))
+    (is (str/includes? text "NAMESPACE ROLLUP"))
+    (is (str/includes? text "PROJECT ROLLUP"))
+    (is (str/includes? text "branchy [arity 1]"))
+    (is (str/includes? text "███"))))
 
 (deftest format-cyclomatic-md-test
   (let [text (str/join "\n" (sut/format-cyclomatic-md cyclomatic-data))]
-    (is (str/includes? text "# gordian cyclomatic"))
+    (is (str/includes? text "# gordian complexity"))
     (is (str/includes? text "## Summary"))
     (is (str/includes? text "| Metric | Value |"))
     (is (str/includes? text "`sample.core/branchy` (3)"))
-    (is (str/includes? text "## sample.core"))
-    (is (str/includes? text "| Function | Complexity | Arities | Per-arity |"))
-    (is (str/includes? text "`branchy`"))))
+    (is (str/includes? text "## Units"))
+    (is (str/includes? text "| Unit | CC | Risk | Decisions |"))
+    (is (str/includes? text "## Namespace rollup"))
+    (is (str/includes? text "## Project rollup"))))

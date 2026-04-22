@@ -21,6 +21,15 @@
 (def ^:private defn-ops
   '#{defn defn-})
 
+(def ^:private risk-bands
+  [{:max 10 :risk {:level :simple :label "Simple, low risk"}}
+   {:max 20 :risk {:level :moderate :label "Moderate complexity, moderate risk"}}
+   {:max 50 :risk {:level :high :label "High complexity, high risk"}}
+   {:max Long/MAX_VALUE :risk {:level :untestable :label "Untestable, very high risk"}}])
+
+(def ^:private risk-order
+  {:simple 0 :moderate 1 :high 2 :untestable 3})
+
 (defn- strip-doc-and-attr
   [xs]
   (cond-> xs
@@ -131,6 +140,11 @@
   [body]
   (+ 1 (reduce + 0 (map complexity* body))))
 
+(defn cc-risk
+  "Return the standard risk descriptor for a cyclomatic complexity value."
+  [cc]
+  (:risk (first (filter #(<= cc (:max %)) risk-bands))))
+
 (defn analyzable-units
   "Extract analyzable top-level units from one parsed file payload
    {:file :ns :forms}. Returns one unit per arity-level executable body.
@@ -179,7 +193,7 @@
             (and (seq? form)
                  (= 'def (first form))
                  (symbol? (second form)))
-            (let [name      (second form)
+            (let [name       (second form)
                   value-form (nth form 2 nil)]
               (map-indexed
                (fn [i {:keys [args body]}]
@@ -199,14 +213,23 @@
             [])))
        vec))
 
-(defn function-complexities
-  "Analyze one parsed file payload {:file :ns :forms}.
-   Returns {:file :ns :functions [...]}.
+(defn analyze-units
+  "Analyze canonical arity-level units and attach metric-qualified fields."
+  [units]
+  (->> units
+       (mapv (fn [{:keys [body] :as unit}]
+               (let [cc (arity-complexity body)]
+                 (-> unit
+                     (dissoc :body :unit-id)
+                     (assoc :metric :cyclomatic-complexity
+                            :cc cc
+                            :cc-decision-count (dec cc)
+                            :cc-risk (cc-risk cc))))))))
 
-   Each function record includes max complexity across arities and the
-   individual arity complexities for transparency."
+(defn function-complexities
+  "Backward-compatible function-level summary built from canonical units."
   [{:keys [file ns] :as parsed-file}]
-  (let [units (analyzable-units parsed-file)]
+  (let [units (analyze-units (analyzable-units parsed-file))]
     {:file file
      :ns ns
      :functions
@@ -215,7 +238,7 @@
           vals
           (mapv (fn [var-units]
                   (let [{:keys [var]} (first var-units)
-                        arity-cxs (mapv (comp arity-complexity :body) var-units)]
+                        arity-cxs (mapv :cc var-units)]
                     {:ns ns
                      :file file
                      :name var
@@ -227,7 +250,7 @@
           vec)}))
 
 (defn namespace-summary
-  "Build a namespace-level rollup from one file analysis."
+  "Build a namespace-level legacy rollup from one file analysis."
   [{:keys [file ns functions]}]
   (let [complexities (map :complexity functions)]
     {:ns ns
@@ -240,28 +263,103 @@
      :max-complexity (apply max 0 complexities)
      :functions (sort-by (juxt (comp - :complexity) :name) functions)}))
 
+(defn- empty-risk-counts []
+  {:simple 0 :moderate 0 :high 0 :untestable 0})
+
+(defn- risk-counts
+  [units]
+  (reduce (fn [counts unit]
+            (update counts (get-in unit [:cc-risk :level]) (fnil inc 0)))
+          (empty-risk-counts)
+          units))
+
+(defn namespace-rollups
+  "Build canonical namespace rollups from analyzed units."
+  [units]
+  (->> units
+       (group-by :ns)
+       (map (fn [[ns ns-units]]
+              (let [ccs (map :cc ns-units)
+                    unit-count (count ns-units)]
+                {:ns ns
+                 :unit-count unit-count
+                 :total-cc (reduce + 0 ccs)
+                 :avg-cc (if (pos? unit-count)
+                           (/ (double (reduce + 0 ccs)) unit-count)
+                           0.0)
+                 :max-cc (apply max 0 ccs)
+                 :cc-risk-counts (risk-counts ns-units)})))
+       (sort-by (juxt (comp - :max-cc) :ns))
+       vec))
+
+(defn project-rollup
+  "Build canonical project rollup from analyzed units and namespace rollups."
+  [units namespace-rollups]
+  (let [ccs (map :cc units)
+        unit-count (count units)]
+    {:unit-count unit-count
+     :namespace-count (count namespace-rollups)
+     :total-cc (reduce + 0 ccs)
+     :avg-cc (if (pos? unit-count)
+               (/ (double (reduce + 0 ccs)) unit-count)
+               0.0)
+     :max-cc (apply max 0 ccs)
+     :cc-risk-counts (risk-counts units)}))
+
+(defn sort-units
+  "Sort canonical units by one of :cc, :ns, :var, or :cc-risk."
+  [units sort-key]
+  (let [sort-key (or sort-key :cc)]
+    (case sort-key
+      :ns
+      (sort-by (juxt :ns (comp - :cc) :var :kind :arity :dispatch) units)
+
+      :var
+      (sort-by (juxt :ns :var (comp - :cc) :kind :arity :dispatch) units)
+
+      :cc-risk
+      (sort-by (juxt (comp - risk-order (comp :level :cc-risk))
+                     (comp - :cc)
+                     :ns :var :kind :arity :dispatch)
+               units)
+
+      (sort-by (juxt (comp - :cc) :ns :var :kind :arity :dispatch) units))))
+
+(defn truncate-section
+  "Apply section-local top-N truncation when top is positive."
+  [xs top]
+  (if (and top (pos? top))
+    (vec (take top xs))
+    (vec xs)))
+
 (defn rollup
   "Build the full cyclomatic report from scanned file payloads.
-   `files` is a seq of {:file :ns :forms}."
+   `files` is a seq of {:file :ns :forms}.
+
+   Current payload preserves the legacy summary/namespaces view while also
+   emitting canonical units/rollups for the in-progress `002` convergence."
   [files]
-  (let [namespaces        (->> files
+  (let [units             (->> files
+                               (mapcat #(analyzable-units (assoc % :origin (or (:origin %) :src))))
+                               analyze-units)
+        namespace-rollups (namespace-rollups units)
+        project           (project-rollup units namespace-rollups)
+        namespaces        (->> files
                                (map function-complexities)
                                (map namespace-summary)
                                (sort-by (juxt (comp - :max-complexity) :ns))
                                vec)
-        namespace-count   (count namespaces)
-        function-count    (reduce + 0 (map :function-count namespaces))
-        total-complexity  (reduce + 0 (map :total-complexity namespaces))
         max-function      (first (sort-by (juxt (comp - :complexity) :qualified-name)
-                                          (mapcat :functions namespaces)))
-        avg-complexity    (if (pos? function-count)
-                            (/ (double total-complexity) function-count)
-                            0.0)]
+                                          (mapcat :functions namespaces)))]
     {:gordian/command :cyclomatic
-     :summary {:namespace-count namespace-count
-               :function-count function-count
-               :total-complexity total-complexity
-               :avg-complexity avg-complexity
-               :max-complexity (or (:complexity max-function) 0)}
+     :metric :cyclomatic-complexity
+     :summary {:namespace-count (:namespace-count project)
+               :function-count (:unit-count project)
+               :total-complexity (:total-cc project)
+               :avg-complexity (:avg-cc project)
+               :max-complexity (:max-cc project)}
      :max-function (select-keys max-function [:ns :name :qualified-name :complexity :file])
-     :namespaces namespaces}))
+     :namespaces namespaces
+     :units (vec units)
+     :namespace-rollups namespace-rollups
+     :project-rollup project}))

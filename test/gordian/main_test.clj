@@ -558,9 +558,9 @@
   (testing "cyclomatic produces output"
     (let [out (with-out-str
                 (sut/cyclomatic-cmd {:src-dirs ["resources/fixture"] :command :cyclomatic}))]
-      (is (str/includes? out "gordian cyclomatic"))
+      (is (str/includes? out "gordian complexity"))
       (is (str/includes? out "SUMMARY"))
-      (is (str/includes? out "NAMESPACES"))
+      (is (str/includes? out "NAMESPACE ROLLUP"))
       (is (str/includes? out "alpha"))))
 
   (testing "cyclomatic with --edn returns structured map"
@@ -617,7 +617,7 @@
     (let [out (with-out-str
                 (sut/cyclomatic-cmd {:src-dirs ["resources/fixture"]
                                      :markdown true}))]
-      (is (str/includes? out "# gordian cyclomatic")))))
+      (is (str/includes? out "# gordian complexity")))))
 
 ;;; ── parse-args / --include-tests + --exclude ─────────────────────────────
 

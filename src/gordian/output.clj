@@ -1562,16 +1562,20 @@
 
 ;;; ── cyclomatic output ───────────────────────────────────────────────────
 
+(defn- bar
+  [n]
+  (apply str (repeat (max 0 (min 50 (int n))) "█")))
+
 (defn format-cyclomatic
   "Format cyclomatic complexity report as human-readable lines."
-  [{:keys [src-dirs summary max-function namespaces]}]
+  [{:keys [src-dirs summary max-function units namespace-rollups project-rollup]}]
   (into
-   ["gordian cyclomatic"
+   ["gordian complexity"
     (str "src: " (str/join " " src-dirs))
     ""
     "SUMMARY"
     (str "  namespaces: " (:namespace-count summary))
-    (str "  functions: " (:function-count summary))
+    (str "  units: " (:function-count summary))
     (str "  total complexity: " (:total-complexity summary))
     (str "  avg complexity: " (format "%.2f" (double (:avg-complexity summary))))
     (str "  max complexity: " (:max-complexity summary))
@@ -1580,30 +1584,46 @@
                                    " (" (:complexity max-function) ")")
                               "(none)"))
     ""
-    "NAMESPACES"]
-   (mapcat (fn [{:keys [ns function-count total-complexity avg-complexity max-complexity functions]}]
-             (concat
-              [(str "  " ns
-                    "  functions=" function-count
-                    "  total=" total-complexity
-                    "  avg=" (format "%.2f" (double avg-complexity))
-                    "  max=" max-complexity)]
-              (if (seq functions)
-                (map (fn [{:keys [name complexity arity-count arity-complexities]}]
-                       (str "    " (pad-right 24 (str name))
-                            " complexity=" (pad-left 2 complexity)
-                            "  arities=" arity-count
-                            "  per-arity=" (pr-str arity-complexities)))
-                     functions)
-                ["    (none)"])
-              [""]))
-           namespaces)))
+    "UNITS"]
+   (concat
+    (if (seq units)
+      (map (fn [{:keys [ns var arity cc cc-decision-count cc-risk]}]
+             (str "  " (pad-right 40 (str ns "/" var " [arity " arity "]"))
+                  " cc=" (pad-left 3 cc)
+                  "  risk=" (pad-right 12 (name (:level cc-risk)))
+                  " decisions=" (pad-left 3 cc-decision-count)
+                  "  " (bar cc)))
+           units)
+      ["  (none)"])
+    [""
+     "NAMESPACE ROLLUP"]
+    (if (seq namespace-rollups)
+      (map (fn [{:keys [ns unit-count total-cc avg-cc max-cc]}]
+             (str "  " (pad-right 24 (str ns))
+                  " units=" unit-count
+                  " total=" total-cc
+                  " avg=" (format "%.2f" (double avg-cc))
+                  " max=" max-cc
+                  "  " (bar max-cc)))
+           namespace-rollups)
+      ["  (none)"])
+    [""
+     "PROJECT ROLLUP"
+     (str "  units=" (:unit-count project-rollup)
+          " namespaces=" (:namespace-count project-rollup)
+          " total=" (:total-cc project-rollup)
+          " avg=" (format "%.2f" (double (:avg-cc project-rollup)))
+          " max=" (:max-cc project-rollup))
+     (str "  simple=" (get-in project-rollup [:cc-risk-counts :simple])
+          " moderate=" (get-in project-rollup [:cc-risk-counts :moderate])
+          " high=" (get-in project-rollup [:cc-risk-counts :high])
+          " untestable=" (get-in project-rollup [:cc-risk-counts :untestable]))])))
 
 (defn format-cyclomatic-md
   "Format cyclomatic complexity report as markdown lines."
-  [{:keys [src-dirs summary max-function namespaces]}]
+  [{:keys [src-dirs summary max-function units namespace-rollups project-rollup]}]
   (into
-   ["# gordian cyclomatic"
+   ["# gordian complexity"
     ""
     (str "**Source:** `" (str/join " " src-dirs) "`")
     ""
@@ -1612,33 +1632,47 @@
     "| Metric | Value |"
     "|--------|-------|"
     (str "| Namespaces | " (:namespace-count summary) " |")
-    (str "| Functions | " (:function-count summary) " |")
+    (str "| Units | " (:function-count summary) " |")
     (str "| Total complexity | " (:total-complexity summary) " |")
     (str "| Avg complexity | " (format "%.2f" (double (:avg-complexity summary))) " |")
     (str "| Max complexity | " (:max-complexity summary) " |")
     (str "| Max function | " (if max-function
                                (str "`" (:qualified-name max-function) "` (" (:complexity max-function) ")")
-                               "(none)") " |")]
-   (mapcat (fn [{:keys [ns function-count total-complexity avg-complexity max-complexity functions]}]
-             (concat
-              [""
-               (str "## " ns)
-               ""
-               (str "- **Functions:** " function-count)
-               (str "- **Total complexity:** " total-complexity)
-               (str "- **Avg complexity:** " (format "%.2f" (double avg-complexity)))
-               (str "- **Max complexity:** " max-complexity)
-               ""
-               "| Function | Complexity | Arities | Per-arity |"
-               "|----------|------------|---------|-----------|"]
-              (if (seq functions)
-                (map (fn [{:keys [name complexity arity-count arity-complexities]}]
-                       (str "| `" name "` | " complexity
-                            " | " arity-count
-                            " | `" (pr-str arity-complexities) "` |"))
-                     functions)
-                ["| (none) | 0 | 0 | `[]` |"])))
-           namespaces)))
+                               "(none)") " |")
+    ""
+    "## Units"
+    ""
+    "| Unit | CC | Risk | Decisions |"
+    "|------|----|------|-----------|"]
+   (concat
+    (if (seq units)
+      (map (fn [{:keys [ns var arity cc cc-decision-count cc-risk]}]
+             (str "| `" ns "/" var " [arity " arity "]` | "
+                  cc " | " (name (:level cc-risk)) " | " cc-decision-count " |"))
+           units)
+      ["| (none) | 0 | n/a | 0 |"])
+    [""
+     "## Namespace rollup"
+     ""
+     "| Namespace | Units | Total CC | Avg CC | Max CC |"
+     "|-----------|-------|----------|--------|--------|"]
+    (if (seq namespace-rollups)
+      (map (fn [{:keys [ns unit-count total-cc avg-cc max-cc]}]
+             (str "| `" ns "` | " unit-count
+                  " | " total-cc
+                  " | " (format "%.2f" (double avg-cc))
+                  " | " max-cc " |"))
+           namespace-rollups)
+      ["| (none) | 0 | 0 | 0.00 | 0 |"])
+    [""
+     "## Project rollup"
+     ""
+     (str "- **Units:** " (:unit-count project-rollup))
+     (str "- **Namespaces:** " (:namespace-count project-rollup))
+     (str "- **Total CC:** " (:total-cc project-rollup))
+     (str "- **Avg CC:** " (format "%.2f" (double (:avg-cc project-rollup))))
+     (str "- **Max CC:** " (:max-cc project-rollup))
+     (str "- **Risk counts:** `" (pr-str (:cc-risk-counts project-rollup)) "`")])))
 
 (defn print-tests
   "Print a human-readable tests report to stdout."
