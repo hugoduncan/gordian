@@ -20,6 +20,7 @@
    - :step-kind            => originating main-step kind
    - :live-bindings        => symbols still live at this point
    - :active-predicates    => number of branch predicates currently carried
+   - :branch-local?        => whether the originating step is inside a branch body
    - :mutable-entities     => live mutable bindings
    - :shape-assumptions    => live bindings with non-scalar structural shape assumptions
    - :unresolved-semantics => capped opaque-helper count for the originating step"
@@ -27,7 +28,8 @@
   (merge base-point
          {:kind kind
           :step-form (:form step)
-          :step-kind (:kind step)}
+          :step-kind (:kind step)
+          :branch-local? (:branch-local? step)}
          extras))
 
 (defn program-points [steps args]

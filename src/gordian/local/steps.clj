@@ -38,6 +38,7 @@
    - :introduced-symbols => symbols introduced by the binding form
    - :destructure-count  => number of introduced symbols
    - :active-predicates  => branch predicates currently in scope
+   - :branch-local?      => true when this step occurs inside a branch body
    - :calls              => direct call symbols visible at this step"
   [group-id last? binding expr active-predicates]
   {:kind :binding
@@ -48,6 +49,7 @@
    :introduced-symbols (common/binding-symbols binding)
    :destructure-count (common/destructure-symbol-count binding)
    :active-predicates active-predicates
+   :branch-local? (pos? active-predicates)
    :calls (direct-call-symbols expr)})
 
 (defn- expr-step
@@ -56,6 +58,7 @@
   {:kind kind
    :form form
    :active-predicates active-predicates
+   :branch-local? (pos? active-predicates)
    :branch? (boolean (common/branch-ops (common/op-of form)))
    :calls (direct-call-symbols form)})
 

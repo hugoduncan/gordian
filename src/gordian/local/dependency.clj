@@ -3,7 +3,7 @@
 
 (defn branch-local-step?
   [step]
-  (pos? (:active-predicates step 0)))
+  (true? (:branch-local? step)))
 
 (defn opaque-op? [op]
   (and (symbol? op)

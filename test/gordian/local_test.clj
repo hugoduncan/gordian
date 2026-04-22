@@ -261,7 +261,7 @@
            (mapv :branch-local? steps)))
     (is (= [0 0 1 1 1]
            (mapv :active-predicates steps)))
-    (is (= [false false false false false]
+    (is (= [false false true true true]
            (mapv dependency/branch-local-step? (assoc steps 0 (assoc (first steps) :active-predicates 99)))))))
 
 (deftest burden-scoring-test
