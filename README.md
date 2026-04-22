@@ -16,7 +16,7 @@ just hard to read.
 ## Usage
 
 ```bash
-gordian [analyze|diagnose|compare|gate|subgraph|communities|dsm|tests|cyclomatic|explain|explain-pair] [<dir-or-src>...] [options]
+gordian [analyze|diagnose|compare|gate|subgraph|communities|dsm|tests|complexity|cyclomatic|explain|explain-pair] [<dir-or-src>...] [options]
 ```
 
 When given a project root (a directory containing `deps.edn`, `bb.edn`,
@@ -59,10 +59,11 @@ gordian tests .
 gordian tests src/ test/
 
 # cyclomatic complexity analysis
-gordian cyclomatic .
-gordian cyclomatic src/ test/
-gordian cyclomatic . --edn > cyclomatic.edn
-gordian cyclomatic . --markdown > cyclomatic.md
+gordian complexity .
+gordian cyclomatic .   # compatibility alias
+gordian complexity src/ test/
+gordian complexity . --edn > complexity.edn
+gordian complexity . --markdown > complexity.md
 
 # exclude namespaces by pattern
 gordian . --exclude 'user|scratch'
@@ -131,18 +132,19 @@ Interpretation notes:
 - **`Ca` delta on core namespaces is a proxy** for whether stable core code is directly exercised by tests.
 - **Propagation-cost delta** distinguishes targeted suites from over-coupled suites.
 
-## Cyclomatic complexity mode (`cyclomatic`)
+## Complexity mode (`complexity`)
 
-`gordian cyclomatic` analyzes function-level cyclomatic complexity and rolls it
-up by namespace.
+`gordian complexity` analyzes function-level cyclomatic complexity and rolls it
+up by namespace. `gordian cyclomatic` remains available as a compatibility
+alias.
 
 ```bash
-gordian cyclomatic .
-gordian cyclomatic src/
-gordian cyclomatic src/ test/
-gordian cyclomatic . --edn > cyclomatic.edn
-gordian cyclomatic . --json > cyclomatic.json
-gordian cyclomatic . --markdown > cyclomatic.md
+gordian complexity .
+gordian complexity src/
+gordian complexity src/ test/
+gordian complexity . --edn > complexity.edn
+gordian complexity . --json > complexity.json
+gordian complexity . --markdown > complexity.md
 ```
 
 It reports:

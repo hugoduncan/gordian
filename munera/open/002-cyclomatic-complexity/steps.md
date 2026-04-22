@@ -1,5 +1,5 @@
 - [x] Write a companion implementation doc that locks command naming / compatibility (`complexity` vs `cyclomatic`), finalized scoring rules, unit extraction rules, canonical schema, sort/top semantics, scope semantics, validation rules, and output examples (`doc/design/021a-cyclomatic-complexity-implementation-plan.md`)
-- [ ] Decide and document the public CLI shape: introduce `gordian complexity`, retain `gordian cyclomatic` as an alias or migrate it explicitly, and update help/README/schema expectations accordingly
+- [x] Decide and document the public CLI shape: introduce `gordian complexity`, retain `gordian cyclomatic` as an alias or migrate it explicitly, and update help/README/schema expectations accordingly
 - [ ] Refactor pure unit extraction to emit canonical arity-level units for top-level `defn` / `defn-` forms rather than function-level max-over-arities summaries
 - [ ] Extend unit extraction to include top-level `defmethod` bodies, preserving dispatch identity where available
 - [ ] Extend unit extraction to include top-level `def` with literal `fn` value, one unit per arity body

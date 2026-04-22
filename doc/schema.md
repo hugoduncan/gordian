@@ -15,7 +15,7 @@ Every command's output includes these top-level keys:
 |-----|------|-------------|
 | `gordian/version` | string | Gordian version (e.g. `"0.2.0"`) |
 | `gordian/schema` | integer | Schema version. Bumped on breaking changes. |
-| `gordian/command` | keyword | `analyze`, `diagnose`, `compare`, `gate`, `subgraph`, `communities`, `dsm`, `tests`, `cyclomatic`, `explain`, or `explain-pair` |
+| `gordian/command` | keyword | `analyze`, `diagnose`, `compare`, `gate`, `subgraph`, `communities`, `dsm`, `tests`, `complexity`, `cyclomatic`, `explain`, or `explain-pair` |
 | `lenses` | map | Which analysis lenses ran and their parameters |
 | `src-dirs` | vector of strings | Source directories analysed |
 | `excludes` | vector of strings | Namespace exclusion patterns applied |
@@ -257,9 +257,11 @@ current code.
 
 ---
 
-## cyclomatic
+## complexity / cyclomatic
 
-Command: `gordian cyclomatic [dirs...] --edn`
+Command: `gordian complexity [dirs...] --edn`
+
+`gordian cyclomatic` is currently supported as a compatibility alias.
 
 Cyclomatic complexity analysis is independent of the structural/conceptual/change
 pair lenses. The standard envelope is still present, but the payload is focused

@@ -363,10 +363,20 @@
       (is (true? (:markdown opts))))))
 
 (deftest parse-args-cyclomatic-test
+  (testing "complexity -> :command :cyclomatic"
+    (let [opts (sut/parse-args ["complexity"])]
+      (is (= :cyclomatic (:command opts)))
+      (is (= ["."] (:src-dirs opts)))))
+
   (testing "cyclomatic -> :command :cyclomatic"
     (let [opts (sut/parse-args ["cyclomatic"])]
       (is (= :cyclomatic (:command opts)))
       (is (= ["."] (:src-dirs opts)))))
+
+  (testing "complexity . --json"
+    (let [opts (sut/parse-args ["complexity" "." "--json"])]
+      (is (= :cyclomatic (:command opts)))
+      (is (true? (:json opts)))))
 
   (testing "cyclomatic . --json"
     (let [opts (sut/parse-args ["cyclomatic" "." "--json"])]

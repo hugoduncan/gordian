@@ -62,7 +62,7 @@
    :help                  {:desc "Show this help message" :coerce :boolean}})
 
 (def ^:private usage-summary
-  "Usage: gordian [analyze|diagnose|compare|gate|subgraph|communities|dsm|tests|cyclomatic|explain|explain-pair] [<dir-or-src>...] [options]
+  "Usage: gordian [analyze|diagnose|compare|gate|subgraph|communities|dsm|tests|complexity|cyclomatic|explain|explain-pair] [<dir-or-src>...] [options]
 
 When given a project root (dir with deps.edn, bb.edn, etc.), gordian
 auto-discovers source directories. With no arguments, defaults to '.'.
@@ -76,7 +76,8 @@ Commands:
   communities  Discover latent architecture communities
   dsm          Dependency Structure Matrix view with diagonal block partitions
   tests        Analyze test architecture and test-vs-source coupling
-  cyclomatic   Analyze cyclomatic complexity of functions with namespace rollups
+  complexity   Analyze cyclomatic complexity of functions with namespace rollups
+  cyclomatic   Compatibility alias for `complexity`
   explain      Everything gordian knows about a namespace
   explain-pair Everything gordian knows about a pair of namespaces
 
@@ -126,6 +127,7 @@ Examples:
   gordian dsm .
   gordian dsm . --html-file dsm.html
   gordian tests .
+  gordian complexity .
   gordian cyclomatic .
   gordian explain gordian.scan        drill into a namespace
   gordian explain-pair a.core b.svc   drill into a pair")
@@ -151,7 +153,7 @@ Examples:
                    "explain" :explain "explain-pair" :explain-pair
                    "compare" :compare "gate" :gate "subgraph" :subgraph
                    "communities" :communities "dsm" :dsm "tests" :tests
-                   "cyclomatic" :cyclomatic}
+                   "complexity" :cyclomatic "cyclomatic" :cyclomatic}
                   (first raw-args))
         raw-args (if command (rest raw-args) raw-args)
         {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})]
