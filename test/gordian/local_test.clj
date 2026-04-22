@@ -5,6 +5,8 @@
             [gordian.local.burden :as burden]
             [gordian.local.findings :as findings]
             [gordian.local.report :as report]
+            [gordian.local.steps :as steps]
+            [gordian.local.dependency :as dependency]
             [gordian.scan :as scan]))
 
 (deftest analyzable-units-test
@@ -249,6 +251,18 @@
                             (get-in ev [:main-steps])))))
     (is (= #{:branch-entry}
            (set (map :kind (:program-points ev)))))))
+
+(deftest main-path-steps-carry-explicit-branch-locality
+  (let [steps (steps/main-path-steps '[(let [y (helper x)]
+                                         (if (ready? y)
+                                           (-> y helper-a helper-b)
+                                           (helper-c y)))])]
+    (is (= [false false true true true]
+           (mapv :branch-local? steps)))
+    (is (= [0 0 1 1 1]
+           (mapv :active-predicates steps)))
+    (is (= [false false false false false]
+           (mapv dependency/branch-local-step? (assoc steps 0 (assoc (first steps) :active-predicates 99)))))))
 
 (deftest burden-scoring-test
   (let [scored (burden/score-unit
