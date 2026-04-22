@@ -50,7 +50,6 @@ Examples:
 ```bash
 gordian diagnose --help
 gordian complexity --help
-gordian cyclomatic --help   # compatibility alias for complexity
 gordian gate --help
 ```
 
@@ -81,9 +80,8 @@ gordian . --include-tests
 gordian tests .
 gordian tests src/ test/
 
-# cyclomatic complexity analysis
+# complexity analysis
 gordian complexity .
-gordian cyclomatic .   # compatibility alias
 gordian complexity src/ test/
 gordian complexity . --edn > complexity.edn
 gordian complexity . --markdown > complexity.md
@@ -159,8 +157,10 @@ Interpretation notes:
 
 `gordian complexity` analyzes local code metrics for top-level executable
 bodies at arity granularity. In v1 it always computes both cyclomatic
-complexity and lines of code (LOC). `gordian cyclomatic` remains available as a
-compatibility alias.
+complexity and lines of code (LOC).
+
+Note: the legacy `gordian cyclomatic` CLI alias has been removed. Use
+`gordian complexity`.
 
 ```bash
 gordian complexity .

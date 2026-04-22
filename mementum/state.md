@@ -79,7 +79,6 @@ Commands:
   dsm          Dependency Structure Matrix view
   tests        Test architecture analysis
   complexity   Local code metrics (cyclomatic + LOC)
-  cyclomatic   Compatibility alias for `complexity`
   explain      Everything about a namespace
   explain-pair Everything about a pair
 
@@ -712,7 +711,7 @@ What changed:
 - `src/gordian/main.clj` now delegates help/parsing to `gordian.cli`
 - top-level `gordian --help` now shows commands + global options only
 - `gordian <subcommand> --help` now shows scoped usage, positional args, command options, and examples
-- `gordian cyclomatic --help` resolves as the compatibility alias for `complexity`
+- scoped top-level and per-command help implemented via `gordian.cli.*`
 - README updated to document the new help model
 
 Validation:
@@ -761,7 +760,10 @@ cb16ddd  feat: improve complexity text output and filtering
 
 Canonical command:
 - `gordian complexity`
-- `gordian cyclomatic` remains as a compatibility alias
+
+CLI breaking change (post-v0.2.0 alpha follow-up):
+- removed the public `gordian cyclomatic` alias
+- `complexity` is now the only supported local-metrics command name
 
 Implemented now:
 - pure local-metric analysis in `cyclomatic.clj`

@@ -39,8 +39,7 @@
      "  gordian complexity . --help"])))
 
 (defn command-help [command]
-  (let [{:keys [usage description positional spec examples names display-name]} (registry/command-definition command)
-        canonical-name (or display-name (first names))]
+  (let [{:keys [usage description positional spec examples]} (registry/command-definition command)]
     (str/join
      "\n"
      (concat
@@ -52,10 +51,7 @@
       ["" "Options:"]
       (render-options spec)
       (when (seq examples)
-        (concat ["" "Examples:"] (map #(str "  " %) examples)))
-      (when (= command :cyclomatic)
-        [""
-         (str "Aliases: " canonical-name ", cyclomatic")])))))
+        (concat ["" "Examples:"] (map #(str "  " %) examples)))))))
 
 (defn help-text
   ([] (top-level-help))

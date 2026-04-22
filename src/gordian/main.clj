@@ -70,10 +70,10 @@
                          (= :tests command)
                          (assoc merged0 :include-tests true)
 
-                         (and (= :cyclomatic command) (:tests-only merged0))
+                         (and (= :complexity command) (:tests-only merged0))
                          (assoc merged0 :include-tests true)
 
-                         (and (= :cyclomatic command) (:source-only merged0))
+                         (and (= :complexity command) (:source-only merged0))
                          (assoc merged0 :include-tests false)
 
                          :else
@@ -390,8 +390,7 @@
             src-dirs))))
 
 (defn complexity-cmd
-  "Run complexity mode with resolved opts map.
-   `cyclomatic` remains as a compatibility alias at the CLI surface."
+  "Run complexity mode with resolved opts map."
   [{:keys [json edn markdown] :as opts}]
   (let [mode  (if (and (= 1 (count (:src-dirs opts)))
                        (discover/project-root? (first (:src-dirs opts))))
@@ -473,7 +472,7 @@
    :communities  communities-cmd
    :dsm          dsm-cmd
    :tests        tests-cmd
-   :cyclomatic   complexity-cmd
+   :complexity   complexity-cmd
    :explain      explain-cmd
    :explain-pair explain-pair-cmd})
 

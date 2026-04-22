@@ -57,10 +57,6 @@
     (is (= {:help true :help-command :diagnose}
            (sut/parse-args ["diagnose" "--help"]))))
 
-  (testing "compatibility alias --help routes to canonical complexity command"
-    (is (= {:help true :help-command :cyclomatic}
-           (sut/parse-args ["cyclomatic" "--help"]))))
-
   (testing "plain path plus --help still routes to top-level analyze help"
     (is (= {:help true} (sut/parse-args ["src/" "--help"])))))
 
@@ -188,8 +184,8 @@
       (is (str/includes? out "Global options:"))
       (is (str/includes? out "Commands:"))
       (is (str/includes? out "diagnose"))
-      (is (str/includes? out "complexity"))
-      (is (str/includes? out "cyclomatic"))
+      (is (re-find #"(?m)^\s*complexity\s+" out))
+      (is (not (re-find #"(?m)^\s*cyclomatic\s+" out)))
       (is (has-option-row? out "help"))
       (is (has-option-row? out "json"))
       (is (has-option-row? out "edn"))
@@ -208,13 +204,12 @@
       (is (not (has-option-row? out "baseline")))
       (is (not (has-option-row? out "sort")))))
 
-  (testing "subcommand help is scoped to complexity and includes alias note"
-    (let [out (with-out-str (sut/print-help :cyclomatic))]
+  (testing "subcommand help is scoped to complexity"
+    (let [out (with-out-str (sut/print-help :complexity))]
       (is (str/includes? out "Usage: gordian complexity [<dir-or-src>...] [options]"))
       (is (has-option-row? out "sort"))
       (is (has-option-row? out "min"))
       (is (has-option-row? out "source-only"))
-      (is (str/includes? out "Aliases: complexity, cyclomatic"))
       (is (not (has-option-row? out "baseline")))
       (is (not (has-option-row? out "conceptual")))))
 
@@ -404,25 +399,15 @@
       (is (= :tests (:command opts)))
       (is (true? (:markdown opts))))))
 
-(deftest parse-args-cyclomatic-test
-  (testing "complexity -> :command :cyclomatic"
+(deftest parse-args-complexity-test
+  (testing "complexity -> :command :complexity"
     (let [opts (sut/parse-args ["complexity"])]
-      (is (= :cyclomatic (:command opts)))
-      (is (= ["."] (:src-dirs opts)))))
-
-  (testing "cyclomatic -> :command :cyclomatic"
-    (let [opts (sut/parse-args ["cyclomatic"])]
-      (is (= :cyclomatic (:command opts)))
+      (is (= :complexity (:command opts)))
       (is (= ["."] (:src-dirs opts)))))
 
   (testing "complexity . --json"
     (let [opts (sut/parse-args ["complexity" "." "--json"])]
-      (is (= :cyclomatic (:command opts)))
-      (is (true? (:json opts)))))
-
-  (testing "cyclomatic . --json"
-    (let [opts (sut/parse-args ["cyclomatic" "." "--json"])]
-      (is (= :cyclomatic (:command opts)))
+      (is (= :complexity (:command opts)))
       (is (true? (:json opts)))))
 
   (testing "complexity rejects conflicting scope flags"
@@ -438,7 +423,7 @@
            (:error (sut/parse-args ["complexity" "." "--tests-only"])))) )
 
   (testing "complexity allows implicit default path with scope flags"
-    (is (= :cyclomatic (:command (sut/parse-args ["complexity" "--tests-only"])))) )
+    (is (= :complexity (:command (sut/parse-args ["complexity" "--tests-only"])))) )
 
   (testing "complexity rejects invalid sort key"
     (is (= "complexity --sort must be one of: cc, loc, ns, var, cc-risk"
@@ -627,19 +612,19 @@
       (is (contains? parsed :test-namespaces))
       (is (contains? parsed :findings)))))
 
-(deftest cyclomatic-integration-test
-  (testing "cyclomatic produces output"
+(deftest complexity-integration-test
+  (testing "complexity produces output"
     (let [out (with-out-str
-                (sut/complexity-cmd {:src-dirs ["resources/fixture"] :command :cyclomatic}))]
+                (sut/complexity-cmd {:src-dirs ["resources/fixture"] :command :complexity}))]
       (is (str/includes? out "gordian complexity"))
       (is (str/includes? out "SUMMARY"))
       (is (str/includes? out "NAMESPACE ROLLUP"))
       (is (str/includes? out "alpha"))))
 
-  (testing "cyclomatic with --edn returns structured map"
+  (testing "complexity with --edn returns structured map"
     (let [out (with-out-str
                 (sut/complexity-cmd {:src-dirs ["resources/fixture"]
-                                     :command :cyclomatic
+                                     :command :complexity
                                      :edn true}))
           parsed (read-string out)]
       (is (= :complexity (:gordian/command parsed)))
@@ -650,10 +635,10 @@
       (is (contains? parsed :scope))
       (is (contains? parsed :options))))
 
-  (testing "cyclomatic --min filters displayed units only"
+  (testing "complexity --min filters displayed units only"
     (let [out (with-out-str
                 (sut/complexity-cmd {:src-dirs ["src"]
-                                     :command :cyclomatic
+                                     :command :complexity
                                      :edn true
                                      :min ["cc=20"]}))
           parsed (read-string out)]
@@ -674,22 +659,22 @@
 
 (deftest resolve-opts-complexity-test
   (testing "complexity project-root default does not include tests"
-    (let [opts (sut/resolve-opts {:command :cyclomatic :src-dirs ["resources/fixture-project"]})]
+    (let [opts (sut/resolve-opts {:command :complexity :src-dirs ["resources/fixture-project"]})]
       (is (not (:include-tests opts)))))
 
   (testing "complexity tests-only includes tests"
-    (let [opts (sut/resolve-opts {:command :cyclomatic :src-dirs ["resources/fixture-project"] :tests-only true})]
+    (let [opts (sut/resolve-opts {:command :complexity :src-dirs ["resources/fixture-project"] :tests-only true})]
       (is (true? (:include-tests opts)))))
 
   (testing "complexity source-only keeps tests excluded"
-    (let [opts (sut/resolve-opts {:command :cyclomatic :src-dirs ["resources/fixture-project"] :source-only true})]
+    (let [opts (sut/resolve-opts {:command :complexity :src-dirs ["resources/fixture-project"] :source-only true})]
       (is (not (:include-tests opts))))))
 
 (deftest complexity-envelope-metadata-test
   (testing "complexity EDN output includes reproducibility metadata inside the payload and standard envelope"
     (let [out (with-out-str
                 (sut/complexity-cmd {:src-dirs ["resources/fixture-project"]
-                                     :command :cyclomatic
+                                     :command :complexity
                                      :edn true
                                      :sort :cc-risk
                                      :top 5
@@ -735,7 +720,7 @@
                                        :markdown true}))]
       (is (str/includes? out "# Gordian Explain-Pair"))))
 
-  (testing "cyclomatic --markdown produces markdown"
+  (testing "complexity --markdown produces markdown"
     (let [out (with-out-str
                 (sut/complexity-cmd {:src-dirs ["resources/fixture"]
                                      :markdown true}))]

@@ -184,21 +184,19 @@
     :parse (fn [{:keys [args opts]}]
              (assoc opts :command :tests
                     :src-dirs (if (seq args) (vec args) ["."]))) }
-   {:canonical :cyclomatic
-    :names ["complexity" "cyclomatic"]
-    :display-name "complexity"
+   {:canonical :complexity
+    :names ["complexity"]
     :summary "Analyze local code metrics (cyclomatic complexity + LOC) with namespace rollups"
-    :description ["Analyze local executable-unit complexity and lines of code."
-                  "`cyclomatic` remains as a compatibility alias for `complexity`."]
+    :description ["Analyze local executable-unit complexity and lines of code."]
     :usage "gordian complexity [<dir-or-src>...] [options]"
     :positional ["<dir-or-src>...  Project root or explicit source directories (default: .)"]
     :examples ["gordian complexity ."
                "gordian complexity . --sort loc"
                "gordian complexity . --min cc=10 --min loc=20"
-               "gordian cyclomatic . --json"]
+               "gordian complexity . --json"]
     :spec (merge-specs output-spec complexity-spec)
     :parse (fn [{:keys [args opts]}]
-             (assoc opts :command :cyclomatic
+             (assoc opts :command :complexity
                     :explicit-paths? (boolean (seq args))
                     :src-dirs (if (seq args) (vec args) ["."])))
     :validate (fn [{:keys [sort min top source-only tests-only min-cc explicit-paths?]}]
