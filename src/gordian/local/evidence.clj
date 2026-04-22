@@ -11,15 +11,20 @@
   "Attach the canonical local-analysis evidence payload to one analyzable unit.
 
    Evidence schema:
-   {:main-steps     [step ...]          ; ordered main-path/binding/pipeline steps
-    :branch-regions [region ...]        ; branch forms with classified outcomes
+   {:main-steps     [step ...]          ; ordered tracked steps from gordian.local.steps
+    :branch-regions [region ...]        ; canonical branch-region maps from gordian.local.shape
     :step-levels    [level ...]         ; abstraction level per main step
-    :program-points [point ...]         ; working-set sampling points
+    :program-points [point ...]         ; canonical program-point maps from gordian.local.working-set
     :flow           {...}               ; control-flow burden inputs
     :state          {...}               ; mutation/effect burden inputs
     :shape          {...}               ; shape/variant burden inputs
     :abstraction    {...}               ; abstraction-mix burden inputs
-    :dependency     {...}}              ; helper/opacity burden inputs"
+    :dependency     {...}}              ; helper/opacity burden inputs
+
+   Semantics notes:
+   - sentinel burden counts sentinel-bearing forms, not every predicate mentioning a sentinel
+   - opaque pipeline stages are only counted for top-level/main-path pipelines
+   - branch-local opaque chains still contribute through :helpers and working-set uncertainty"
   [{:keys [body args var] :as unit}]
   (let [forms               (filter common/seq-form? (common/tree-forms body))
         main-steps          (steps/main-path-steps body)

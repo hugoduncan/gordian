@@ -26,7 +26,20 @@
 
     []))
 
-(defn- binding-step [group-id last? binding expr active-predicates]
+(defn- binding-step
+  "Canonical main-step shape for a binding introduction.
+
+   Keys:
+   - :kind               => :binding
+   - :group-id           => synthetic id shared by one let/loop binding vector
+   - :group-last?        => true on the final binding in that vector
+   - :form               => bound expression
+   - :binding            => original binding form
+   - :introduced-symbols => symbols introduced by the binding form
+   - :destructure-count  => number of introduced symbols
+   - :active-predicates  => branch predicates currently in scope
+   - :calls              => direct call symbols visible at this step"
+  [group-id last? binding expr active-predicates]
   {:kind :binding
    :group-id group-id
    :group-last? last?
@@ -37,7 +50,9 @@
    :active-predicates active-predicates
    :calls (direct-call-symbols expr)})
 
-(defn- expr-step [kind form active-predicates]
+(defn- expr-step
+  "Canonical main-step shape for a non-binding expression on the tracked main path."
+  [kind form active-predicates]
   {:kind kind
    :form form
    :active-predicates active-predicates

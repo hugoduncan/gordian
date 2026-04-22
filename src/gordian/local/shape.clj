@@ -150,6 +150,20 @@
       :else
       0)))
 
+(defn- branch-region
+  "Canonical branch-region evidence shape.
+
+   Keys:
+   - :form          => original branch form
+   - :outcomes      => coarse outcome shapes for branch arms
+   - :variant?      => whether outcomes materially differ
+   - :variant-count => current v1 contribution to shape variant burden"
+  [form outcomes variant-count]
+  {:form form
+   :outcomes outcomes
+   :variant? (pos? variant-count)
+   :variant-count variant-count})
+
 (defn branch-regions [forms env]
   (letfn [(collect [form env]
             (cond
@@ -173,10 +187,7 @@
                   (let [outcomes (branch-outcomes form env)
                         variant-count (branch-variant-count form env)]
                     (conj (vec children)
-                          {:form form
-                           :outcomes outcomes
-                           :variant? (pos? variant-count)
-                           :variant-count variant-count}))
+                          (branch-region form outcomes variant-count)))
                   (vec children)))))]
     (vec (mapcat #(collect % env) forms))))
 
@@ -219,11 +230,25 @@
     (inc (reduce max 0 (map data-nesting-depth (rest form))))
     :else 0))
 
+(defn- sentinel-bearing-form?
+  "v1 sentinel burden counts forms that explicitly carry sentinel values in one of two ways:
+   - a branch form with a sentinel-valued outcome arm
+   - a direct `=` comparison against a sentinel literal
+
+   Sentinel-bearing predicates inside a branch do not make the branch itself count
+   unless the branch outcomes also carry a sentinel."
+  [form]
+  (let [op (common/op-of form)]
+    (cond
+      (= '= op)
+      (boolean (some common/sentinel-literals (rest form)))
+
+      (common/branch-ops op)
+      (boolean (some #(some common/sentinel-literals %)
+                     (rest (branch-outcomes form {}))))
+
+      :else
+      false)))
+
 (defn sentinel-count [forms]
-  (count
-   (filter true?
-           (for [form forms
-                 :when (common/seq-form? form)
-                 :let [op (common/op-of form)]
-                 :when (or (common/branch-ops op) (= 'case op) (= '= op))]
-             (boolean (some common/sentinel-literals form))))))
+  (count (filter sentinel-bearing-form? forms)))

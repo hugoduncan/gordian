@@ -92,7 +92,7 @@
         ev (:evidence (evidence/extract-evidence unit))
         points (:program-points ev)]
     (is (seq points))
-    (is (= #{:binding-group :branch-entry :main-path-step :pipeline-stage}
+    (is (= #{:binding-group :branch-entry}
            (set (map :kind points))))
     (is (every? #(contains? % :live-bindings) points))
     (is (every? #(contains? % :active-predicates) points))
@@ -112,6 +112,17 @@
     (is (= 0 (get-in ev [:dependency :helpers])))
     (is (= 3 (get-in ev [:dependency :semantic-jumps])))
     (is (= 3 (burden/dependency-burden (:dependency ev))))))
+
+(deftest top-level-pipeline-stages-still-produce-main-path-program-points
+  (let [unit {:ns 'sample.local
+              :var 'f
+              :kind :defn-arity
+              :arity 1
+              :args '[x]
+              :body '[(-> x helper-a helper-b helper-c)]}
+        ev (:evidence (evidence/extract-evidence unit))]
+    (is (= #{:pipeline-stage :main-path-step}
+           (set (map :kind (:program-points ev)))))))
 
 (deftest state-distinguishes-local-mutation-from-external-effects
   (let [unit {:ns 'sample.local
@@ -170,7 +181,7 @@
       (is (= 1 (get-in ev [:shape :variant]))))))
 
 (deftest sentinel-and-abstraction-edge-cases-test
-  (testing "sentinel counting includes nested sentinel-bearing predicates and branch forms"
+  (testing "sentinel burden counts sentinel-return branches and direct sentinel comparisons"
     (let [unit {:ns 'sample.local
                 :var 'f
                 :kind :defn-arity
@@ -179,7 +190,19 @@
                 :body '[(if (= x :ok) :ok :error)
                         (= x :none)]}
           ev (:evidence (evidence/extract-evidence unit))]
-      (is (= 3 (get-in ev [:shape :sentinel])))))
+      (is (= 2 (get-in ev [:shape :sentinel])))))
+
+  (testing "branch forms do not count as sentinel-bearing when sentinels appear only in predicates"
+    (let [unit {:ns 'sample.local
+                :var 'f
+                :kind :defn-arity
+                :arity 1
+                :args '[x]
+                :body '[(if (= x :ok)
+                          {:status :ready}
+                          {:status :waiting})]}
+          ev (:evidence (evidence/extract-evidence unit))]
+      (is (= 1 (get-in ev [:shape :sentinel])))))
 
   (testing "shape ops classify as data-shaping while opaque helpers remain domain"
     (let [unit {:ns 'sample.local
@@ -209,6 +232,23 @@
            (set (map :kind points))))
     (is (= 0 (get-in ev [:dependency :opaque-stages])))
     (is (= 3 (get-in ev [:dependency :helpers])))))
+
+(deftest branch-local-opaque-chains-count-as-helpers-not-main-path-pipeline-stages
+  (let [unit {:ns 'sample.local
+              :var 'f
+              :kind :defn-arity
+              :arity 1
+              :args '[x]
+              :body '[(if (ready? x)
+                        (-> x helper-a helper-b)
+                        (helper-c x))]}
+        ev (:evidence (evidence/extract-evidence unit))]
+    (is (= 0 (get-in ev [:dependency :opaque-stages])))
+    (is (= 2 (get-in ev [:dependency :helpers])))
+    (is (= 2 (count (filter #(= :pipeline-stage (:kind %))
+                            (get-in ev [:main-steps])))))
+    (is (= #{:branch-entry}
+           (set (map :kind (:program-points ev)))))))
 
 (deftest burden-scoring-test
   (let [scored (burden/score-unit

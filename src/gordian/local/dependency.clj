@@ -1,6 +1,10 @@
 (ns gordian.local.dependency
   (:require [gordian.local.common :as common]))
 
+(defn branch-local-step?
+  [step]
+  (pos? (:active-predicates step 0)))
+
 (defn opaque-op? [op]
   (and (symbol? op)
        (not (common/transparent-ops op))
@@ -16,9 +20,10 @@
     form))
 
 (defn opaque-chain-data [steps]
-  (let [pipeline-steps (filter #(= :pipeline-stage (:kind %)) steps)
-        opaque-stages (count (filter #(opaque-op? (common/op-of (:form %))) pipeline-steps))
-        stage-ops (set (keep #(some-> % :form common/op-of) pipeline-steps))]
+  (let [main-path-pipeline-steps (remove branch-local-step?
+                                         (filter #(= :pipeline-stage (:kind %)) steps))
+        opaque-stages (count (filter #(opaque-op? (common/op-of (:form %))) main-path-pipeline-steps))
+        stage-ops (set (keep #(some-> % :form common/op-of) main-path-pipeline-steps))]
     {:opaque-stages opaque-stages
      :stage-ops stage-ops}))
 
