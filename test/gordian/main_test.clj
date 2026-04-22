@@ -48,6 +48,17 @@
     (is (= {:help true} (sut/parse-args ["--help"]))))
 
   (testing "--help with src-dirs → still {:help true}"
+    (is (= {:help true} (sut/parse-args ["src/" "--help"]))))
+
+  (testing "subcommand --help routes to scoped help"
+    (is (= {:help true :help-command :diagnose}
+           (sut/parse-args ["diagnose" "--help"]))))
+
+  (testing "compatibility alias --help routes to canonical complexity command"
+    (is (= {:help true :help-command :cyclomatic}
+           (sut/parse-args ["cyclomatic" "--help"]))))
+
+  (testing "plain path plus --help still routes to top-level analyze help"
     (is (= {:help true} (sut/parse-args ["src/" "--help"])))))
 
 (deftest parse-args-options-test
@@ -137,7 +148,7 @@
       (is (= 0.30 (:conceptual opts)))))
 
   (testing "--conceptual value coerced to double"
-    (is (= 0.4 (:conceptual (sut/parse-args ["src/" "--conceptual" "0.4"])))))
+    (is (= 0.4 (:conceptual (sut/parse-args ["src/" "--conceptual" "0.4"])))) )
 
   (testing "without --conceptual, key is absent"
     (is (nil? (:conceptual (sut/parse-args ["src/"]))))))
@@ -168,22 +179,41 @@
 ;;; ── print-help ───────────────────────────────────────────────────────────
 
 (deftest print-help-test
-  (testing "help output mentions key flags"
+  (testing "top-level help shows commands and global options only"
     (let [out (with-out-str (sut/print-help))]
+      (is (str/includes? out "Usage: gordian <command> [args] [options]"))
+      (is (str/includes? out "Global options:"))
+      (is (str/includes? out "Commands:"))
+      (is (str/includes? out "diagnose"))
+      (is (str/includes? out "complexity"))
+      (is (str/includes? out "cyclomatic"))
       (is (str/includes? out "--help"))
-      (is (str/includes? out "--dot"))
       (is (str/includes? out "--json"))
       (is (str/includes? out "--edn"))
+      (is (str/includes? out "--markdown"))
+      (is (not (str/includes? out "--conceptual")))
+      (is (not (str/includes? out "--change-since")))
+      (is (not (str/includes? out "--baseline")))
+      (is (not (str/includes? out "--sort")))))
+
+  (testing "subcommand help is scoped to analyze"
+    (let [out (with-out-str (sut/print-help :analyze))]
+      (is (str/includes? out "Usage: gordian analyze [<dir-or-src>...] [options]"))
       (is (str/includes? out "--conceptual"))
       (is (str/includes? out "--change"))
-      (is (str/includes? out "--change-since"))
-      (is (str/includes? out "dir-or-src"))
-      (is (str/includes? out "subgraph"))
-      (is (str/includes? out "communities"))
-      (is (str/includes? out "tests"))
-      (is (str/includes? out "cyclomatic"))
-      (is (str/includes? out "--include-tests"))
-      (is (str/includes? out "--exclude")))))
+      (is (str/includes? out "--exclude"))
+      (is (not (str/includes? out "--baseline")))
+      (is (not (str/includes? out "--sort")))))
+
+  (testing "subcommand help is scoped to complexity and includes alias note"
+    (let [out (with-out-str (sut/print-help :cyclomatic))]
+      (is (str/includes? out "Usage: gordian complexity [<dir-or-src>...] [options]"))
+      (is (str/includes? out "--sort"))
+      (is (str/includes? out "--min"))
+      (is (str/includes? out "--source-only"))
+      (is (str/includes? out "Aliases: complexity, cyclomatic"))
+      (is (not (str/includes? out "--baseline")))
+      (is (not (str/includes? out "--conceptual"))))))
 
 ;;; ── parse-args / subcommands ──────────────────────────────────────────────
 
@@ -385,15 +415,18 @@
 
   (testing "complexity rejects conflicting scope flags"
     (is (= "complexity rejects --source-only combined with --tests-only"
-           (:error (sut/parse-args ["complexity" "--source-only" "--tests-only"])))))
+           (:error (sut/parse-args ["complexity" "--source-only" "--tests-only"])))) )
 
   (testing "complexity rejects explicit paths with scope flags"
     (is (= "complexity rejects explicit paths combined with --source-only or --tests-only"
-           (:error (sut/parse-args ["complexity" "src" "--tests-only"])))))
+           (:error (sut/parse-args ["complexity" "src" "--tests-only"])))) )
+
+  (testing "complexity allows implicit default path with scope flags"
+    (is (= :cyclomatic (:command (sut/parse-args ["complexity" "--tests-only"])))) )
 
   (testing "complexity rejects invalid sort key"
     (is (= "complexity --sort must be one of: cc, loc, ns, var, cc-risk"
-           (:error (sut/parse-args ["complexity" "--sort" "bogus"])))))
+           (:error (sut/parse-args ["complexity" "--sort" "bogus"])))) )
 
   (testing "complexity rejects malformed min"
     (is (= "complexity --min values must be metric=value with metric in {cc,loc} and positive integer value"
@@ -707,7 +740,7 @@
 
   (testing "multiple --exclude captured as vector"
     (is (= ["user" "scratch"]
-           (:exclude (sut/parse-args ["." "--exclude" "user" "--exclude" "scratch"])))))
+           (:exclude (sut/parse-args ["." "--exclude" "user" "--exclude" "scratch"])))) )
 
   (testing "without --exclude, key is absent"
     (is (nil? (:exclude (sut/parse-args ["."]))))))
@@ -798,7 +831,7 @@
       (is (= "." (:change opts)))))
 
   (testing "--change with non-default path"
-    (is (= "/my/repo" (:change (sut/parse-args ["src/" "--change" "/my/repo"])))))
+    (is (= "/my/repo" (:change (sut/parse-args ["src/" "--change" "/my/repo"])))) )
 
   (testing "without --change, key is absent"
     (is (nil? (:change (sut/parse-args ["src/"])))))
@@ -808,7 +841,7 @@
       (is (= "90 days ago" (:change-since opts)))))
 
   (testing "--change-since without --change is accepted by parse-args"
-    (is (= "90 days ago" (:change-since (sut/parse-args ["src/" "--change-since" "90 days ago"])))))
+    (is (= "90 days ago" (:change-since (sut/parse-args ["src/" "--change-since" "90 days ago"])))) )
 
   (testing "without --change-since, key is absent"
     (is (nil? (:change-since (sut/parse-args ["src/" "--change"]))))))

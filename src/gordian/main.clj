@@ -32,229 +32,16 @@
             [gordian.json        :as report-json]
             [babashka.fs         :as fs]
             [gordian.edn         :as report-edn]
-            [babashka.cli        :as cli]
             [clojure.edn         :as edn]))
 
-;;; ── CLI spec ─────────────────────────────────────────────────────────────
+;;; ── help + arg parsing ──────────────────────────────────────────────────
 
-(def ^:private cli-spec
-  {:dot                   {:desc "Write Graphviz DOT graph to <file>"}
-   :full                  {:desc "Reserved for future detailed/full output modes" :coerce :boolean}
-   :json                  {:desc "Output JSON to stdout (suppresses table)" :coerce :boolean}
-   :edn                   {:desc "Output EDN to stdout (suppresses table)"  :coerce :boolean}
-   :markdown              {:desc "Output Markdown to stdout (suppresses table)" :coerce :boolean}
-   :html-file             {:desc "Write self-contained HTML report to <file>"}
-   :conceptual            {:desc "Conceptual coupling analysis; provide similarity threshold e.g. 0.30"
-                           :coerce :double}
-   :change                {:desc "Change coupling analysis; optional repo dir (default: .)"}
-   :change-since          {:desc "Limit change coupling to commits after this date e.g. \"90 days ago\""}
-   :baseline              {:desc "Saved EDN snapshot used as gate baseline"}
-   :max-pc-delta          {:desc "Maximum allowed increase in propagation cost" :coerce :double}
-   :max-new-high-findings {:desc "Maximum newly introduced high-severity findings" :coerce :long}
-   :max-new-medium-findings {:desc "Maximum newly introduced medium-severity findings" :coerce :long}
-   :fail-on               {:desc "Comma-separated strict gate checks e.g. new-cycles,new-high-findings"}
-   :rank                  {:desc "Diagnose ranking: actionability (default) or severity" :coerce :keyword}
-   :sort                  {:desc "Complexity sort: cc | loc | ns | var | cc-risk" :coerce :keyword}
-   :min                   {:desc "Complexity display filter: repeatable metric=value, e.g. cc=10 or loc=20" :coerce [:string]}
-   :top                   {:desc "Show only the top N findings after ranking" :coerce :long}
-   :lens                  {:desc "Communities lens: structural | conceptual | change | combined" :coerce :keyword}
-   :threshold             {:desc "Communities threshold" :coerce :double}
-   :include-tests         {:desc "Include test directories in auto-discovery" :coerce :boolean}
-   :source-only           {:desc "Complexity: discovered source paths only" :coerce :boolean}
-   :tests-only            {:desc "Complexity: discovered test paths only" :coerce :boolean}
-   :exclude               {:desc "Exclude namespaces matching regex (repeatable)" :coerce [:string]}
-   :show-noise            {:desc "Include family-naming-noise findings (suppressed by default)" :coerce :boolean}
-   :help                  {:desc "Show this help message" :coerce :boolean}})
+(defn print-help
+  ([] (println (gcli/help-text)))
+  ([command] (println (gcli/help-text command))))
 
-(def ^:private usage-summary
-  "Usage: gordian [analyze|diagnose|compare|gate|subgraph|communities|dsm|tests|complexity|cyclomatic|explain|explain-pair] [<dir-or-src>...] [options]
-
-When given a project root (dir with deps.edn, bb.edn, etc.), gordian
-auto-discovers source directories. With no arguments, defaults to '.'.
-
-Commands:
-  analyze      (default) Raw metrics table + optional coupling sections
-  diagnose     Ranked findings with severity levels (auto-enables all lenses)
-  compare      Compare two saved EDN snapshots (before.edn after.edn)
-  gate         Compare current codebase against a saved baseline and fail CI on regressions
-  subgraph     Family/subsystem view for a namespace prefix
-  communities  Discover latent architecture communities
-  dsm          Dependency Structure Matrix view with diagonal block partitions
-  tests        Analyze test architecture and test-vs-source coupling
-  complexity   Analyze local code metrics (cyclomatic complexity + LOC) with namespace rollups
-  cyclomatic   Compatibility alias for `complexity`
-  explain      Everything gordian knows about a namespace
-  explain-pair Everything gordian knows about a pair of namespaces
-
-Options:
-  --dot  <file>                 Write Graphviz DOT graph to <file>
-  --json                        Output JSON to stdout (suppresses human-readable table)
-  --edn                         Output EDN to stdout (suppresses human-readable table)
-  --markdown                    Output Markdown to stdout (suppresses human-readable table)
-  --html-file <file>            Write self-contained HTML report to <file>
-  --conceptual <float>          Conceptual coupling analysis at given similarity threshold
-  --change [<repo-dir>]         Change coupling analysis; repo dir defaults to .
-  --change-since <date>         Limit to commits after <date> e.g. \"90 days ago\"
-  --baseline <file>             Saved EDN snapshot used as gate baseline
-  --max-pc-delta <float>        Maximum allowed increase in propagation cost
-  --max-new-high-findings <n>   Maximum newly introduced high-severity findings
-  --max-new-medium-findings <n> Maximum newly introduced medium-severity findings
-  --fail-on <csv>               Comma-separated strict gate checks
-  --rank <mode>                 Diagnose ranking: actionability (default) or severity
-  --sort <key>                  Complexity sort: cc | loc | ns | var | cc-risk
-  --min <metric=n>              Complexity display filter for units only (repeatable)
-  --top <n>                     Show only the top N findings after ranking
-  --lens <mode>                 Communities lens: structural | conceptual | change | combined
-  --threshold <float>           Communities threshold
-  --include-tests               Include test directories in auto-discovery
-  --source-only                 Complexity: discovered source paths only
-  --tests-only                  Complexity: discovered test paths only
-  --exclude <regex>             Exclude namespaces matching regex (repeatable)
-  --show-noise                  Include family-naming-noise findings (suppressed by default)
-  --help                        Show this help message
-
-Examples:
-  gordian                             auto-discover from cwd
-  gordian .                           auto-discover from cwd
-  gordian /path/to/project            auto-discover from project root
-  gordian . --include-tests           include test directories
-  gordian . --exclude 'user|scratch'  exclude matching namespaces
-  gordian src/                        explicit src dir (no discovery)
-  gordian src/ test/                  explicit multiple dirs
-  gordian src/ --conceptual 0.30
-  gordian src/ --change
-  gordian src/ --change --change-since \"90 days ago\"
-  gordian diagnose                    ranked findings (auto-enables all lenses)
-  gordian diagnose . --edn            machine-readable diagnose output
-  gordian compare before.edn after.edn     compare two snapshots
-  gordian compare before.edn after.edn --markdown
-  gordian gate . --baseline baseline.edn
-  gordian gate . --baseline baseline.edn --max-pc-delta 0.01
-  gordian diagnose . --rank severity
-  gordian subgraph gordian
-  gordian communities . --lens combined
-  gordian dsm .
-  gordian dsm . --html-file dsm.html
-  gordian tests .
-  gordian complexity .
-  gordian complexity . --min cc=10 --min loc=20
-  gordian complexity . --sort loc
-  gordian cyclomatic .
-  gordian explain gordian.scan        drill into a namespace
-  gordian explain-pair a.core b.svc   drill into a pair")
-
-(defn print-help []
-  (println usage-summary))
-
-;;; ── arg parsing ──────────────────────────────────────────────────────────
-
-(defn parse-args
-  "Parse command-line args. Recognises subcommands:
-    analyze (default), diagnose, explain, explain-pair.
-  For analyze/diagnose: positional args are dirs.
-  For explain: first positional arg is a namespace symbol.
-  For explain-pair: first two positional args are namespace symbols.
-  Returns one of:
-    {:help true}
-    {:error <msg>}
-    {:src-dirs [...] ...opts}
-    {:command :diagnose|:explain|:explain-pair ...}"
-  [raw-args]
-  (let [command  (gcli/resolve-command (first raw-args))
-        raw-args (if command (rest raw-args) raw-args)
-        {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})]
-    (cond
-      (:help opts)
-      {:help true}
-
-      (< 1 (count (filter identity [(:json opts) (:edn opts) (:markdown opts)])))
-      {:error "--json, --edn, and --markdown are mutually exclusive"}
-
-      (and (= :cyclomatic command) (:source-only opts) (:tests-only opts))
-      {:error "complexity rejects --source-only combined with --tests-only"}
-
-      (and (= :cyclomatic command)
-           (seq args)
-           (or (:source-only opts) (:tests-only opts)))
-      {:error "complexity rejects explicit paths combined with --source-only or --tests-only"}
-
-      (and (= :cyclomatic command)
-           (:sort opts)
-           (not (contains? #{:cc :loc :ns :var :cc-risk} (:sort opts))))
-      {:error "complexity --sort must be one of: cc, loc, ns, var, cc-risk"}
-
-      (and (= :cyclomatic command)
-           (some? (:min-cc opts)))
-      {:error "complexity no longer accepts --min-cc; use --min cc=<n>"}
-
-      (and (= :cyclomatic command)
-           (seq (:min opts))
-           (not-every? some? (map cyclomatic/parse-min-expression (:min opts))))
-      {:error "complexity --min values must be metric=value with metric in {cc,loc} and positive integer value"}
-
-      (and (= :cyclomatic command)
-           (:top opts)
-           (not (pos? (:top opts))))
-      {:error "complexity --top must be a positive integer"}
-
-
-      (= :compare command)
-      (if (and (first args) (second args))
-        (assoc opts :command :compare
-               :before-file (first args)
-               :after-file (second args))
-        {:error "compare requires two EDN file arguments: <before.edn> <after.edn>"})
-
-      (= :gate command)
-      (if (:baseline opts)
-        (assoc opts :command :gate
-               :src-dirs (if (seq args) (vec args) ["."]))
-        {:error "gate requires --baseline <file>"})
-
-      (= :subgraph command)
-      (if (first args)
-        (assoc opts :command :subgraph
-               :prefix (first args)
-               :src-dirs ["."])
-        {:error "subgraph requires a namespace prefix argument"})
-
-      (= :communities command)
-      (assoc opts :command :communities
-             :src-dirs (if (seq args) (vec args) ["."]))
-
-      (= :dsm command)
-      (assoc opts :command :dsm
-             :src-dirs (if (seq args) (vec args) ["."]))
-
-      (= :tests command)
-      (assoc opts :command :tests
-             :src-dirs (if (seq args) (vec args) ["."]))
-
-      (= :cyclomatic command)
-      (assoc opts :command :cyclomatic
-             :src-dirs (if (seq args) (vec args) ["."]))
-
-      (= :explain command)
-      (if (first args)
-        (assoc opts :command :explain
-               :explain-ns (symbol (first args))
-               :src-dirs ["."])
-        {:error "explain requires a namespace argument"})
-
-      (= :explain-pair command)
-      (if (and (first args) (second args))
-        (assoc opts :command :explain-pair
-               :explain-ns-a (symbol (first args))
-               :explain-ns-b (symbol (second args))
-               :src-dirs ["."])
-        {:error "explain-pair requires two namespace arguments"})
-
-      :else
-      (let [src-dirs (if (seq args) (vec args) ["."])
-            opts     (if (= :diagnose command)
-                       (assoc opts :command :diagnose)
-                       opts)]
-        (assoc opts :src-dirs src-dirs)))))
+(defn parse-args [raw-args]
+  (gcli/parse-args raw-args))
 
 ;;; ── discovery + config resolution ────────────────────────────────────────
 
@@ -683,10 +470,15 @@ Examples:
 (defn run [args]
   (let [parsed (parse-args args)]
     (cond
-      (:help parsed)  (do (print-help) (System/exit 0))
+      (:help parsed)  (do (if-let [command (gcli/parse-result-help-command parsed)]
+                            (print-help command)
+                            (print-help))
+                          (System/exit 0))
       (:error parsed) (do (println (str "Error: " (:error parsed)))
                           (println)
-                          (print-help)
+                          (if-let [command (:command parsed)]
+                            (print-help command)
+                            (print-help))
                           (System/exit 1))
       :else           (if (= :compare (:command parsed))
                         (compare-cmd parsed)
@@ -694,7 +486,9 @@ Examples:
                           (if (:error opts)
                             (do (println (str "Error: " (:error opts)))
                                 (println)
-                                (print-help)
+                                (if-let [command (:command parsed)]
+                                  (print-help command)
+                                  (print-help))
                                 (System/exit 1))
                             (case (:command opts)
                               :diagnose     (diagnose-cmd opts)
