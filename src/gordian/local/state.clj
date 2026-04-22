@@ -1,6 +1,7 @@
 (ns gordian.local.state
   (:require [clojure.set :as set]
             [gordian.local.common :as common]
+            [gordian.local.ops :as ops]
             [gordian.local.shape :as shape]))
 
 (defn meaningful-rebindings [steps-with-shapes]
@@ -25,13 +26,13 @@
    #{}
    (for [step steps-with-shapes
          :when (and (= :binding (:kind step))
-                    (common/mutable-cell-constructors (common/op-of (:form step))))]
+                    (ops/mutable-cell-constructors (common/op-of (:form step))))]
      (:introduced-symbols step))))
 
 (defn temporal-dependencies [forms mutable-syms]
   (let [mutations (for [form forms
                         :when (and (common/seq-form? form)
-                                   (common/mutation-ops (common/op-of form))
+                                   (ops/mutation (common/op-of form))
                                    (symbol? (second form))
                                    (mutable-syms (second form)))]
                     (second form))

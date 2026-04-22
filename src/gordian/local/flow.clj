@@ -1,5 +1,6 @@
 (ns gordian.local.flow
-  (:require [gordian.local.common :as common]))
+  (:require [gordian.local.common :as common]
+            [gordian.local.ops :as ops]))
 
 (defn- condition-expr [form]
   (case (common/op-of form)
@@ -43,7 +44,7 @@
      0
      (for [form forms
            :when (and (common/seq-form? form)
-                      (common/branch-ops (common/op-of form)))]
+                      (ops/branch (common/op-of form)))]
        0.5))))
 
 (defn- logic-score [expr]
@@ -54,7 +55,7 @@
 (defn- branch-weight [form]
   (let [op (common/op-of form)]
     (cond
-      (common/half-branch-ops op) 0.5
+      (ops/half-branch op) 0.5
       (#{'if 'if-let 'if-some} op) 1
       (= 'cond op) (count (partition 2 2 [] (rest form)))
       (= 'condp op)
@@ -83,7 +84,7 @@
       (if (#{'throw 'reduced 'recur} op)
         (assoc base :interrupt 1)
         (let [self-call? (and unit-var (= op unit-var))
-              branch-form? (common/branch-ops op)
+              branch-form? (ops/branch op)
               depth' (if branch-form? (inc depth) depth)
               children (map #(gather-flow % depth' unit-var) (rest form))
               combined (apply merge-with + base children)

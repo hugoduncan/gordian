@@ -1,5 +1,6 @@
 (ns gordian.local.shape
-  (:require [gordian.local.common :as common]))
+  (:require [gordian.local.common :as common]
+            [gordian.local.ops :as ops]))
 
 (defn classify-shape [form env]
   (cond
@@ -50,7 +51,7 @@
         (#{'some-> 'some->>} op)
         (assoc (classify-shape (second form) env) :nil? true)
 
-        (common/threading-ops op)
+        (ops/threading op)
         (classify-shape (second form) env)
 
         :else
@@ -115,7 +116,7 @@
 (defn branch-variant-count [form env]
   (let [op (common/op-of form)]
     (cond
-      (common/if-like-ops op)
+      (ops/if-like op)
       (if (variant-outcome? (branch-outcomes form env)) 1 0)
 
       (= 'cond op)
@@ -183,7 +184,7 @@
 
               :else
               (let [children (mapcat #(collect % env) (rest form))]
-                (if (common/branch-ops (common/op-of form))
+                (if (ops/branch (common/op-of form))
                   (let [outcomes (branch-outcomes form env)
                         variant-count (branch-variant-count form env)]
                     (conj (vec children)
@@ -226,7 +227,7 @@
     (map? form) (inc (reduce max 0 (map data-nesting-depth (concat (keys form) (vals form)))))
     (vector? form) (inc (reduce max 0 (map data-nesting-depth form)))
     (set? form) (inc (reduce max 0 (map data-nesting-depth form)))
-    (and (common/seq-form? form) (common/shape-ops (common/op-of form)))
+    (and (common/seq-form? form) (ops/shape (common/op-of form)))
     (inc (reduce max 0 (map data-nesting-depth (rest form))))
     :else 0))
 
@@ -241,10 +242,10 @@
   (let [op (common/op-of form)]
     (cond
       (= '= op)
-      (boolean (some common/sentinel-literals (rest form)))
+      (boolean (some ops/sentinel-literals (rest form)))
 
-      (common/branch-ops op)
-      (boolean (some #(some common/sentinel-literals %)
+      (ops/branch op)
+      (boolean (some #(some ops/sentinel-literals %)
                      (rest (branch-outcomes form {}))))
 
       :else

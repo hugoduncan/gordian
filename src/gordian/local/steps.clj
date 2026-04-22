@@ -1,12 +1,13 @@
 (ns gordian.local.steps
-  (:require [gordian.local.common :as common]))
+  (:require [gordian.local.common :as common]
+            [gordian.local.ops :as ops]))
 
 (defn direct-call-symbols [form]
   (cond
     (and (common/seq-form? form) (symbol? (common/op-of form)))
     [(common/op-of form)]
 
-    (and (symbol? form) (not (common/special-forms form)))
+    (and (symbol? form) (not (ops/special-forms form)))
     [form]
 
     :else
@@ -59,7 +60,7 @@
    :form form
    :active-predicates active-predicates
    :branch-local? (pos? active-predicates)
-   :branch? (boolean (common/branch-ops (common/op-of form)))
+   :branch? (boolean (ops/branch (common/op-of form)))
    :calls (direct-call-symbols form)})
 
 (declare form->steps)
@@ -82,10 +83,10 @@
                       bindings)
          (body->steps (drop 2 form) active-predicates)))
 
-      (common/threading-ops op)
+      (ops/threading op)
       (map #(expr-step :pipeline-stage % active-predicates) (thread-stages form))
 
-      (common/if-like-ops op)
+      (ops/if-like op)
       (concat
        [(expr-step :expr form active-predicates)]
        (body->steps (drop 2 form) (inc active-predicates)))
@@ -100,22 +101,22 @@
   (let [form (or (:label-form step) (:form step))
         op   (common/op-of form)]
     (cond
-      (or (common/incidental-ops op)
-          (common/mutation-ops op)
-          (common/effect-read-ops op)
-          (common/effect-write-ops op)
-          (common/mutable-cell-constructors op)
+      (or (ops/incidental op)
+          (ops/mutation op)
+          (ops/effect-read op)
+          (ops/effect-write op)
+          (ops/mutable-cell-constructors op)
           (= op 'set!)
           (= op 'new)
           (= op '.))
       :mechanism
 
-      (or (common/threading-ops op)
+      (or (ops/threading op)
           (:branch? step)
           (> (count (:calls step)) 1))
       :orchestration
 
-      (or (common/shape-ops op)
+      (or (ops/shape op)
           (map? form)
           (vector? form)
           (set? form))

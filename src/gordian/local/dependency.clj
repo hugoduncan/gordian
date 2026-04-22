@@ -1,5 +1,6 @@
 (ns gordian.local.dependency
-  (:require [gordian.local.common :as common]))
+  (:require [gordian.local.common :as common]
+            [gordian.local.ops :as ops]))
 
 (defn branch-local-step?
   [step]
@@ -7,10 +8,10 @@
 
 (defn opaque-op? [op]
   (and (symbol? op)
-       (not (common/transparent-ops op))
-       (not (common/branch-ops op))
-       (not (common/special-forms op))
-       (not (common/threading-ops op))))
+       (not (ops/transparent op))
+       (not (ops/branch op))
+       (not (ops/special-forms op))
+       (not (ops/threading op))))
 
 (defn non-transparent-call-sites [forms]
   (for [form forms

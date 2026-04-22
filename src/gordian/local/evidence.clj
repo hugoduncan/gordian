@@ -2,6 +2,7 @@
   (:require [gordian.local.common :as common]
             [gordian.local.dependency :as dependency]
             [gordian.local.flow :as flow]
+            [gordian.local.ops :as ops]
             [gordian.local.shape :as shape]
             [gordian.local.state :as state]
             [gordian.local.steps :as steps]
@@ -33,13 +34,13 @@
         branch-regions      (shape/branch-regions body {})
         mutable-syms        (state/mutable-binding-symbols steps*)
         mutation-sites      (count (for [form forms
-                                         :when (and (common/mutation-ops (common/op-of form))
+                                         :when (and (ops/mutation (common/op-of form))
                                                     (symbol? (second form))
                                                     (mutable-syms (second form)))]
                                      form))
-        external-writes     (+ (count (filter #(common/effect-write-ops (common/op-of %)) forms))
+        external-writes     (+ (count (filter #(ops/effect-write (common/op-of %)) forms))
                                (count (for [form forms
-                                            :when (and (common/mutation-ops (common/op-of form))
+                                            :when (and (ops/mutation (common/op-of form))
                                                        (symbol? (second form))
                                                        (not (mutable-syms (second form))))]
                                         form)))
@@ -63,7 +64,7 @@
             :state {:mutation-sites mutation-sites
                     :rebindings (state/meaningful-rebindings steps*)
                     :temporal-dependencies (state/temporal-dependencies (common/tree-forms body) mutable-syms)
-                    :effect-reads (count (filter #(common/effect-read-ops (common/op-of %)) forms))
+                    :effect-reads (count (filter #(ops/effect-read (common/op-of %)) forms))
                     :effect-writes external-writes
                     :mutable-entities (count mutable-syms)}
             :shape {:transitions (shape/main-path-transitions steps*)
@@ -77,8 +78,8 @@
                     :sentinel (shape/sentinel-count forms)}
             :abstraction {:levels levels
                           :distinct-levels (set levels)
-                          :incidental (count (filter #(common/incidental-ops (common/op-of %)) forms))}
+                          :incidental (count (filter #(ops/incidental (common/op-of %)) forms))}
             :dependency {:helpers helper-count
                          :opaque-stages opaque-stages
-                         :inversion (count (filter #(common/inversion-ops (common/op-of %)) forms))
+                         :inversion (count (filter #(ops/inversion (common/op-of %)) forms))
                          :semantic-jumps (dependency/distinct-semantic-jumps steps*)}})))
