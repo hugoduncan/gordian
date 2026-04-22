@@ -991,6 +991,41 @@ Cleanup/feature:
 - clj-kondo integration
 - Watch mode
 
+## Session 30 — Munera task 010 closed
+
+Clarified and tightened the remaining post-009 `gordian local` evidence
+semantics and inner evidence shapes without changing the command/report surface.
+
+What changed:
+- narrowed sentinel burden semantics in `local/shape.clj`
+  - branch forms count only when an outcome arm carries a sentinel value
+  - direct `=` comparisons against sentinel literals still count
+  - predicates that merely mention sentinels no longer make the enclosing branch count
+- refined branch-local dependency semantics
+  - `local/dependency.clj` now treats only top-level/main-path pipeline stages as
+    `:opaque-stages`
+  - branch-local opaque chains still contribute through `:helpers`
+  - `local/working_set.clj` no longer emits `:pipeline-stage` / `:main-path-step`
+    program points for branch-local pipeline stages
+- made inner evidence record shapes more reviewable
+  - documented canonical step shape in `local/steps.clj`
+  - added explicit `branch-region` constructor in `local/shape.clj`
+  - added explicit `program-point` constructor in `local/working_set.clj`
+- tightened `local/evidence.clj` docstring to record the clarified semantics
+- added tests covering:
+  - sentinel-bearing branch outcomes vs sentinel-only predicates
+  - top-level pipeline program points
+  - branch-local opaque chains counting as helper uncertainty, not opaque stages
+
+Validation:
+- full suite passes: 350 tests, 3180 assertions, 0 failures
+- representative sanity check passes:
+  - `bb gordian local src --top 3`
+
+Task status change:
+- moved `munera/open/010-clarify-local-evidence-semantics-and-tighten-evidence-shapes` → `munera/closed/`
+- removed task 010 from `munera/plan.md` open-task list
+
 ## Session 29 — Munera task 009 closed
 
 Refactored the `gordian local` evidence/extraction core for reviewability while
