@@ -430,6 +430,10 @@
     (is (= "complexity rejects explicit paths combined with --source-only or --tests-only"
            (:error (sut/parse-args ["complexity" "src" "--tests-only"])))) )
 
+  (testing "complexity rejects explicit dot path with scope flags"
+    (is (= "complexity rejects explicit paths combined with --source-only or --tests-only"
+           (:error (sut/parse-args ["complexity" "." "--tests-only"])))) )
+
   (testing "complexity allows implicit default path with scope flags"
     (is (= :cyclomatic (:command (sut/parse-args ["complexity" "--tests-only"])))) )
 

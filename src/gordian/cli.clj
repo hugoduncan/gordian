@@ -201,15 +201,15 @@
     :spec (merge-specs output-spec complexity-spec)
     :parse (fn [{:keys [args opts]}]
              (assoc opts :command :cyclomatic
+                    :explicit-paths? (boolean (seq args))
                     :src-dirs (if (seq args) (vec args) ["."])))
-    :validate (fn [{:keys [src-dirs sort min top source-only tests-only min-cc]}]
+    :validate (fn [{:keys [sort min top source-only tests-only min-cc explicit-paths?]}]
                 (cond
                   (and source-only tests-only)
                   {:error "complexity rejects --source-only combined with --tests-only"}
 
-                  (and (seq src-dirs)
-                       (or source-only tests-only)
-                       (not= src-dirs ["."]))
+                  (and explicit-paths?
+                       (or source-only tests-only))
                   {:error "complexity rejects explicit paths combined with --source-only or --tests-only"}
 
                   sort
