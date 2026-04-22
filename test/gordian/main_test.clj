@@ -116,7 +116,9 @@
       (is (= :local (:gordian/command parsed)))
       (is (= :local-comprehension-complexity (:metric parsed)))
       (is (= ["resources/fixture"] (:src-dirs parsed)))
-      (is (every? symbol? (map :ns (:units parsed))))))
+      (is (every? symbol? (map :ns (:units parsed))))
+      (is (contains? parsed :display))
+      (is (every? symbol? (map :ns (get-in parsed [:display :units]))))))
 
   (testing "local text output is human readable"
     (let [out (with-out-str (sut/local-cmd {:src-dirs ["resources/fixture"]}))]

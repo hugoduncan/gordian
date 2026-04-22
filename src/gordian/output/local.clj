@@ -98,8 +98,10 @@
        gap (common/bar (bar-value bar-metric rollup))))
 
 (defn format-local
-  [{:keys [src-dirs units namespace-rollups project-rollup max-unit options bar-metric]}]
-  (let [label-width (max 10 (apply max (concat [10] (map (comp count unit-label) units))))
+  [{:keys [src-dirs project-rollup max-unit options bar-metric display]}]
+  (let [units (:units display)
+        namespace-rollups (:namespace-rollups display)
+        label-width (max 10 (apply max (concat [10] (map (comp count unit-label) units))))
         ns-width    (max 10 (apply max (concat [10] (map #(count (str (:ns %))) namespace-rollups))))
         gap         "  "]
     (into
@@ -153,8 +155,10 @@
             " avg-ws=" (format "%.2f" (double (:avg-working-set project-rollup))))]))))
 
 (defn format-local-md
-  [{:keys [src-dirs units namespace-rollups project-rollup max-unit options bar-metric]}]
-  (let [unit-lines
+  [{:keys [src-dirs project-rollup max-unit options bar-metric display]}]
+  (let [units (:units display)
+        namespace-rollups (:namespace-rollups display)
+        unit-lines
         (if (seq units)
           (map (fn [unit]
                  (str "| `" (unit-label unit) "` | "

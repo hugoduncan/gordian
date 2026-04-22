@@ -22,9 +22,6 @@
    :dependency :dependency-burden
    :working-set [:working-set :burden]})
 
-(def ^:private metric-name-order
-  [:flow-burden :state-burden :shape-burden :abstraction-burden :dependency-burden])
-
 (defn parse-min-expression
   [expr]
   (when-let [[_ metric n] (re-matches #"([a-z-]+)=(\d+)" (str expr))]
@@ -185,19 +182,25 @@
      :project-rollup project
      :max-unit (max-unit units)}))
 
+(defn display-data
+  [{:keys [units namespace-rollups]} {:keys [sort top mins]}]
+  {:units (-> units
+              (filter-units-by-mins mins)
+              (sort-units sort)
+              (truncate-section top))
+   :namespace-rollups (-> namespace-rollups
+                          (sort-rollups sort)
+                          (truncate-section top))})
+
 (defn finalize-report
   [report mode paths opts]
-  (let [mins (mins-map opts)]
+  (let [options (local-options opts)]
     (-> report
         (assoc :src-dirs (mapv :dir paths)
                :scope (local-scope mode paths)
-               :options (local-options opts)
-               :bar-metric (effective-bar-metric opts))
-        (update :units filter-units-by-mins mins)
-        (update :units sort-units (:sort opts))
-        (update :units truncate-section (:top opts))
-        (update :namespace-rollups sort-rollups (:sort opts))
-        (update :namespace-rollups truncate-section (:top opts)))))
+               :options options
+               :bar-metric (effective-bar-metric opts)
+               :display (display-data report options)))))
 
 (defn valid-sort-key? [k]
   (contains? sort-keys k))

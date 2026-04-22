@@ -17,4 +17,18 @@ Intended payoff:
 - better alignment with Gordian’s canonical-data-first style
 - removal of small local report residue
 
-This task should stay narrow. It is a report-shape cleanup, not a redesign of `gordian local` semantics or output UX.
+What shipped:
+- preserved canonical `:units` and `:namespace-rollups` in `gordian.local.report/finalize-report`
+- added explicit display-shaped slices under `:display {:units ... :namespace-rollups ...}`
+- migrated local text/markdown formatters to consume the explicit display seam
+- removed unused `metric-name-order` residue
+- added tests locking the canonical-vs-display boundary and EDN shape
+
+Validation:
+- representative sanity checks passed:
+  - `bb -m gordian.main local resources/fixture`
+  - `bb -m gordian.main local resources/fixture --markdown`
+  - `bb -m gordian.main local resources/fixture --edn`
+- full suite passes: 352 tests, 3176 assertions, 0 failures
+
+This task stayed narrow. It clarified report shape without changing `gordian local` semantics or user-facing output behavior.

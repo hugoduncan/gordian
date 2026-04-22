@@ -360,3 +360,32 @@
     (is (pos? (get-in result [:project-rollup :total-lcc])))
     (is (:max-unit result))
     (.delete tmp)))
+
+(deftest finalize-report-separates-canonical-and-display-bases
+  (let [units [{:ns 'b.core :var 'z :kind :defn-arity :arity 1
+                :flow-burden 1 :state-burden 0 :shape-burden 0 :abstraction-burden 1 :dependency-burden 0
+                :working-set {:peak 3 :avg 2.0 :burden 0.0} :lcc-total 2.4 :findings []}
+               {:ns 'a.core :var 'x :kind :defn-arity :arity 1
+                :flow-burden 3 :state-burden 1 :shape-burden 1 :abstraction-burden 2 :dependency-burden 1
+                :working-set {:peak 5 :avg 3.5 :burden 1.25} :lcc-total 10.0 :findings []}
+               {:ns 'a.core :var 'y :kind :defmethod :dispatch :json
+                :flow-burden 2 :state-burden 0 :shape-burden 3 :abstraction-burden 4 :dependency-burden 3
+                :working-set {:peak 7 :avg 4.0 :burden 3.5} :lcc-total 18.0 :findings []}]
+        report {:gordian/command :local
+                :metric :local-comprehension-complexity
+                :units units
+                :namespace-rollups (report/namespace-rollups units)
+                :project-rollup (report/project-rollup units (report/namespace-rollups units))
+                :max-unit (report/max-unit units)}
+        finalized (report/finalize-report report
+                                          :explicit
+                                          [{:dir "src" :kind :src}]
+                                          {:sort :total :top 1 :min ["total=10"]})]
+    (is (= ['b.core 'a.core 'a.core] (mapv :ns (:units finalized)))
+        "canonical units remain intact")
+    (is (= ['a.core] (mapv :ns (get-in finalized [:display :units]))))
+    (is (= ['y] (mapv :var (get-in finalized [:display :units]))))
+    (is (= ['a.core] (mapv :ns (get-in finalized [:display :namespace-rollups]))))
+    (is (= 3 (get-in finalized [:project-rollup :unit-count])))
+    (is (= 'y (get-in finalized [:max-unit :var])))
+    (is (= {:total 10} (get-in finalized [:options :mins])))))

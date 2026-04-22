@@ -991,6 +991,28 @@ Cleanup/feature:
 - clj-kondo integration
 - Watch mode
 
+## Session 32 — Munera task 012 closed
+
+Separated canonical `gordian local` report data from display-shaped slices.
+
+What changed:
+- preserved canonical `:units` and `:namespace-rollups` in `gordian.local.report`
+- added explicit `:display {:units ... :namespace-rollups ...}` for filtered/sorted/truncated output slices
+- migrated `gordian.output.local` text/markdown formatters to consume `:display`
+- removed unused `metric-name-order` residue from `local/report.clj`
+- added tests locking the canonical-vs-display boundary and explicit EDN shape
+
+Validation:
+- full suite passes: 352 tests, 3176 assertions, 0 failures
+- representative sanity checks passed:
+  - `bb -m gordian.main local resources/fixture`
+  - `bb -m gordian.main local resources/fixture --markdown`
+  - `bb -m gordian.main local resources/fixture --edn`
+
+Task status change:
+- moved `munera/open/012-separate-local-canonical-report-from-display-shaping` → `munera/closed/`
+- removed task 012 from `munera/plan.md` open-task list
+
 ## Session 31 — Munera task 011 closed
 
 Made branch locality explicit in `gordian local` step evidence and tightened
