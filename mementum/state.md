@@ -677,45 +677,86 @@ ea994f9  fix: strip leading ./ from src-dirs in path->ns — change coupling bro
 
 317 tests, 2072 assertions, 0 failures.
 
-## Session 24 commits — cyclomatic complexity command
+## Session 24 / 25 — complexity mode completed
 
 ```
 67050ee  feat: add cyclomatic complexity command
 bf2c064  docs: close cyclomatic task loop
+410a46e  docs: refine cyclomatic task convergence plan
+9e1836b  docs: add cyclomatic implementation plan
+6f781f6  docs: make complexity command canonical
+ad799ed  feat: extract cyclomatic analyzable units
+d4e39fd  fix: align cyclomatic scoring semantics
+23872c9  feat: add canonical cyclomatic report shape
+eaffba1  feat: add complexity scope and sort controls
+063aab4  docs: update complexity task status
+3d7f79d  refactor: remove legacy complexity compatibility payload
+cb16ddd  feat: improve complexity text output and filtering
 ```
 
-324 tests, 2119 assertions, 0 failures.
+328 tests, 2162 assertions, 0 failures.
 
-New command:
-- `gordian cyclomatic`
+Canonical command:
+- `gordian complexity`
+- `gordian cyclomatic` remains as a compatibility alias
 
-Implemented so far:
-- pure cyclomatic analysis in `cyclomatic.clj`
-- CLI wiring for `cyclomatic` subcommand
-- text / markdown / EDN / JSON output
-- per-function and per-namespace rollups
-- per-arity complexity reporting for multi-arity functions
+Implemented now:
+- pure complexity analysis in `cyclomatic.clj`
+- canonical arity-level unit extraction:
+  - `defn` / `defn-`
+  - `defmethod`
+  - top-level `def` with literal `fn`
+- canonical machine-readable payload:
+  - `:metric :cyclomatic-complexity`
+  - `:units`
+  - `:namespace-rollups`
+  - `:project-rollup`
+  - `:max-unit`
+- standard risk-band classification:
+  - `:simple`
+  - `:moderate`
+  - `:high`
+  - `:untestable`
+- CLI controls:
+  - `--sort cc|ns|var|cc-risk`
+  - `--top N`
+  - `--min-cc N`
+  - `--source-only`
+  - `--tests-only`
+- output modes:
+  - text
+  - markdown
+  - EDN
+  - JSON
+- text output improvements:
+  - fixed-column tabular layout
+  - aligned horizontal bar origins
+  - minimum display threshold filtering
 
-Current rules:
-- base complexity 1 per function arity
+Current scoring rules:
+- base complexity 1 per analyzed unit
 - `if` family adds 1 (`if`, `if-not`, `if-let`, `if-some`, `when`, `when-not`, `when-let`, `when-some`, `when-first`)
-- loop forms add 1 (`doseq`, `for`, `while`)
-- `cond` / `condp` count non-default branches
-- `case` counts explicit branches, ignoring default
+- `cond` counts all clause pairs, including trailing `:else`
+- `condp` counts clause pairs and default when present
+- `case` counts branch arms and default when present
+- `cond->` counts each condition/form pair
 - `and` / `or` add `operand-count - 1`
 - each `catch` in `try` adds 1
+- `loop`, `recur`, recursion, `for`, `doseq`, and `while` do not independently add complexity
 
-Correction:
-- this work does **not** yet satisfy the full Munera task `002-cyclomatic-complexity`
-- remaining checklist items include the companion design doc, canonical schema/field names,
-  broader unit extraction (`defmethod`, `def` + literal `fn`), refined scoring semantics,
-  `complexity` CLI shape, scope controls, `--sort` / section-local `--top`, and text bar charts
-- treat `002` as reopened / still active until those items are completed
+Scope semantics:
+- default project-root behavior = discovered source paths only
+- `--tests-only` = discovered test paths only
+- explicit paths override discovery-based scope selection
+
+Task status:
+- Munera task `002-cyclomatic-complexity` is now implemented
+- remaining work, if any, is minor polish rather than task-defining behavior
 
 Notes:
-- currently scans `.clj` files
+- scans `.clj` files
 - uses full-file edamame parsing via `scan/parse-file-all-forms`
-- report records `:max-function`, namespace summaries, and per-function arity vectors
+- compatibility payload shims removed; canonical complexity payload is now authoritative
 
 Bug: `path->ns` in `git.clj` stripped trailing `/` from src-dirs but not
 leading `./`. Auto-discovery always returns `./components/*/src` style paths.
