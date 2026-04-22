@@ -76,3 +76,23 @@ Recommended implementation sequence:
 6. align CLI scope resolution and validation semantics with the accepted design
 7. finish text output with horizontal bar charts
 8. expand tests to cover the final shape and compatibility decisions
+
+Patch plan from task review:
+1. payload metadata alignment
+   - add explicit complexity-payload metadata for `:scope` and `:options`
+   - keep it consistent with the Gordian envelope rather than duplicating conflicting state
+   - include at least resolved scope mode/paths plus applied `:sort`, `:top`, and `:min-cc`
+   - preserve the existing Gordian machine-readable convention that EDN and JSON outputs are wrapped in the standard envelope, as with other analysis commands
+   - λanalysis_output.
+     end(output) ∧ format(json ∨ edn)
+     → envelope{
+         input-options,
+         purpose(re-run(analysis) ∧ reproducible)
+       }
+2. rollup-surface decision
+   - either implement `--namespace-rollup` / `--project-rollup` as real CLI controls
+   - or explicitly remove them from the task/design/docs and state that rollups are always emitted in v1
+   - prefer one clear policy over half-documented optionality
+3. source-location decision — deferred
+   - either populate `:line` from parsed forms where feasible
+   - or explicitly document `:line` as nullable/deferred in v1 and keep tests/schema aligned with that decision
