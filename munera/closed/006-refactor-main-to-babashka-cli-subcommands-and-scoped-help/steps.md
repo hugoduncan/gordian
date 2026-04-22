@@ -28,3 +28,6 @@
 - [ ] Add tests for representative parse/validation regressions across command families
 - [ ] Update README command/help documentation to match the scoped-help model
 - [ ] Ensure the refactor improves local comprehensibility and reduces responsibility concentration in `gordian.main`
+
+Post-review follow-up step:
+- [ ] tighten `subgraph` scoped help to only options consumed by `subgraph-cmd`; restore complexity explicit-path validation so explicit `.` still counts as an explicit path for `--source-only` / `--tests-only` rejection; trim unused `gordian.cli` helper surface

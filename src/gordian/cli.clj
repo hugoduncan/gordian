@@ -39,6 +39,14 @@
    :max-new-medium-findings {:desc "Maximum newly introduced medium-severity findings" :coerce :long}
    :fail-on                 {:desc "Comma-separated strict gate checks e.g. new-cycles,new-high-findings"}})
 
+(def ^:private subgraph-spec
+  {:conceptual   {:desc "Conceptual similarity threshold override (default 0.15)" :coerce :double}
+   :change       {:desc "Change coupling analysis; optional repo dir (default: .)"}
+   :change-since {:desc "Limit change coupling to commits after this date e.g. \"90 days ago\""}
+   :include-tests {:desc "Include test directories in auto-discovery" :coerce :boolean}
+   :exclude      {:desc "Exclude namespaces matching regex (repeatable)" :coerce [:string]}
+   :rank         {:desc "Subgraph finding ranking: actionability (default) or severity" :coerce :keyword}})
+
 (def ^:private communities-spec
   {:conceptual   {:desc "Conceptual similarity threshold override (default 0.15 unless lens=structural)" :coerce :double}
    :change       {:desc "Change coupling analysis; optional repo dir (default: .)"}
@@ -134,7 +142,7 @@
     :positional ["<prefix>  Namespace prefix to slice"]
     :examples ["gordian subgraph gordian"
                "gordian subgraph gordian --markdown"]
-    :spec (merge-specs output-spec diagnose-spec)
+    :spec (merge-specs output-spec subgraph-spec)
     :parse (fn [{:keys [args opts]}]
              (if (first args)
                (assoc opts :command :subgraph

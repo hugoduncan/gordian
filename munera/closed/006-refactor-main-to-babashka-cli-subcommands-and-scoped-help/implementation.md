@@ -57,3 +57,11 @@ Completion target:
 - thinner `gordian.main`
 - localized command-specific parsing/validation/help logic
 - preserved behavior for existing commands
+
+Post-implementation review note:
+- `subgraph` currently reuses `diagnose-spec`, so its scoped help exposes `--top` and `--show-noise` even though `subgraph-cmd` does not consume them. This leaves the subcommand help broader than intended.
+- complexity scope validation currently checks normalized `:src-dirs` rather than whether the user supplied explicit positional paths. As a result, `gordian complexity . --tests-only` is now accepted, whereas previous behavior rejected explicit paths combined with `--source-only` / `--tests-only`.
+- `gordian.cli` contains a small amount of now-unnecessary helper surface (`parse-result-help?`, `canonical-command-name`, and possibly broader-than-needed registry accessors) that can be trimmed once the follow-up lands.
+
+Recommended follow-up:
+- add a small follow-up task to tighten `subgraph` option ownership, restore exact complexity explicit-path validation semantics, and trim unused `gordian.cli` helpers.

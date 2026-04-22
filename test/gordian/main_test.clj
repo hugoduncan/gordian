@@ -213,7 +213,16 @@
       (is (str/includes? out "--source-only"))
       (is (str/includes? out "Aliases: complexity, cyclomatic"))
       (is (not (str/includes? out "--baseline")))
-      (is (not (str/includes? out "--conceptual"))))))
+      (is (not (str/includes? out "--conceptual")))))
+
+  (testing "subcommand help is scoped to subgraph"
+    (let [out (with-out-str (sut/print-help :subgraph))]
+      (is (str/includes? out "Usage: gordian subgraph <prefix> [options]"))
+      (is (str/includes? out "--conceptual"))
+      (is (str/includes? out "--rank"))
+      (is (not (str/includes? out "--top")))
+      (is (not (str/includes? out "--show-noise")))
+      (is (not (str/includes? out "--baseline"))))))
 
 ;;; ── parse-args / subcommands ──────────────────────────────────────────────
 
