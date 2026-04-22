@@ -6,6 +6,7 @@
             [gordian.scc         :as scc]
             [gordian.classify    :as classify]
             [gordian.output      :as output]
+            [gordian.cli         :as gcli]
             [gordian.conceptual  :as conceptual]
             [gordian.git         :as git]
             [gordian.cc-change   :as cc-change]
@@ -159,12 +160,7 @@ Examples:
     {:src-dirs [...] ...opts}
     {:command :diagnose|:explain|:explain-pair ...}"
   [raw-args]
-  (let [command  ({"analyze" :analyze "diagnose" :diagnose
-                   "explain" :explain "explain-pair" :explain-pair
-                   "compare" :compare "gate" :gate "subgraph" :subgraph
-                   "communities" :communities "dsm" :dsm "tests" :tests
-                   "complexity" :cyclomatic "cyclomatic" :cyclomatic}
-                  (first raw-args))
+  (let [command  (gcli/resolve-command (first raw-args))
         raw-args (if command (rest raw-args) raw-args)
         {:keys [args opts]} (cli/parse-args raw-args {:spec cli-spec})]
     (cond
