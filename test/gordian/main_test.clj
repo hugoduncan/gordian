@@ -433,6 +433,13 @@
     (is (= "complexity --min values must be metric=value with metric in {cc,loc} and positive integer value"
            (:error (sut/parse-args ["complexity" "--min" "bogus"])))) )
 
+  (testing "complexity accepts explicit bar metric"
+    (is (= :loc (:bar (sut/parse-args ["complexity" "--bar" "loc"])))) )
+
+  (testing "complexity rejects invalid bar metric"
+    (is (= "complexity --bar must be one of: cc, loc"
+           (:error (sut/parse-args ["complexity" "--bar" "bogus"])))) )
+
   (testing "complexity rejects removed --min-cc"
     (is (= "complexity no longer accepts --min-cc; use --min cc=<n>"
            (:error (sut/parse-args ["complexity" "--min-cc" "10"])))) )
@@ -690,7 +697,20 @@
       (is (= :cc-risk (get-in parsed [:options :sort])))
       (is (= 5 (get-in parsed [:options :top])))
       (is (= {:cc 2 :loc 1} (get-in parsed [:options :mins])))
-      (is (= [:cyclomatic-complexity :lines-of-code] (:metrics parsed))))))
+      (is (nil? (get-in parsed [:options :bar])))
+      (is (= :cc (:bar-metric parsed)))
+      (is (= [:cyclomatic-complexity :lines-of-code] (:metrics parsed)))))
+
+  (testing "complexity EDN output preserves decision counts and records explicit bar option"
+    (let [out (with-out-str
+                (sut/complexity-cmd {:src-dirs ["resources/fixture-project"]
+                                     :command :complexity
+                                     :edn true
+                                     :bar :loc}))
+          parsed (read-string out)]
+      (is (= :loc (get-in parsed [:options :bar])))
+      (is (= :loc (:bar-metric parsed)))
+      (is (every? #(contains? % :cc-decision-count) (:units parsed))))))
 
 (deftest markdown-integration-test
   (testing "analyze --markdown produces markdown"

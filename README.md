@@ -168,6 +168,7 @@ gordian complexity src/
 gordian complexity --tests-only .
 gordian complexity . --sort cc-risk --top 20
 gordian complexity . --sort loc
+gordian complexity . --sort ns --bar loc
 gordian complexity . --min cc=10
 gordian complexity . --min cc=10 --min loc=20
 gordian complexity . --edn > complexity.edn
@@ -179,7 +180,7 @@ It reports:
 - per-unit cyclomatic complexity and lines of code (`defn` arities, `defmethod`, top-level `def` + literal `fn`)
 - namespace rollups over canonical units
 - project rollup with risk-band counts plus LOC totals
-- text/markdown summaries plus machine-readable canonical fields such as `:metrics`, `:scope`, `:options`, `:units`, `:namespace-rollups`, `:project-rollup`, `:max-unit`, and per-unit `:cc` / `:loc`
+- text/markdown summaries plus machine-readable canonical fields such as `:metrics`, `:scope`, `:options`, `:bar-metric`, `:units`, `:namespace-rollups`, `:project-rollup`, `:max-unit`, and per-unit `:cc` / `:loc`
 
 Current counting rules:
 - base complexity `1` per analyzed unit
@@ -197,6 +198,8 @@ Scope and ranking controls:
 - `--tests-only` analyzes discovered test paths only
 - explicit paths override discovery-based scope selection
 - `--sort` supports `cc`, `loc`, `ns`, `var`, and `cc-risk`
+- `--bar` supports `cc` and `loc` for human-readable histogram bars
+- when `--bar` is omitted, bars default to `loc` for `--sort loc`, otherwise `cc`
 - repeatable `--min metric=value` filters displayed unit rows only, e.g. `--min cc=10` or `--min loc=20`
 - multiple `--min` constraints combine conjunctively
 - namespace and project rollups remain computed from the full analyzed unit set

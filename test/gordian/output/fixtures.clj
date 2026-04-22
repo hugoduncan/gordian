@@ -227,7 +227,8 @@
   {:gordian/command :complexity
    :metrics [:cyclomatic-complexity :lines-of-code]
    :src-dirs ["resources/fixture"]
-   :options {:sort :cc :mins nil}
+   :options {:sort :cc :bar nil :mins nil}
+   :bar-metric :cc
    :units [{:ns 'sample.core :var 'branchy :arity 1 :cc 3 :loc 8 :cc-decision-count 2 :cc-risk {:level :simple :label "Simple, low risk"}}
            {:ns 'sample.core :var 'simple :arity 1 :cc 1 :loc 3 :cc-decision-count 0 :cc-risk {:level :simple :label "Simple, low risk"}}
            {:ns 'sample.util :var 'helper :arity 1 :cc 3 :loc 5 :cc-decision-count 2 :cc-risk {:level :simple :label "Simple, low risk"}}]

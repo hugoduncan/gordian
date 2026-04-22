@@ -62,6 +62,7 @@
 (def ^:private complexity-spec
   {:include-tests {:desc "Include test directories in auto-discovery" :coerce :boolean}
    :sort          {:desc "Sort by cc | loc | ns | var | cc-risk" :coerce :keyword}
+   :bar           {:desc "Bar metric for human-readable histograms: cc | loc" :coerce :keyword}
    :min           {:desc "Display filter: repeatable metric=value, e.g. cc=10 or loc=20" :coerce [:string]}
    :min-cc        {:desc "Deprecated: use --min cc=<n>"}
    :top           {:desc "Show only the top N units after sorting" :coerce :long}
@@ -192,6 +193,7 @@
     :positional ["<dir-or-src>...  Project root or explicit source directories (default: .)"]
     :examples ["gordian complexity ."
                "gordian complexity . --sort loc"
+               "gordian complexity . --sort ns --bar loc"
                "gordian complexity . --min cc=10 --min loc=20"
                "gordian complexity . --json"]
     :spec (merge-specs output-spec complexity-spec)
@@ -199,7 +201,7 @@
              (assoc opts :command :complexity
                     :explicit-paths? (boolean (seq args))
                     :src-dirs (if (seq args) (vec args) ["."])))
-    :validate (fn [{:keys [sort min top source-only tests-only min-cc explicit-paths?]}]
+    :validate (fn [{:keys [sort bar min top source-only tests-only min-cc explicit-paths?]}]
                 (cond
                   (and source-only tests-only)
                   {:error "complexity rejects --source-only combined with --tests-only"}
@@ -208,10 +210,13 @@
                        (or source-only tests-only))
                   {:error "complexity rejects explicit paths combined with --source-only or --tests-only"}
 
-                  sort
-                  (if (contains? #{:cc :loc :ns :var :cc-risk} sort)
-                    nil
-                    {:error "complexity --sort must be one of: cc, loc, ns, var, cc-risk"})
+                  (and sort
+                       (not (contains? #{:cc :loc :ns :var :cc-risk} sort)))
+                  {:error "complexity --sort must be one of: cc, loc, ns, var, cc-risk"}
+
+                  (and bar
+                       (not (contains? #{:cc :loc} bar)))
+                  {:error "complexity --bar must be one of: cc, loc"}
 
                   (some? min-cc)
                   {:error "complexity no longer accepts --min-cc; use --min cc=<n>"}

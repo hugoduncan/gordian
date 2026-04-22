@@ -44,6 +44,9 @@
 (def ^:private min-metrics
   #{:cc :loc})
 
+(def ^:private bar-metrics
+  #{:cc :loc})
+
 (def ^:private comment-only-line
   #"^\s*;+.*$")
 
@@ -394,11 +397,20 @@
    :tests?  (boolean (some #(= :test (:kind %)) paths))
    :paths   (mapv :dir paths)})
 
+(defn effective-bar-metric
+  "Return the effective histogram bar metric for human-readable complexity output.
+   Explicit :bar wins; otherwise :loc when sorting by :loc; else :cc."
+  [{:keys [sort bar]}]
+  (or bar
+      (when (= :loc sort) :loc)
+      :cc))
+
 (defn complexity-options
   "Build canonical complexity options metadata from resolved CLI opts."
-  [{:keys [sort top] :as opts}]
+  [{:keys [sort top bar] :as opts}]
   {:sort sort
    :top top
+   :bar bar
    :mins (mins-map opts)})
 
 (defn- sort-rollups
@@ -421,7 +433,8 @@
                :metrics metrics
                :src-dirs (mapv :dir paths)
                :scope (complexity-scope mode paths)
-               :options (complexity-options opts))
+               :options (complexity-options opts)
+               :bar-metric (effective-bar-metric opts))
         (update :units filter-units-by-mins mins)
         (update :units sort-units (:sort opts))
         (update :units truncate-section (:top opts))

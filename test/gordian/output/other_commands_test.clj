@@ -196,11 +196,12 @@
     (is (str/includes? text "metrics: cyclomatic-complexity, lines-of-code"))
     (is (str/includes? text "namespaces: 2"))
     (is (str/includes? text "units: 3"))
+    (is (str/includes? text "bar metric: cc"))
     (is (str/includes? text "sample.core/branchy [arity 1] (cc=3, loc=8)"))
     (is (str/includes? text "UNITS"))
     (is (str/includes? text "unit"))
     (is (str/includes? text "risk"))
-    (is (str/includes? text "decisions"))
+    (is (not (str/includes? text "decisions")))
     (is (str/includes? text "loc"))
     (is (str/includes? text "NAMESPACE ROLLUP"))
     (is (str/includes? text "PROJECT ROLLUP"))
@@ -209,13 +210,31 @@
     (is (str/includes? text "███"))
     (is (apply = bar-cols))))
 
+(deftest format-complexity-bar-metric-test
+  (let [data (assoc fx/cyclomatic-data
+                    :options {:sort :ns :bar :loc :mins nil}
+                    :bar-metric :loc)
+        lines (sut/format-complexity data)
+        helper-row (first (filter #(and (str/includes? % "sample.util/helper")
+                                        (str/includes? % "█"))
+                                  lines))
+        branchy-row (first (filter #(and (str/includes? % "sample.core/branchy")
+                                         (str/includes? % "█"))
+                                   lines))
+        bar-count (fn [s] (count (re-seq #"█" s)))]
+    (is (str/includes? (str/join "\n" lines) "bar metric: loc"))
+    (is (> (bar-count branchy-row)
+           (bar-count helper-row)))))
+
 (deftest format-complexity-md-test
   (let [text (str/join "\n" (sut/format-complexity-md fx/cyclomatic-data))]
     (is (str/includes? text "# gordian complexity"))
     (is (str/includes? text "## Summary"))
     (is (str/includes? text "| Metric | Value |"))
+    (is (str/includes? text "| Bar metric | `cc` |"))
     (is (str/includes? text "`sample.core/branchy [arity 1]` (cc=3, loc=8)"))
     (is (str/includes? text "## Units"))
-    (is (str/includes? text "| Unit | CC | Risk | Decisions | LOC |"))
+    (is (str/includes? text "| Unit | CC | Risk | LOC |"))
+    (is (not (str/includes? text "Decisions")))
     (is (str/includes? text "| Namespace | Units | Total CC | Avg CC | Max CC | Total LOC | Avg LOC | Max LOC |"))
     (is (str/includes? text "## Project rollup"))))
