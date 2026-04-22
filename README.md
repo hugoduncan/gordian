@@ -15,33 +15,56 @@ just hard to read.
 
 ## Usage
 
+Top-level usage now focuses on command discovery and global output/help flags:
+
 ```bash
-gordian [analyze|diagnose|compare|gate|subgraph|communities|dsm|tests|complexity|cyclomatic|explain|explain-pair] [<dir-or-src>...] [options]
+gordian <command> [args] [options]
 ```
 
 When given a project root (a directory containing `deps.edn`, `bb.edn`,
 `project.clj`, etc.), gordian **auto-discovers** source directories —
 including Polylith `components/*/src`, `bases/*/src`, etc. With no arguments
-it defaults to the current directory.
+it defaults to `analyze` on the current directory.
 
 ```bash
-Options:
-  --dot  <file>              Write Graphviz DOT graph to <file>
-  --json                     Output JSON to stdout (suppresses human-readable table)
-  --edn                      Output EDN to stdout (suppresses human-readable table)
-  --markdown                 Output Markdown to stdout (suppresses human-readable table)
-  --conceptual <float>       Conceptual coupling analysis at given similarity threshold
-  --change [<repo-dir>]      Change coupling analysis; repo dir defaults to .
-  --change-since <date>      Limit change coupling to commits after <date>
-  --include-tests            Include test directories in auto-discovery
-  --exclude <regex>          Exclude namespaces matching regex (repeatable)
-  --help                     Show this help message
+gordian --help
+```
+
+Shows:
+- top-level usage
+- available commands and summaries
+- global options only: `--json`, `--edn`, `--markdown`, `--help`
+
+```bash
+gordian <subcommand> --help
+```
+
+Shows scoped help for that command, including:
+- command-specific usage
+- positional arguments
+- only the options relevant to that command
+- examples for that command
+
+Examples:
+
+```bash
+gordian diagnose --help
+gordian complexity --help
+gordian cyclomatic --help   # compatibility alias for complexity
+gordian gate --help
 ```
 
 ```bash
 # auto-discover from current directory
+# no explicit command = analyze
+# `gordian .` remains accepted for backward compatibility
 gordian
 gordian .
+
+# discover commands / scoped help
+gordian --help
+gordian diagnose --help
+gordian complexity --help
 
 # ranked findings — auto-enables all analysis lenses
 gordian diagnose
