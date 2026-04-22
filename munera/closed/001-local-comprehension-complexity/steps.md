@@ -1,0 +1,9 @@
+- [x] Refine `doc/design/021-local-comprehension-complexity.md` into a stable metric definition
+- [x] Clarify the metric’s central question and intended interpretation
+- [x] Converge the burden dimensions and their boundaries
+- [x] Clarify the canonical unit model for the metric definition
+- [x] Define the relationship between burden vector, findings, and any aggregate score
+- [x] Make explicit how the metric is guided by `code-shaper` qualities: simplicity, consistency, robustness, and local comprehensibility
+- [x] Record first-version normative simplifications explicitly
+- [x] Resolve the remaining conceptual questions material to v1
+- [x] Update task documents so they consistently describe a metric-definition task only

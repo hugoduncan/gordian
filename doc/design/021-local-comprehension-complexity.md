@@ -13,8 +13,8 @@ The existing mainstream local metrics are useful but incomplete:
 
 Both still leave important local maintenance costs under-measured.
 
-In practice, many small units are hard to read or safely change not because
-branching is high, but because they:
+In practice, many small units are hard to safely understand and change under
+local reasoning constraints not because branching is high, but because they:
 
 - mix abstraction levels
 - require tracking many live concepts at once
@@ -37,24 +37,21 @@ shape-oriented local metric system.
 
 Define a local-analysis metric model that:
 
-1. improves on cyclomatic/cognitive complexity for maintenance work
+1. improves on cyclomatic/cognitive complexity for local change work
 2. explains *why* a local unit is hard, not only *how much*
-3. rewards well-shaped code in the `code-shaper` sense:
-   - simple
-   - consistent
-   - robust
-   - locally comprehensible
-4. is implementable from Clojure ASTs with heuristics that are useful before
-   full semantic analysis exists
-5. can later integrate into Gordian as a new local-analysis lens
+3. rewards code that is locally coherent, predictable, resilient to change, and
+   understandable primarily from local source
+4. defines a clear first version of the metric without collapsing the concept
+   into implementation convenience
+5. can serve as a normative basis for later Gordian implementation work
 
 ---
 
 ## Non-goals
 
-### Not a theorem of readability
+### Not a theorem of good code
 LCC is not a proof that code is good or bad. It is an evidence-oriented model
-of local comprehension burden.
+of local comprehension burden in service of safe local change.
 
 ### Not a replacement for architectural metrics
 LCC complements system-scale analysis. A project can have excellent
@@ -82,10 +79,12 @@ Cognitive Complexity asks:
 
 LCC asks:
 
-> how much must a reader hold in working memory across flow, state, shape,
-> abstraction, and non-local dependency in order to trust a change?
+> how much local reasoning burden must a reader carry across flow, state,
+> shape, abstraction, and non-local dependency in order to safely understand
+> and change this unit?
 
-That is the target Gordian should optimize for in local code.
+The emphasis is not generic readability in the abstract, but bounded local
+reasoning in service of trustworthy change.
 
 ---
 
@@ -103,17 +102,19 @@ Deeper control nesting should cost more than equivalent flat structure.
 Mutation, rebinding, and temporal dependence should be charged explicitly.
 
 ### 4. Shape sensitivity
-Repeated or irregular data-shape transitions should increase cost.
+Repeated or unstable data-shape transitions should increase cost.
 
 ### 5. Abstraction sensitivity
-Mixing semantic levels in one local unit should increase cost.
+Mixing semantic levels in one local unit should increase cost when it prevents
+one coherent local purpose from remaining visible.
 
 ### 6. Locality sensitivity
-Code that requires chasing meaning elsewhere should cost more than code that
-mostly explains itself locally.
+Code that requires chasing correctness meaning elsewhere should cost more than
+code that is largely understandable from local source.
 
 ### 7. Regularity reward
-Symmetric, consistent, pattern-preserving code should cost less.
+Predictable, pattern-preserving local structure should cost less when it lets
+similar things be understood the same way.
 
 ### 8. Compositionality
 Splitting a hard function into coherent helpers should usually reduce local
@@ -143,8 +144,8 @@ Their burden is folded into the enclosing top-level unit.
 
 ### Main path
 In v1, the **main path** is not a full CFG-derived notion.
-It means the lexical top-level sequence of steps in the enclosing top-level
-body of the unit.
+It means the lexical top-level sequence of steps through which a reader is most
+likely to construct the unit's primary local story.
 
 Examples:
 - top-level forms in a function body
@@ -388,7 +389,7 @@ non-local effects rather than pure local transformation.
 
 ## 3. Shape burden
 
-Measures difficulty of tracking the structure of values through the unit.
+Measures difficulty of maintaining stable value expectations through the unit.
 
 Includes:
 - intermediate shape transitions
@@ -398,14 +399,15 @@ Includes:
 - deep nested data construction
 
 ### Intended interpretation
-High shape burden means the reader must repeatedly update their model of what
-kind of thing each value currently is.
+High shape burden means the reader must repeatedly revise their local model of
+what values are, what invariants they satisfy, and what downstream code may
+assume about them.
 
 ---
 
 ## 4. Abstraction burden
 
-Measures semantic level mixing.
+Measures loss of coherent local purpose through semantic level mixing.
 
 Includes:
 - mixing mechanism, data shaping, domain rules, and orchestration
@@ -413,8 +415,9 @@ Includes:
 - incidental concerns embedded inside primary logic
 
 ### Intended interpretation
-High abstraction burden means the unit lacks one coherent level of discourse.
-The reader is forced to jump between *what* and *how* repeatedly.
+High abstraction burden means the unit lacks one coherent local story. The
+reader is forced to jump repeatedly between *what* the unit is doing and *how*
+it is doing it, or between primary logic and incidental concerns.
 
 ---
 
@@ -429,14 +432,16 @@ Includes:
 - correctness that depends on multiple distant definitions
 
 ### Intended interpretation
-High dependency burden means the local unit is not locally legible; the reader
-must fetch semantics from elsewhere before trusting the code.
+High dependency burden means the local unit is not locally self-sufficient for
+change reasoning; the reader must fetch correctness-critical semantics from
+elsewhere before trusting a modification. This is about semantic lookup
+distance, not merely the number of helper calls.
 
 ---
 
 ## 6. Regularity burden
 
-Measures local inconsistency.
+Measures loss of local predictability.
 
 Includes:
 - idiom switching
@@ -446,7 +451,9 @@ Includes:
 
 ### Intended interpretation
 High regularity burden means local compression fails. Similar things do not
-look or behave similarly.
+look or behave similarly, so the reader must repeatedly re-learn the local
+rules of the unit. This is not meant to enforce surface style conformity for
+its own sake.
 
 ---
 
@@ -454,7 +461,7 @@ look or behave similarly.
 
 Measures peak simultaneous mental load.
 
-This is the most important new metric in the design.
+This is one of the central ideas in the design.
 
 At each program point, estimate the number of facts a reader must hold in mind:
 
@@ -470,32 +477,33 @@ Then compute:
 - derived working-set burden
 
 ### Intended interpretation
-High working-set burden means the unit overloads local reasoning even if it is
-not branch-heavy.
+High working-set burden means too many facts must be actively maintained at
+once for comfortable local reasoning, even if the unit is not especially
+branch-heavy. This burden often explains why a unit feels mentally crowded even
+when conventional flow metrics remain modest.
 
 ---
 
 ## Formal v1 definitions
 
 The following definitions are intentionally heuristic-friendly. They are meant
-for implementation, not only for discussion.
+to pin down the metric semantically, not to require one particular
+implementation strategy.
 
 ## Unit model
 
-Represent a local unit `u` by:
+Represent a local unit `u` conceptually by:
 
 ```text
-u = (AST, ControlApprox, Bindings, Effects, Calls, Shapes)
+u = (control-structure, bindings, effects, calls, shapes)
 ```
 
 Where:
-- `AST` = parsed syntax tree
-- `ControlApprox` = lightweight control-flow approximation; not necessarily a
-  full CFG in v1
-- `Bindings` = lexical binding/use information
-- `Effects` = mutation / external effect approximation
-- `Calls` = helper/operator calls
-- `Shapes` = inferred coarse value-shape information
+- `control-structure` captures the unit's local branching and nesting burden
+- `bindings` captures the locally tracked symbols and their active roles
+- `effects` captures mutation and externally visible effect burden
+- `calls` captures semantically relevant local or non-local operations
+- `shapes` captures coarse value-shape expectations and transitions
 
 ---
 
@@ -615,6 +623,9 @@ Charge for non-trivial value-shape transitions on the main path.
 Transition(u) = count(nontrivial shape transitions)
 ```
 
+The purpose of this charge is to reflect repeated revision of local value
+expectations, not to penalize transformation as such.
+
 ### Destructure
 For each destructure form introducing `k` bindings:
 
@@ -673,7 +684,8 @@ Count transitions between adjacent semantic levels on the main path.
 Oscillation(u) = count(level transitions after the first)
 ```
 
-This is one of the most valuable new signals in the design.
+This is one of the most valuable new signals in the design because repeated
+level switching often destroys a unit's coherent local purpose.
 
 ### Incidental
 Charge for incidental concerns embedded in core logic:
@@ -701,7 +713,8 @@ Helper(u) = count(nontrivial helper call sites)
 ```
 
 This is a syntactic presence count: how many non-trivial helper calls appear in
-the unit.
+the unit. It is only a proxy for non-local semantic dependence, not the main
+concept itself.
 
 ### OpaqueChain
 For pipelines/chains with opaque stages:
@@ -824,7 +837,8 @@ The weights intentionally emphasize:
 - abstraction burden
 - state burden
 
-These are often more predictive of maintenance pain than control flow alone.
+These are often more predictive of local change difficulty than control flow
+alone.
 
 ---
 
@@ -877,26 +891,22 @@ This aligns the feature with Gordian’s existing finding-oriented style.
 
 ---
 
-## Clojure-oriented implementation model
+## Conceptual unit model
 
-The first implementation should be explicitly heuristic and AST-driven.
-It does not require full compiler-grade semantic analysis.
+The metric is defined over local units such as:
+- each top-level `defn` arity
+- each top-level `defmethod` body
 
-## Parsing basis
+Nested local helpers are conceptually folded into the enclosing top-level unit
+for v1 rather than treated as standalone local units.
 
-Viable parser choices:
-- `edamame` — light, already familiar in the project
-- `rewrite-clj` — stronger source-preserving traversal
-- `tools.analyzer.jvm` — richer semantics, likely later-phase work
-
-### Recommendation
-Use a staged approach:
-- **v1**: syntax-first heuristics over parsed forms
-- **later**: semantic refinement where the added precision clearly pays off
+For multi-arity functions:
+- each arity is a distinct local unit for analysis
+- any higher-level summary may treat the function as an aggregate over arities
 
 ---
 
-## Local units to analyze
+## Clojure-oriented heuristic interpretation
 
 Analyze in v1:
 - each top-level `defn` arity separately
@@ -1089,119 +1099,42 @@ This is likely to be the highest-value new metric in the feature.
 
 ---
 
-## Output model
+## Conceptual result shape
 
-Recommended machine-readable shape:
+The metric conceptually yields:
+- a burden vector
+- an optional headline rollup for ranking
+- findings that explain the main burden sources
+- evidence categories sufficient to justify those findings
 
-`:regularity-burden` may still be reported for visibility in v1 even though it
-is excluded from the headline rollup.
-
-```clojure
-{:unit {:ns 'gordian.scan
-        :name 'parse-file-all
-        :file "src/gordian/scan.clj"
-        :line 37}
- :arities [{:arity 2
-            :metrics {:flow-burden 3
-                      :state-burden 0
-                      :shape-burden 4
-                      :abstraction-burden 2
-                      :dependency-burden 2
-                      :regularity-burden 0
-                      :working-set {:peak 5
-                                    :avg 3.4
-                                    :burden 2}}
-            :lcc-total 15
-            :findings [{:kind :shape-churn
-                        :score 4
-                        :message "Value changes through 4 shape stages on main path"}
-                       {:kind :opaque-pipeline
-                        :score 2
-                        :message "3 non-transparent transformation stages"}]
-            :evidence {:shape-transitions [...]
-                       :level-sequence [...]
-                       :peak-working-set-point {...}}}]
- :aggregate {:method :max
-             :selected-arity 2
-             :metrics {:flow-burden 3
-                       :state-burden 0
-                       :shape-burden 4
-                       :abstraction-burden 2
-                       :dependency-burden 2
-                       :regularity-burden 0
-                       :working-set {:peak 5
-                                     :avg 3.4
-                                     :burden 2}}
-             :lcc-total 15}}
-```
+For v1, `regularity-burden` may remain visible even when excluded from the
+headline rollup.
 
 ---
 
-## Relationship to `code-shaper`
+## Interpretive summary
 
-This design is explicitly shaped by the `code-shaper` lens:
+LCC is intended to characterize local units that are difficult to safely
+understand and modify under bounded local reasoning.
 
-```text
-simple(code)   ≈ low flow burden ∧ low abstraction mixing ∧ local comprehensibility
-consistent(code) ≈ low regularity burden
-robust(code)   ≈ low state burden ∧ explicit invariants ∧ orthogonality
-```
+Low-burden units tend to exhibit:
+- one coherent local purpose
+- stable value expectations and invariants
+- bounded simultaneous mental load
+- explicit and limited state/effect reasoning
+- mostly local semantic legibility
+- predictable internal structure
 
-LCC is therefore not merely a complexity score. It is a local code-shape model.
+High-burden units tend to exhibit:
+- entangled concerns or semantic level mixing
+- repeated revision of value expectations
+- hidden temporal dependence
+- correctness meaning distributed across too many external definitions
+- overloaded working memory demands
+- locally inconsistent structures that resist compression
 
----
-
-## Integration options for Gordian
-
-Potential future surfaces:
-
-### New command
-```bash
-gordian local [dirs...] [options]
-```
-
-### Explain drilldown
-```bash
-gordian explain-local <ns>/<fn>
-```
-
-### Diagnose-style summaries
-- top high-LCC functions
-- top working-set overloads
-- top abstraction oscillators
-- top shape-churn functions
-
-### Compare / gate later
-Possible future checks:
-- no new very-high-LCC functions
-- working-set ratchet
-- mutation-burden ratchet
-
-This design does not require any of those integrations in the first slice.
-
----
-
-## Initial implementation recommendation
-
-The first implementation should focus on the metrics that most clearly improve
-on cyclomatic/cognitive complexity.
-
-### Recommended v1 subset
-1. `flow-burden`
-2. `state-burden`
-3. `shape-burden`
-4. `abstraction-burden`
-5. `working-set`
-
-This subset is small enough to ship, and already materially better than path
-count alone.
-
-### Defer or simplify initially
-- alias analysis
-- deep semantic effect inference
-- fully precise shape/keyset inference
-- project-trained domain vocabulary classification
-- cross-unit call understanding beyond simple helper counting
+This makes LCC an explanatory metric for safe local change reasoning, not
+merely another path count or size metric.
 
 ---
 
@@ -1226,17 +1159,75 @@ This should tune:
 
 ---
 
-## Open questions
+## Resolved v1 decisions
 
-1. Which parser yields the best cost/benefit for v1 in this codebase?
-2. Should anonymous local `fn`s be reported independently or only folded into
-   parent units initially?
-3. How aggressive should abstraction-level inference be before project-specific
-   configuration exists?
-4. How much keyset/map-shape inference is worth implementing in v1?
-5. Should effect registries be configurable from `.gordian.edn` later?
-6. Should local metrics be namespace-scoped only first, or function-scoped from
-   the start?
+### 1. Nested local functions
+Anonymous local `fn`s and other nested helpers remain folded into the enclosing
+parent unit in v1.
+
+Rationale:
+- LCC v1 is defined around the burden of safely understanding and changing a
+  top-level local unit
+- nested helpers often exist to serve that enclosing unit's local story
+- treating them as standalone units too early would blur the unit model and
+  shift the metric toward finer-grained reporting before the core concept is
+  fully stabilized
+
+A later version may revisit standalone reporting for nested units, but that is
+not part of the v1 metric definition.
+
+### 2. Abstraction-level inference aggressiveness
+Abstraction-level inference should be conservative in v1.
+
+V1 should prefer:
+- clear, high-confidence level distinctions
+- under-classification rather than speculative classification
+- stable conceptual categories over project-specific nuance
+
+The purpose of abstraction burden in v1 is to detect meaningful loss of
+coherent local purpose, not to perform maximal semantic labeling.
+
+### 3. Map-shape and keyset sensitivity
+V1 includes only coarse map-shape or keyset sensitivity.
+
+The metric should treat shape variation as conceptually important when it
+changes local value expectations in an obvious way, especially:
+- nil vs non-nil distinctions
+- map vs non-map distinctions
+- materially different literal keysets across branches when they are locally
+  evident
+
+It should not require fine-grained inferred keyset semantics everywhere. The
+metric's purpose is to capture instability of local invariants, not to become a
+full structural type system.
+
+### 4. Essential vs provisional dependency burden
+Essential dependency burden in v1 includes:
+- semantic lookup distance
+- opaque helper chasing
+- opaque chain stages
+- inversion of control that hides correctness-relevant flow
+
+Secondary or provisional dependency aspects include:
+- deep cross-unit semantic reconstruction
+- rich library-specific semantic modeling
+- project-specific transparency registries
+
+Dependency burden is therefore anchored in non-local meaning required for safe
+change reasoning, not in raw call counts or generic coupling.
+
+### 5. Severity-band interpretation
+Severity bands in v1 are interpretive heuristics for ranking and discussion,
+not cross-project absolutes.
+
+They should be read as:
+- relative indicators of local change burden within a codebase or comparison set
+- useful defaults for triage
+- subject to later calibration
+
+The burden vector and findings remain primary. Severity bands summarize the
+headline rollup, but they do not replace interpretation of the underlying
+burden dimensions.
 
 ---
 
@@ -1256,4 +1247,4 @@ burden rather than the whole local story.
 In short:
 
 > Gordian should measure not just how many paths a function has, but how much
-> mind it takes to trust a change.
+> mind it takes to safely understand and change one.

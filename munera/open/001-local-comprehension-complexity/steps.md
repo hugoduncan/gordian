@@ -1,5 +1,0 @@
-- [ ] Write `doc/design/021a-local-comprehension-complexity-implementation-plan.md`
-- [ ] Define v1 module boundaries, data flow, and output schema for local analysis
-- [ ] Specify the first executable slice and sequencing of implementation steps
-- [ ] Decide parser/tooling choice at implementation-plan level
-- [ ] Add roadmap entry to `PLAN.md` if the work is accepted into the near-term backlog
