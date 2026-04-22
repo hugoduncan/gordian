@@ -15,9 +15,10 @@ Usage: `gordian <command>` with scoped `--help`; no explicit command defaults to
 **v0.2.0 alpha.** Schema envelope, façade detection, family-noise suppression,
 explain-pair verdicts, family-scoped metrics, auto-discovery, config,
 diagnose, explain, markdown, dedicated `tests` mode, DSM, completed
-`complexity` mode with cyclomatic complexity + LOC, and scoped CLI subcommand
-help with command-local parsing.
-328 tests, 2645 assertions, 0 failures.
+`complexity` mode with cyclomatic complexity + LOC, simplified human-readable
+complexity output with explicit `--bar` metric selection, and scoped CLI
+subcommand help with command-local parsing.
+329 tests, 2686 assertions, 0 failures.
 
 ## Architecture (src/gordian/)
 
@@ -820,6 +821,13 @@ Current scoring rules:
 - `and` / `or` add `operand-count - 1`
 - each `catch` in `try` adds 1
 - `loop`, `recur`, recursion, `for`, `doseq`, and `while` do not independently add complexity
+
+Display refinements (task 004):
+- removed `decisions` from text and markdown complexity tables
+- added `--bar cc|loc` to control human-readable histogram bars explicitly
+- default bar metric remains `loc` for `--sort loc`, otherwise `cc`
+- machine-readable payloads still retain `:cc-decision-count`
+- payload now records `:bar-metric`, while `:options` records explicit `:bar` when provided
 
 Scope semantics:
 - default project-root behavior = discovered source paths only
