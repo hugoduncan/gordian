@@ -1,0 +1,10 @@
+- [ ] Add `gordian local` command shell and complexity-like scope resolution
+- [ ] Lock the v1 CLI/report shape for `local` around a complexity-like option model (`--sort`, `--top`, `--min`, `--bar`, scope flags) and compact burden-vector tables
+- [ ] Implement top-level local-unit extraction for `defn` arities and `defmethod` bodies
+- [ ] Implement LCC evidence extraction over local units
+- [ ] Implement burden scoring for flow, state, shape, abstraction, dependency, and working-set
+- [ ] Implement conservative high-confidence LCC findings
+- [ ] Assemble canonical LCC report and default ranking
+- [ ] Add text / EDN / JSON / markdown output support, shaping text output and options to resemble `gordian complexity` where the concepts transfer cleanly
+- [ ] Add tests for unit extraction, burden scoring, findings, report shape, and CLI behavior
+- [ ] Update docs/help for the new `local` command
