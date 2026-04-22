@@ -677,6 +677,24 @@ ea994f9  fix: strip leading ./ from src-dirs in path->ns — change coupling bro
 
 317 tests, 2072 assertions, 0 failures.
 
+## Session 26 — Munera task 005 closed
+
+Verified task `005-refactor-gordian-output-namespace-and-tests` is already complete in the codebase and test suite.
+
+Closure evidence:
+- `src/gordian/output.clj` is now a thin façade
+- command-focused formatter namespaces exist under `src/gordian/output/`
+- split formatter tests exist under `test/gordian/output/`
+- full suite passes: 328 tests, 2628 assertions, 0 failures
+
+Key implementation commits already present:
+- `b30999f` refactor: split output formatters and tests by command
+- `c577625` refactor: shape output formatter internals
+
+Task status change:
+- moved `munera/open/005-refactor-gordian-output-namespace-and-tests` → `munera/closed/`
+- removed task 005 from `munera/plan.md` open-task list
+
 ## Session 24 / 25 — complexity mode completed
 
 ```
