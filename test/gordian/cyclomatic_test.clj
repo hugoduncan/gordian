@@ -21,11 +21,25 @@
     (is (= 3 (sut/arity-complexity '((and a b c)))))
     (is (= 2 (sut/arity-complexity '((or a b))))))
 
-  (testing "cond counts non-default branches"
-    (is (= 3 (sut/arity-complexity '((cond a 1 b 2 :else 3))))))
+  (testing "cond counts default branch when present"
+    (is (= 4 (sut/arity-complexity '((cond a 1 b 2 :else 3))))))
 
-  (testing "case counts explicit branches, ignores default"
-    (is (= 3 (sut/arity-complexity '((case x :a 1 :b 2 0))))))
+  (testing "condp counts default branch when present"
+    (is (= 4 (sut/arity-complexity '((condp = x :a 1 :b 2 0))))))
+
+  (testing "case counts default branch when present"
+    (is (= 4 (sut/arity-complexity '((case x :a 1 :b 2 0))))))
+
+  (testing "cond-> counts condition/form pairs"
+    (is (= 3 (sut/arity-complexity '((cond-> x a (assoc :a 1) b (assoc :b 2)))))))
+
+  (testing "looping/iteration forms do not independently increment complexity"
+    (is (= 1 (sut/arity-complexity '((while p (inc x))))) )
+    (is (= 1 (sut/arity-complexity '((for [x xs] (inc x))))) )
+    (is (= 1 (sut/arity-complexity '((doseq [x xs] (inc x))))) ))
+
+  (testing "branches inside looping forms still count normally"
+    (is (= 2 (sut/arity-complexity '((while p (if x 1 2)))))))
 
   (testing "try counts catch clauses"
     (is (= 2 (sut/arity-complexity '((try (inc x) (catch Exception _ 0))))))))
@@ -65,9 +79,9 @@
         result (sut/function-complexities file)]
     (is (= 'sample.core (:ns result)))
     (is (= 3 (count (:functions result))))
-    (is (= '{a 1 b 2 c 2}
+    (is (= '{a 1 b 2 c 3}
            (into {} (map (juxt :name :complexity) (:functions result)))))
-    (is (= [1 2] (:arity-complexities (first (filter #(= 'c (:name %)) (:functions result))))))))
+    (is (= [1 3] (:arity-complexities (first (filter #(= 'c (:name %)) (:functions result))))))))
 
 (deftest rollup-test
   (let [result (sut/rollup fixture-files)]

@@ -1,22 +1,22 @@
 (ns gordian.cyclomatic
   "Pure cyclomatic complexity analysis over edamame forms.
 
-  Rules:
-  - every function starts at complexity 1
+  Current rules:
+  - every analyzed unit starts at complexity 1
   - +1 for each branching form: if/if-not/if-let/if-some/when/when-not/
     when-let/when-some/when-first
-  - +1 for each loop form: doseq/for/while
-  - +N for cond/condp, where N is the number of non-default test clauses
-  - +N for case, where N is the number of branch arms (default ignored)
+  - +N for cond, where N is the number of clause pairs, including trailing :else
+  - +N for condp, where N is the number of clause pairs after the dispatch/test
+    prefix, including default when present
+  - +N for case, where N is the number of branch arms, including default when present
   - +(k-1) for boolean chains (and/or) with k operands
-  - +1 for each catch clause in try"
+  - +1 for each catch clause in try
+  - +1 for each cond-> condition/form pair
+  - loop/recursion/iteration forms do not independently increment complexity"
   (:require [clojure.string :as str]))
 
 (def ^:private branch-ops
   '#{if if-not if-let if-some when when-not when-let when-some when-first})
-
-(def ^:private loop-ops
-  '#{doseq for while})
 
 (def ^:private defn-ops
   '#{defn defn-})
@@ -62,29 +62,29 @@
 
 (defn- cond-branches
   [args]
-  (->> args
-       (partition 2 2 [])
-       (keep (fn [[test _expr]]
-               (when (and test (not= :else test))
-                 1)))
-       count))
+  (count (partition 2 2 [] args)))
 
 (defn- condp-branches
   [args]
-  (let [pairs (drop 2 args)]
-    (->> pairs
-         (partition 2 2 [])
-         (keep (fn [[test _expr]]
-                 (when (and test (not= :else test))
-                   1)))
-         count)))
+  (let [clauses (drop 2 args)]
+    (if (<= (count clauses) 1)
+      0
+      (if (even? (count clauses))
+        (/ (count clauses) 2)
+        (inc (/ (dec (count clauses)) 2))))))
 
 (defn- case-branches
   [args]
-  (let [clauses (drop 1 args)
-        default? (odd? (count clauses))
-        branch-clauses (if default? (butlast clauses) clauses)]
-    (/ (count branch-clauses) 2)))
+  (let [clauses (drop 1 args)]
+    (if (<= (count clauses) 1)
+      0
+      (if (even? (count clauses))
+        (/ (count clauses) 2)
+        (inc (/ (dec (count clauses)) 2))))))
+
+(defn- cond->-branches
+  [args]
+  (count (partition 2 2 [] (drop 1 args))))
 
 (declare complexity*)
 
@@ -96,10 +96,10 @@
       (+
        (cond
          (branch-ops op) 1
-         (loop-ops op)   1
          (= 'cond op)    (cond-branches args)
          (= 'condp op)   (condp-branches args)
          (= 'case op)    (case-branches args)
+         (= 'cond-> op)  (cond->-branches args)
          (= 'and op)     (max 0 (dec (count args)))
          (= 'or op)      (max 0 (dec (count args)))
          :else           0)
