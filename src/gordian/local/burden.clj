@@ -1,9 +1,12 @@
 (ns gordian.local.burden)
 
+(def burden-families
+  [:flow :state :shape :abstraction :dependency :working-set])
+
 (def ^:private severity-bands
-  [{:max 7.0 :severity {:level :low :label "Low local comprehension burden"}}
-   {:max 15.0 :severity {:level :moderate :label "Moderate local comprehension burden"}}
-   {:max 25.0 :severity {:level :high :label "High local comprehension burden"}}
+  [{:max 3.5 :severity {:level :low :label "Low local comprehension burden"}}
+   {:max 6.5 :severity {:level :moderate :label "Moderate local comprehension burden"}}
+   {:max 9.5 :severity {:level :high :label "High local comprehension burden"}}
    {:max Double/MAX_VALUE :severity {:level :very-high :label "Very high local comprehension burden"}}])
 
 (defn flow-burden [{:keys [branch nest interrupt recursion logic]}]
@@ -54,14 +57,83 @@
      :avg avg
      :burden burden}))
 
-(defn lcc-total
+(defn raw-burdens
   [{:keys [flow-burden state-burden shape-burden abstraction-burden dependency-burden working-set]}]
-  (+ (* 1.0 flow-burden)
-     (* 1.3 state-burden)
-     (* 1.2 shape-burden)
-     (* 1.4 abstraction-burden)
-     (* 1.1 dependency-burden)
-     (* 1.5 (:burden working-set))))
+  {:flow flow-burden
+   :state state-burden
+   :shape shape-burden
+   :abstraction abstraction-burden
+   :dependency dependency-burden
+   :working-set (:burden working-set)})
+
+(defn non-zero-values [xs]
+  (filterv pos? xs))
+
+(defn quantile
+  [xs q]
+  (let [xs (vec (sort xs))
+        n  (count xs)]
+    (cond
+      (zero? n) 0.0
+      (= 1 n) (double (first xs))
+      :else (let [idx (int (Math/ceil (* q n)))]
+              (double (nth xs (min (dec n) (max 0 (dec idx)))))))))
+
+(defn family-scale
+  [values]
+  (let [nz (non-zero-values values)]
+    (cond
+      (seq nz)
+      (let [sorted (vec (sort nz))
+            p75    (quantile sorted 0.75)
+            median (quantile sorted 0.50)]
+        (double (max 1.0 (if (<= (count sorted) 3) median p75))))
+
+      :else 1.0)))
+
+(defn calibrate
+  [units]
+  (let [family-values (reduce (fn [acc unit]
+                                (reduce (fn [acc family]
+                                          (update acc family conj (get (raw-burdens unit) family 0.0)))
+                                        acc
+                                        burden-families))
+                              (zipmap burden-families (repeat []))
+                              units)
+        scales (into {}
+                     (map (fn [family]
+                            [family (family-scale (get family-values family []))])
+                          burden-families))
+        weights (zipmap burden-families (repeat 1.0))]
+    {:transform :log1p-over-scale
+     :scale-rule :p75-non-zero-with-sparse-median-fallback
+     :weights weights
+     :families (into {}
+                     (map (fn [family]
+                            [family {:scale (double (get scales family 1.0))
+                                     :non-zero-count (count (non-zero-values (get family-values family [])))
+                                     :sample-count (count (get family-values family []))}])
+                          burden-families))}))
+
+(defn normalize-family
+  [raw scale]
+  (Math/log1p (/ (double raw) (double (max scale 1.0)))))
+
+(defn normalized-burdens
+  [raw-burdens calibration]
+  (into {}
+        (map (fn [family]
+               (let [scale (get-in calibration [:families family :scale] 1.0)]
+                 [family (normalize-family (get raw-burdens family 0.0) scale)]))
+             burden-families)))
+
+(defn lcc-total
+  [{:keys [normalized calibration]}]
+  (reduce + 0.0
+          (map (fn [family]
+                 (* (double (get-in calibration [:weights family] 1.0))
+                    (double (get normalized family 0.0))))
+               burden-families)))
 
 (defn lcc-severity [total]
   (:severity (first (filter #(<= total (:max %)) severity-bands))))
@@ -72,19 +144,24 @@
         shape       (shape-burden (:shape evidence))
         abstraction (abstraction-burden (:abstraction evidence))
         dependency  (dependency-burden (:dependency evidence))
-        ws          (working-set evidence)
-        total       (lcc-total {:flow-burden flow
-                                :state-burden state
-                                :shape-burden shape
-                                :abstraction-burden abstraction
-                                :dependency-burden dependency
-                                :working-set ws})]
+        ws          (working-set evidence)]
     (assoc unit
            :flow-burden flow
            :state-burden state
            :shape-burden shape
            :abstraction-burden abstraction
            :dependency-burden dependency
-           :working-set ws
+           :working-set ws)))
+
+(defn apply-calibration
+  [calibration unit]
+  (let [raw        (raw-burdens unit)
+        normalized (normalized-burdens raw calibration)
+        total      (lcc-total {:normalized normalized
+                               :calibration calibration})]
+    (assoc unit
+           :normalized-burdens normalized
+           :lcc-calibration {:weights (:weights calibration)
+                             :transform (:transform calibration)}
            :lcc-total total
            :lcc-severity (lcc-severity total))))
