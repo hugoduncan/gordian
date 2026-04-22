@@ -86,12 +86,12 @@
 (defn format-compare
   "Format a compare diff as human-readable lines."
   [diff]
-  (let [health   (:health diff)
-        nodes    (:nodes diff)
-        cycles   (:cycles diff)
-        c-pairs  (:conceptual-pairs diff)
-        x-pairs  (:change-pairs diff)
-        findings (:findings diff)]
+  (let [health         (:health diff)
+        node-lines     (format-compare-nodes (:nodes diff))
+        cycle-lines    (format-compare-cycles (:cycles diff))
+        conceptual     (format-compare-pairs (:conceptual-pairs diff))
+        change         (format-compare-pairs (:change-pairs diff))
+        finding-lines  (format-compare-findings (:findings diff))]
     (into
      ["gordian compare"
       ""
@@ -99,15 +99,15 @@
      (concat
       (format-compare-health health)
       [""]
-      (section-if-nonempty "NAMESPACES" (format-compare-nodes nodes))
-      (when (seq (format-compare-nodes nodes)) [""])
-      (section-if-nonempty "CYCLES" (format-compare-cycles cycles))
-      (when (seq (format-compare-cycles cycles)) [""])
-      (section-if-nonempty "CONCEPTUAL PAIRS" (format-compare-pairs c-pairs))
-      (when (seq (format-compare-pairs c-pairs)) [""])
-      (section-if-nonempty "CHANGE PAIRS" (format-compare-pairs x-pairs))
-      (when (seq (format-compare-pairs x-pairs)) [""])
-      (section-if-nonempty "FINDINGS" (format-compare-findings findings))))))
+      (section-if-nonempty "NAMESPACES" node-lines)
+      (when (seq node-lines) [""])
+      (section-if-nonempty "CYCLES" cycle-lines)
+      (when (seq cycle-lines) [""])
+      (section-if-nonempty "CONCEPTUAL PAIRS" conceptual)
+      (when (seq conceptual) [""])
+      (section-if-nonempty "CHANGE PAIRS" change)
+      (when (seq change) [""])
+      (section-if-nonempty "FINDINGS" finding-lines)))))
 
 (defn format-compare-md
   "Format a compare diff as markdown lines."

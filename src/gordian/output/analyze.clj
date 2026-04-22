@@ -30,12 +30,13 @@
                               "  (" (count members) " namespaces)"))
                        cycles))))
 
-(defn- conceptual-ns-col
+(defn- pair-ns-col
   "Column width fitting the longest namespace name across all pairs."
   [pairs]
   (apply max 20
          (mapcat (fn [{:keys [ns-a ns-b]}]
-                   [(count (str ns-a)) (count (str ns-b))])
+                   [(count (str ns-a))
+                    (count (str ns-b))])
                  pairs)))
 
 (defn format-conceptual
@@ -46,7 +47,7 @@
   [pairs threshold]
   (if (empty? pairs)
     []
-    (let [ns-col (conceptual-ns-col pairs)
+    (let [ns-col (pair-ns-col pairs)
           header (str (common/pad-right ns-col "namespace-a")
                       "  " (common/pad-right ns-col "namespace-b")
                       "  score  structural  shared concepts")
@@ -65,14 +66,6 @@
                           (str "no  ←    " (str/join " " shared-terms)))))
             pairs)))))
 
-(defn- change-ns-col
-  "Column width fitting the longest namespace name across all pairs."
-  [pairs]
-  (apply max 20
-         (mapcat (fn [{:keys [ns-a ns-b]}]
-                   [(count (str ns-a)) (count (str ns-b))])
-                 pairs)))
-
 (defn format-change-coupling
   "Return a vector of lines for the change coupling section.
   Returns [] when pairs is empty — section omitted entirely.
@@ -81,7 +74,7 @@
   [pairs threshold]
   (if (empty? pairs)
     []
-    (let [ns-col (change-ns-col pairs)
+    (let [ns-col (pair-ns-col pairs)
           header (str (common/pad-right ns-col "namespace-a")
                       "  " (common/pad-right ns-col "namespace-b")
                       "  Jaccard  co  conf-a  conf-b  structural")

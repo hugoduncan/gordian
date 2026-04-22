@@ -2,6 +2,24 @@
   (:require [clojure.string :as str]
             [gordian.output.common :as common]))
 
+(defn- severity-counts [findings]
+  (let [count-sev (fn [severity]
+                    (count (filter #(= severity (:severity %)) findings)))]
+    {:high   (count-sev :high)
+     :medium (count-sev :medium)
+     :low    (count-sev :low)
+     :total  (count findings)}))
+
+(defn- finding-count-summary
+  [{:keys [high medium low total]} suppressed-count truncated-from]
+  (str (if truncated-from
+         (str "top " total " of " truncated-from " findings")
+         (str total " finding" (when (not= 1 total) "s")))
+       " (" high " high, " medium " medium, " low " low)"
+       (when (pos? (or suppressed-count 0))
+         (str " — " suppressed-count
+              " noise suppressed (--show-noise to include)"))))
+
 (defn format-diagnose
   "Format findings as human-readable lines.
   health           — map from diagnose/health.
@@ -18,24 +36,14 @@
   ([report health findings clusters-data rank suppressed-count]
    (format-diagnose report health findings clusters-data rank suppressed-count nil))
   ([{:keys [src-dirs]} health findings clusters-data rank suppressed-count truncated-from]
-   (let [count-sev (fn [s] (count (filter #(= s (:severity %)) findings)))
-         n-high    (count-sev :high)
-         n-medium  (count-sev :medium)
-         n-low     (count-sev :low)
-         n-total   (count findings)
+   (let [{:keys [high medium low total] :as counts} (severity-counts findings)
          has-clusters? (seq (:clusters clusters-data))
-         summary   (str (if truncated-from
-                          (str "top " n-total " of " truncated-from " findings")
-                          (str n-total " finding" (when (not= 1 n-total) "s")))
-                        " (" n-high " high, " n-medium " medium, " n-low " low)"
-                        (when (pos? (or suppressed-count 0))
-                          (str " — " suppressed-count
-                               " noise suppressed (--show-noise to include)")))]
+         summary (finding-count-summary counts suppressed-count truncated-from)]
      (into
       [(str "gordian diagnose — "
             (if truncated-from
-              (str "top " n-total " of " truncated-from " findings")
-              (str n-total " finding" (when (not= 1 n-total) "s"))))
+              (str "top " total " of " truncated-from " findings")
+              (str total " finding" (when (not= 1 total) "s"))))
        (str "src: " (str/join " " src-dirs))
        (str "rank: " (name rank))
        ""
@@ -74,17 +82,13 @@
   ([report health findings clusters-data rank suppressed-count]
    (format-diagnose-md report health findings clusters-data rank suppressed-count nil))
   ([{:keys [src-dirs]} health findings clusters-data rank suppressed-count truncated-from]
-   (let [count-sev (fn [s] (count (filter #(= s (:severity %)) findings)))
-         n-high    (count-sev :high)
-         n-medium  (count-sev :medium)
-         n-low     (count-sev :low)
-         n-total   (count findings)
+   (let [{:keys [high medium low total]} (severity-counts findings)
          has-clusters? (seq (:clusters clusters-data))]
      (into
       [(str "# Gordian Diagnose — "
             (if truncated-from
-              (str "Top " n-total " of " truncated-from " Findings")
-              (str n-total " Finding" (when (not= 1 n-total) "s"))))
+              (str "Top " total " of " truncated-from " Findings")
+              (str total " Finding" (when (not= 1 total) "s"))))
        ""
        (str "**Source:** `" (str/join " " src-dirs) "`")
        ""
@@ -119,9 +123,9 @@
         ""
         (str "**"
              (if truncated-from
-               (str "top " n-total " of " truncated-from " findings")
-               (str n-total " finding" (when (not= 1 n-total) "s")))
-             "** (" n-high " high, " n-medium " medium, " n-low " low)"
+               (str "top " total " of " truncated-from " findings")
+               (str total " finding" (when (not= 1 total) "s")))
+             "** (" high " high, " medium " medium, " low " low)"
              (when (pos? (or suppressed-count 0))
                (str " — " suppressed-count
                     " noise suppressed (--show-noise to include)")))])))))
