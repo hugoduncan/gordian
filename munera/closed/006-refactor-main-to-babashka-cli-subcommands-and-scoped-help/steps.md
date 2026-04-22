@@ -33,6 +33,6 @@ Post-review follow-up steps:
 - [x] tighten `subgraph` scoped help to only options consumed by `subgraph-cmd`
 - [x] restore complexity explicit-path validation so explicit `.` still counts as an explicit path for `--source-only` / `--tests-only` rejection
 - [x] trim unused `gordian.cli` helper surface
-- [ ] if CLI growth continues, consider splitting `gordian.cli` into smaller helpers for registry/spec data, help rendering, and parse/validation
-- [ ] add stronger black-box help tests that assert exact option-row presence/absence rather than broad substring checks
-- [ ] reassess whether command dispatch should move closer to the registry, but only if it improves local comprehensibility
+- [x] if CLI growth continues, consider splitting `gordian.cli` into smaller helpers for registry/spec data, help rendering, and parse/validation
+- [x] add stronger black-box help tests that assert exact option-row presence/absence rather than broad substring checks
+- [x] reassess whether command dispatch should move closer to the registry, but only if it improves local comprehensibility

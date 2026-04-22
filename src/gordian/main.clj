@@ -467,6 +467,16 @@
       markdown (run! println (output/format-explain-pair-md data))
       :else    (output/print-explain-pair data))))
 
+(def ^:private command-handlers
+  {:diagnose     diagnose-cmd
+   :subgraph     subgraph-cmd
+   :communities  communities-cmd
+   :dsm          dsm-cmd
+   :tests        tests-cmd
+   :cyclomatic   complexity-cmd
+   :explain      explain-cmd
+   :explain-pair explain-pair-cmd})
+
 (defn run [args]
   (let [parsed (parse-args args)]
     (cond
@@ -490,17 +500,11 @@
                                   (print-help command)
                                   (print-help))
                                 (System/exit 1))
-                            (case (:command opts)
-                              :diagnose     (diagnose-cmd opts)
-                              :gate         (System/exit (gate-cmd opts))
-                              :subgraph     (subgraph-cmd opts)
-                              :communities  (communities-cmd opts)
-                              :dsm          (dsm-cmd opts)
-                              :tests        (tests-cmd opts)
-                              :cyclomatic   (complexity-cmd opts)
-                              :explain      (explain-cmd opts)
-                              :explain-pair (explain-pair-cmd opts)
-                              (analyze opts))))))))
+                            (if-let [handler (get command-handlers (:command opts))]
+                              (handler opts)
+                              (if (= :gate (:command opts))
+                                (System/exit (gate-cmd opts))
+                                (analyze opts)))))))))
 
 (defn -main [& args]
   (run args))

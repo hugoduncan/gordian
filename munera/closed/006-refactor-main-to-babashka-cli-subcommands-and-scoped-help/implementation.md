@@ -77,3 +77,9 @@ Remaining feedback:
 - if the CLI grows further, consider splitting `gordian.cli` into smaller helpers for registry/spec data, help rendering, and parse/validation
 - add more black-box help tests that assert exact option-row presence/absence rather than broad substring checks
 - reconsider whether command dispatch should eventually move closer to the registry, but only if that improves local comprehensibility
+
+Dispatch reassessment:
+- do not move handlers into the command registry yet
+- current best fit is: registry/help/parse are in `gordian.cli.*`, while runtime command handlers remain in `gordian.main`
+- this preserves the existing thin-IO shell pattern and avoids coupling registry data to runtime handler wiring
+- a small `command-handlers` map in `main.clj` improves local comprehensibility without over-integrating dispatch into the registry
