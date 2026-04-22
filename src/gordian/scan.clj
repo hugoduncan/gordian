@@ -120,22 +120,16 @@
 ;;; only the IO and parsing.
 
 (defn- read-all-forms
-  "Read all parseable top-level forms from content using edamame's incremental
-  reader.  Skips forms that fail to parse rather than aborting — same
-  resilience strategy as read-ns-form."
+  "Read all parseable top-level forms from content with source locations.
+  Uses edamame's whole-string parser so top-level forms carry row/end-row metadata."
   [content]
-  (let [rdr (e/reader content)]
-    (loop [forms []]
-      (let [form (try (e/parse-next rdr parse-opts)
-                      (catch Exception _ ::skip))]
-        (cond
-          (= ::e/eof form) forms
-          (= ::skip  form) (recur forms)
-          :else            (recur (conj forms form)))))))
+  (try
+    (e/parse-string-all content parse-opts)
+    (catch Exception _ [])))
 
 (defn parse-file-all-forms
-  "Read a .clj file and return {:file string :ns sym :forms [form]}, or nil on failure.
-  Reads the full file body so that def names and docstrings are captured."
+  "Read a .clj file and return {:file string :ns sym :forms [form] :source string}, or nil on failure.
+  Reads the full file body so that def names, docstrings, and source spans are captured."
   [path]
   (try
     (let [content (slurp (str path))
@@ -145,7 +139,8 @@
       (when ns-sym
         {:file (str path)
          :ns ns-sym
-         :forms forms}))
+         :forms forms
+         :source content}))
     (catch Exception _ nil)))
 
 ;;; ── combined single-pass scan ────────────────────────────────────────────

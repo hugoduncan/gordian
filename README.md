@@ -134,8 +134,9 @@ Interpretation notes:
 
 ## Complexity mode (`complexity`)
 
-`gordian complexity` analyzes cyclomatic complexity for top-level executable
-bodies at arity granularity. `gordian cyclomatic` remains available as a
+`gordian complexity` analyzes local code metrics for top-level executable
+bodies at arity granularity. In v1 it always computes both cyclomatic
+complexity and lines of code (LOC). `gordian cyclomatic` remains available as a
 compatibility alias.
 
 ```bash
@@ -143,17 +144,19 @@ gordian complexity .
 gordian complexity src/
 gordian complexity --tests-only .
 gordian complexity . --sort cc-risk --top 20
-gordian complexity . --min-cc 10
+gordian complexity . --sort loc
+gordian complexity . --min cc=10
+gordian complexity . --min cc=10 --min loc=20
 gordian complexity . --edn > complexity.edn
 gordian complexity . --json > complexity.json
 gordian complexity . --markdown > complexity.md
 ```
 
 It reports:
-- per-unit cyclomatic complexity (`defn` arities, `defmethod`, top-level `def` + literal `fn`)
+- per-unit cyclomatic complexity and lines of code (`defn` arities, `defmethod`, top-level `def` + literal `fn`)
 - namespace rollups over canonical units
-- project rollup with risk-band counts
-- text/markdown summaries plus machine-readable canonical fields such as `:scope`, `:options`, `:units`, `:namespace-rollups`, `:project-rollup`, `:max-unit`, and per-unit `:cc`
+- project rollup with risk-band counts plus LOC totals
+- text/markdown summaries plus machine-readable canonical fields such as `:metrics`, `:scope`, `:options`, `:units`, `:namespace-rollups`, `:project-rollup`, `:max-unit`, and per-unit `:cc` / `:loc`
 
 Current counting rules:
 - base complexity `1` per analyzed unit
@@ -170,8 +173,10 @@ Scope and ranking controls:
 - default with project discovery = source paths only
 - `--tests-only` analyzes discovered test paths only
 - explicit paths override discovery-based scope selection
-- `--sort` supports `cc`, `ns`, `var`, and `cc-risk`
-- `--min-cc` suppresses units below the threshold and rollups whose `max-cc` is below it
+- `--sort` supports `cc`, `loc`, `ns`, `var`, and `cc-risk`
+- repeatable `--min metric=value` filters displayed unit rows only, e.g. `--min cc=10` or `--min loc=20`
+- multiple `--min` constraints combine conjunctively
+- namespace and project rollups remain computed from the full analyzed unit set
 - `--top` truncates units and namespace-rollup sections independently
 
 This mode complements Gordian's architectural analysis: it measures local

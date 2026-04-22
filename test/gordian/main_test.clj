@@ -392,17 +392,20 @@
            (:error (sut/parse-args ["complexity" "src" "--tests-only"])))))
 
   (testing "complexity rejects invalid sort key"
-    (is (= "complexity --sort must be one of: cc, ns, var, cc-risk"
+    (is (= "complexity --sort must be one of: cc, loc, ns, var, cc-risk"
            (:error (sut/parse-args ["complexity" "--sort" "bogus"])))))
+
+  (testing "complexity rejects malformed min"
+    (is (= "complexity --min values must be metric=value with metric in {cc,loc} and positive integer value"
+           (:error (sut/parse-args ["complexity" "--min" "bogus"])))) )
+
+  (testing "complexity rejects removed --min-cc"
+    (is (= "complexity no longer accepts --min-cc; use --min cc=<n>"
+           (:error (sut/parse-args ["complexity" "--min-cc" "10"])))) )
 
   (testing "complexity rejects non-positive top"
     (is (= "complexity --top must be a positive integer"
            (:error (sut/parse-args ["complexity" "--top" "0"]))))))
-
-(deftest parse-args-complexity-min-cc-test
-  (testing "complexity rejects negative min-cc"
-    (is (= "complexity --min-cc must be a non-negative integer"
-           (:error (sut/parse-args ["complexity" "--min-cc" "-1"]))))))
 
 ;;; ── diagnose integration ─────────────────────────────────────────────────
 
@@ -598,16 +601,16 @@
       (is (contains? parsed :scope))
       (is (contains? parsed :options))))
 
-  (testing "cyclomatic min-cc filters displayed units and rollups"
+  (testing "cyclomatic --min filters displayed units only"
     (let [out (with-out-str
                 (sut/complexity-cmd {:src-dirs ["src"]
                                      :command :cyclomatic
                                      :edn true
-                                     :min-cc 20}))
+                                     :min ["cc=20"]}))
           parsed (read-string out)]
       (is (every? #(<= 20 (:cc %)) (:units parsed)))
-      (is (every? #(<= 20 (:max-cc %)) (:namespace-rollups parsed)))
-      (is (= 20 (get-in parsed [:options :min-cc]))))))
+      (is (seq (:namespace-rollups parsed)))
+      (is (= {:cc 20} (get-in parsed [:options :mins]))))))
 
 ;;; ── parse-args / --markdown ────────────────────────────────────────────────
 
@@ -641,7 +644,7 @@
                                      :edn true
                                      :sort :cc-risk
                                      :top 5
-                                     :min-cc 2}))
+                                     :min ["cc=2" "loc=1"]}))
           parsed (read-string out)]
       (is (= :complexity (:gordian/command parsed)))
       (is (contains? parsed :gordian/version))
@@ -652,7 +655,8 @@
       (is (vector? (get-in parsed [:scope :paths])))
       (is (= :cc-risk (get-in parsed [:options :sort])))
       (is (= 5 (get-in parsed [:options :top])))
-      (is (= 2 (get-in parsed [:options :min-cc]))))))
+      (is (= {:cc 2 :loc 1} (get-in parsed [:options :mins])))
+      (is (= [:cyclomatic-complexity :lines-of-code] (:metrics parsed))))))
 
 (deftest markdown-integration-test
   (testing "analyze --markdown produces markdown"

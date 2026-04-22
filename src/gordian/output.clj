@@ -1578,7 +1578,13 @@
   [max-unit]
   (str (:ns max-unit) "/" (:var max-unit)
        " [arity " (:arity max-unit) "]"
-       " (" (:cc max-unit) ")"))
+       " (cc=" (:cc max-unit) ", loc=" (:loc max-unit) ")"))
+
+(defn- complexity-bar-value
+  [sort-key x]
+  (case sort-key
+    :loc (or (:loc x) (:max-loc x) 0)
+    (or (:cc x) (:max-cc x) 0)))
 
 (defn- complexity-unit-header
   [unit-label-width bar-col-gap]
@@ -1586,61 +1592,79 @@
         "  " (pad-left 4 "cc")
         "  " (pad-right 10 "risk")
         "  " (pad-left 9 "decisions")
+        "  " (pad-left 4 "loc")
         bar-col-gap "bar")
    (str "  " (rule unit-label-width)
         "  " (rule 4)
         "  " (rule 10)
         "  " (rule 9)
+        "  " (rule 4)
         bar-col-gap (rule 3))])
 
 (defn- complexity-unit-row
-  [unit-label-width bar-col-gap {:keys [cc cc-decision-count cc-risk] :as unit}]
+  [sort-key unit-label-width bar-col-gap {:keys [cc cc-decision-count cc-risk loc] :as unit}]
   (str "  " (pad-right unit-label-width (complexity-unit-label unit))
        "  " (pad-left 4 cc)
        "  " (pad-right 10 (name (:level cc-risk)))
        "  " (pad-left 9 cc-decision-count)
-       bar-col-gap (bar cc)))
+       "  " (pad-left 4 loc)
+       bar-col-gap (bar (complexity-bar-value sort-key unit))))
 
 (defn- complexity-rollup-header
   [ns-label-width bar-col-gap]
   [(str "  " (pad-right ns-label-width "namespace")
         "  " (pad-left 5 "units")
-        "  " (pad-left 5 "total")
-        "  " (pad-left 6 "avg")
-        "  " (pad-left 4 "max")
+        "  " (pad-left 8 "total-cc")
+        "  " (pad-left 6 "avg-cc")
+        "  " (pad-left 6 "max-cc")
+        "  " (pad-left 9 "total-loc")
+        "  " (pad-left 7 "avg-loc")
+        "  " (pad-left 7 "max-loc")
         bar-col-gap "bar")
    (str "  " (rule ns-label-width)
         "  " (rule 5)
-        "  " (rule 5)
+        "  " (rule 8)
         "  " (rule 6)
-        "  " (rule 4)
+        "  " (rule 6)
+        "  " (rule 9)
+        "  " (rule 7)
+        "  " (rule 7)
         bar-col-gap (rule 3))])
 
 (defn- complexity-rollup-row
-  [ns-label-width bar-col-gap {:keys [ns unit-count total-cc avg-cc max-cc]}]
+  [sort-key ns-label-width bar-col-gap {:keys [ns unit-count total-cc avg-cc max-cc total-loc avg-loc max-loc] :as rollup}]
   (str "  " (pad-right ns-label-width (str ns))
        "  " (pad-left 5 unit-count)
-       "  " (pad-left 5 total-cc)
+       "  " (pad-left 8 total-cc)
        "  " (pad-left 6 (format "%.2f" (double avg-cc)))
-       "  " (pad-left 4 max-cc)
-       bar-col-gap (bar max-cc)))
+       "  " (pad-left 6 max-cc)
+       "  " (pad-left 9 total-loc)
+       "  " (pad-left 7 (format "%.2f" (double avg-loc)))
+       "  " (pad-left 7 max-loc)
+       bar-col-gap (bar (complexity-bar-value sort-key rollup))))
 
 (defn format-complexity
   "Format complexity report as human-readable lines."
-  [{:keys [src-dirs units namespace-rollups project-rollup max-unit]}]
+  [{:keys [src-dirs units namespace-rollups project-rollup max-unit options metrics]}]
   (let [unit-label-width (max 10 (apply max (concat [10] (map (comp count complexity-unit-label) units))))
         ns-label-width   (max 10 (apply max (concat [10] (map #(count (str (:ns %))) namespace-rollups))))
-        bar-col-gap      "  "]
+        bar-col-gap      "  "
+        sort-key         (:sort options)]
     (into
      ["gordian complexity"
       (str "src: " (str/join " " src-dirs))
       ""
       "SUMMARY"
+      (str "  metrics: " (str/join ", " (map name metrics)))
       (str "  namespaces: " (:namespace-count project-rollup))
       (str "  units: " (:unit-count project-rollup))
-      (str "  total complexity: " (:total-cc project-rollup))
-      (str "  avg complexity: " (format "%.2f" (double (:avg-cc project-rollup))))
-      (str "  max complexity: " (:max-cc project-rollup))
+      (str "  total cc: " (:total-cc project-rollup))
+      (str "  avg cc: " (format "%.2f" (double (:avg-cc project-rollup))))
+      (str "  max cc: " (:max-cc project-rollup))
+      (str "  total loc: " (:total-loc project-rollup))
+      (str "  avg loc: " (format "%.2f" (double (:avg-loc project-rollup))))
+      (str "  max loc: " (:max-loc project-rollup))
+      (str "  mins: " (if (seq (:mins options)) (pr-str (:mins options)) "{}"))
       (str "  max unit: " (if max-unit
                             (complexity-max-unit-label max-unit)
                             "(none)"))
@@ -1650,7 +1674,7 @@
       (second (complexity-unit-header unit-label-width bar-col-gap))]
      (concat
       (if (seq units)
-        (map (partial complexity-unit-row unit-label-width bar-col-gap)
+        (map (partial complexity-unit-row sort-key unit-label-width bar-col-gap)
              units)
         ["  (none)"])
       [""
@@ -1658,16 +1682,19 @@
        (first (complexity-rollup-header ns-label-width bar-col-gap))
        (second (complexity-rollup-header ns-label-width bar-col-gap))]
       (if (seq namespace-rollups)
-        (map (partial complexity-rollup-row ns-label-width bar-col-gap)
+        (map (partial complexity-rollup-row sort-key ns-label-width bar-col-gap)
              namespace-rollups)
         ["  (none)"])
       [""
        "PROJECT ROLLUP"
        (str "  units=" (:unit-count project-rollup)
             " namespaces=" (:namespace-count project-rollup)
-            " total=" (:total-cc project-rollup)
-            " avg=" (format "%.2f" (double (:avg-cc project-rollup)))
-            " max=" (:max-cc project-rollup))
+            " total-cc=" (:total-cc project-rollup)
+            " avg-cc=" (format "%.2f" (double (:avg-cc project-rollup)))
+            " max-cc=" (:max-cc project-rollup)
+            " total-loc=" (:total-loc project-rollup)
+            " avg-loc=" (format "%.2f" (double (:avg-loc project-rollup)))
+            " max-loc=" (:max-loc project-rollup))
        (str "  simple=" (get-in project-rollup [:cc-risk-counts :simple])
             " moderate=" (get-in project-rollup [:cc-risk-counts :moderate])
             " high=" (get-in project-rollup [:cc-risk-counts :high])
@@ -1675,7 +1702,7 @@
 
 (defn format-complexity-md
   "Format complexity report as markdown lines."
-  [{:keys [src-dirs units namespace-rollups project-rollup max-unit]}]
+  [{:keys [src-dirs units namespace-rollups project-rollup max-unit options metrics]}]
   (into
    ["# gordian complexity"
     ""
@@ -1685,39 +1712,47 @@
     ""
     "| Metric | Value |"
     "|--------|-------|"
+    (str "| Metrics | `" (pr-str metrics) "` |")
     (str "| Namespaces | " (:namespace-count project-rollup) " |")
     (str "| Units | " (:unit-count project-rollup) " |")
-    (str "| Total complexity | " (:total-cc project-rollup) " |")
-    (str "| Avg complexity | " (format "%.2f" (double (:avg-cc project-rollup))) " |")
-    (str "| Max complexity | " (:max-cc project-rollup) " |")
+    (str "| Total CC | " (:total-cc project-rollup) " |")
+    (str "| Avg CC | " (format "%.2f" (double (:avg-cc project-rollup))) " |")
+    (str "| Max CC | " (:max-cc project-rollup) " |")
+    (str "| Total LOC | " (:total-loc project-rollup) " |")
+    (str "| Avg LOC | " (format "%.2f" (double (:avg-loc project-rollup))) " |")
+    (str "| Max LOC | " (:max-loc project-rollup) " |")
+    (str "| Mins | `" (pr-str (:mins options)) "` |")
     (str "| Max unit | " (if max-unit
-                           (str "`" (:ns max-unit) "/" (:var max-unit) " [arity " (:arity max-unit) "]` (" (:cc max-unit) ")")
+                           (str "`" (:ns max-unit) "/" (:var max-unit) " [arity " (:arity max-unit) "]` (cc=" (:cc max-unit) ", loc=" (:loc max-unit) ")")
                            "(none)") " |")
     ""
     "## Units"
     ""
-    "| Unit | CC | Risk | Decisions |"
-    "|------|----|------|-----------|"]
+    "| Unit | CC | Risk | Decisions | LOC |"
+    "|------|----|------|-----------|-----|"]
    (concat
     (if (seq units)
-      (map (fn [{:keys [ns var arity cc cc-decision-count cc-risk]}]
+      (map (fn [{:keys [ns var arity cc cc-decision-count cc-risk loc]}]
              (str "| `" ns "/" var " [arity " arity "]` | "
-                  cc " | " (name (:level cc-risk)) " | " cc-decision-count " |"))
+                  cc " | " (name (:level cc-risk)) " | " cc-decision-count " | " loc " |"))
            units)
-      ["| (none) | 0 | n/a | 0 |"])
+      ["| (none) | 0 | n/a | 0 | 0 |"])
     [""
      "## Namespace rollup"
      ""
-     "| Namespace | Units | Total CC | Avg CC | Max CC |"
-     "|-----------|-------|----------|--------|--------|"]
+     "| Namespace | Units | Total CC | Avg CC | Max CC | Total LOC | Avg LOC | Max LOC |"
+     "|-----------|-------|----------|--------|--------|-----------|---------|---------|"]
     (if (seq namespace-rollups)
-      (map (fn [{:keys [ns unit-count total-cc avg-cc max-cc]}]
+      (map (fn [{:keys [ns unit-count total-cc avg-cc max-cc total-loc avg-loc max-loc]}]
              (str "| `" ns "` | " unit-count
                   " | " total-cc
                   " | " (format "%.2f" (double avg-cc))
-                  " | " max-cc " |"))
+                  " | " max-cc
+                  " | " total-loc
+                  " | " (format "%.2f" (double avg-loc))
+                  " | " max-loc " |"))
            namespace-rollups)
-      ["| (none) | 0 | 0 | 0.00 | 0 |"])
+      ["| (none) | 0 | 0 | 0.00 | 0 | 0 | 0.00 | 0 |"])
     [""
      "## Project rollup"
      ""
@@ -1726,6 +1761,9 @@
      (str "- **Total CC:** " (:total-cc project-rollup))
      (str "- **Avg CC:** " (format "%.2f" (double (:avg-cc project-rollup))))
      (str "- **Max CC:** " (:max-cc project-rollup))
+     (str "- **Total LOC:** " (:total-loc project-rollup))
+     (str "- **Avg LOC:** " (format "%.2f" (double (:avg-loc project-rollup))))
+     (str "- **Max LOC:** " (:max-loc project-rollup))
      (str "- **Risk counts:** `" (pr-str (:cc-risk-counts project-rollup)) "`")])))
 
 (defn print-tests

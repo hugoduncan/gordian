@@ -1,7 +1,11 @@
 (ns gordian.cyclomatic
-  "Pure cyclomatic complexity analysis over edamame forms.
+  "Pure local complexity analysis over edamame forms.
 
-  Current rules:
+  Current built-in metrics:
+  - cyclomatic complexity
+  - lines of code (LOC)
+
+  Cyclomatic rules:
   - every analyzed unit starts at complexity 1
   - +1 for each branching form: if/if-not/if-let/if-some/when/when-not/
     when-let/when-some/when-first
@@ -12,7 +16,12 @@
   - +(k-1) for boolean chains (and/or) with k operands
   - +1 for each catch clause in try
   - +1 for each cond-> condition/form pair
-  - loop/recursion/iteration forms do not independently increment complexity")
+  - loop/recursion/iteration forms do not independently increment complexity
+
+  LOC rules:
+  - count non-blank, non-comment physical lines
+  - span is the whole reported unit form, not just the executable body
+  - comment-only means ^\\s*;+.*$")
 
 (def ^:private branch-ops
   '#{if if-not if-let if-some when when-not when-let when-some when-first})
@@ -28,6 +37,15 @@
 
 (def ^:private risk-order
   {:simple 0 :moderate 1 :high 2 :untestable 3})
+
+(def ^:private metrics
+  [:cyclomatic-complexity :lines-of-code])
+
+(def ^:private min-metrics
+  #{:cc :loc})
+
+(def ^:private comment-only-line
+  #"^\s*;+.*$")
 
 (defn- strip-doc-and-attr
   [xs]
@@ -142,15 +160,38 @@
   [cc]
   (:risk (first (filter #(<= cc (:max %)) risk-bands))))
 
+(defn- line-span
+  [form]
+  (when-let [{:keys [row end-row]} (meta form)]
+    (when (and row end-row)
+      [row end-row])))
+
+(defn- count-loc-in-span
+  [source [start-line end-line]]
+  (let [lines (clojure.string/split-lines source)]
+    (->> (subvec (vec lines) (dec start-line) (min (count lines) end-line))
+         (remove clojure.string/blank?)
+         (remove #(re-matches comment-only-line %))
+         count)))
+
+(defn- with-line-and-loc
+  [source unit form]
+  (if-let [[start-line end-line] (line-span form)]
+    (assoc unit
+           :line start-line
+           :end-line end-line
+           :loc (count-loc-in-span source [start-line end-line]))
+    (assoc unit :line nil :end-line nil :loc 0)))
+
 (defn analyzable-units
   "Extract analyzable top-level units from one parsed file payload
-   {:file :ns :forms}. Returns one unit per arity-level executable body.
+   {:file :ns :forms :source}. Returns one unit per arity-level executable body.
 
    Implemented v1 extraction:
    - defn / defn-
    - defmethod
    - top-level def with literal fn value"
-  [{:keys [file ns forms origin]}]
+  [{:keys [file ns forms origin source]}]
   (->> forms
        (mapcat
         (fn [form]
@@ -161,31 +202,35 @@
             (let [name (second form)]
               (map-indexed
                (fn [i {:keys [args body]}]
-                 {:ns ns
-                  :var name
-                  :kind :defn-arity
-                  :arity (count args)
-                  :dispatch nil
-                  :file file
-                  :line nil
-                  :origin origin
-                  :body body
-                  :unit-id [ns name :defn-arity i]})
+                 (with-line-and-loc
+                   source
+                   {:ns ns
+                    :var name
+                    :kind :defn-arity
+                    :arity (count args)
+                    :dispatch nil
+                    :file file
+                    :origin origin
+                    :body body
+                    :unit-id [ns name :defn-arity i]}
+                   form))
                (defn-arities (nnext form))))
 
             (and (seq? form)
                  (= 'defmethod (first form))
                  (symbol? (second form)))
-            [{:ns ns
-              :var (second form)
-              :kind :defmethod
-              :arity nil
-              :dispatch (nth form 2 nil)
-              :file file
-              :line nil
-              :origin origin
-              :body (vec (drop 3 form))
-              :unit-id [ns (second form) :defmethod (nth form 2 nil)]}]
+            [(with-line-and-loc
+               source
+               {:ns ns
+                :var (second form)
+                :kind :defmethod
+                :arity nil
+                :dispatch (nth form 2 nil)
+                :file file
+                :origin origin
+                :body (vec (drop 3 form))
+                :unit-id [ns (second form) :defmethod (nth form 2 nil)]}
+               form)]
 
             (and (seq? form)
                  (= 'def (first form))
@@ -194,16 +239,18 @@
                   value-form (nth form 2 nil)]
               (map-indexed
                (fn [i {:keys [args body]}]
-                 {:ns ns
-                  :var name
-                  :kind :def-fn-arity
-                  :arity (count args)
-                  :dispatch nil
-                  :file file
-                  :line nil
-                  :origin origin
-                  :body body
-                  :unit-id [ns name :def-fn-arity i]})
+                 (with-line-and-loc
+                   source
+                   {:ns ns
+                    :var name
+                    :kind :def-fn-arity
+                    :arity (count args)
+                    :dispatch nil
+                    :file file
+                    :origin origin
+                    :body body
+                    :unit-id [ns name :def-fn-arity i]}
+                   form))
                (or (literal-fn-arities value-form) [])))
 
             :else
@@ -218,8 +265,7 @@
                (let [cc (arity-complexity body)]
                  (-> unit
                      (dissoc :body :unit-id)
-                     (assoc :metric :cyclomatic-complexity
-                            :cc cc
+                     (assoc :cc cc
                             :cc-decision-count (dec cc)
                             :cc-risk (cc-risk cc))))))))
 
@@ -240,6 +286,7 @@
        (group-by :ns)
        (map (fn [[ns ns-units]]
               (let [ccs (map :cc ns-units)
+                    locs (map :loc ns-units)
                     unit-count (count ns-units)]
                 {:ns ns
                  :unit-count unit-count
@@ -248,14 +295,20 @@
                            (/ (double (reduce + 0 ccs)) unit-count)
                            0.0)
                  :max-cc (apply max 0 ccs)
-                 :cc-risk-counts (risk-counts ns-units)})))
-       (sort-by (juxt (comp - :max-cc) :ns))
+                 :cc-risk-counts (risk-counts ns-units)
+                 :total-loc (reduce + 0 locs)
+                 :avg-loc (if (pos? unit-count)
+                            (/ (double (reduce + 0 locs)) unit-count)
+                            0.0)
+                 :max-loc (apply max 0 locs)})))
+       (sort-by (juxt (comp - :max-cc) (comp - :max-loc) :ns))
        vec))
 
 (defn project-rollup
   "Build canonical project rollup from analyzed units and namespace rollups."
   [units namespace-rollups]
   (let [ccs (map :cc units)
+        locs (map :loc units)
         unit-count (count units)]
     {:unit-count unit-count
      :namespace-count (count namespace-rollups)
@@ -264,38 +317,66 @@
                (/ (double (reduce + 0 ccs)) unit-count)
                0.0)
      :max-cc (apply max 0 ccs)
-     :cc-risk-counts (risk-counts units)}))
+     :cc-risk-counts (risk-counts units)
+     :total-loc (reduce + 0 locs)
+     :avg-loc (if (pos? unit-count)
+                (/ (double (reduce + 0 locs)) unit-count)
+                0.0)
+     :max-loc (apply max 0 locs)}))
 
 (defn sort-units
-  "Sort canonical units by one of :cc, :ns, :var, or :cc-risk."
+  "Sort canonical units by one of :cc, :loc, :ns, :var, or :cc-risk."
   [units sort-key]
   (vec
    (let [sort-key (or sort-key :cc)]
      (case sort-key
+       :loc
+       (sort-by (juxt (comp - :loc) (comp - :cc) :ns :var :kind :arity :dispatch) units)
+
        :ns
-       (sort-by (juxt :ns (comp - :cc) :var :kind :arity :dispatch) units)
+       (sort-by (juxt :ns (comp - :cc) (comp - :loc) :var :kind :arity :dispatch) units)
 
        :var
-       (sort-by (juxt :ns :var (comp - :cc) :kind :arity :dispatch) units)
+       (sort-by (juxt :ns :var (comp - :cc) (comp - :loc) :kind :arity :dispatch) units)
 
        :cc-risk
        (sort-by (juxt (comp - risk-order (comp :level :cc-risk))
                       (comp - :cc)
+                      (comp - :loc)
                       :ns :var :kind :arity :dispatch)
                 units)
 
-       (sort-by (juxt (comp - :cc) :ns :var :kind :arity :dispatch) units)))))
+       (sort-by (juxt (comp - :cc) (comp - :loc) :ns :var :kind :arity :dispatch) units)))))
 
-(defn filter-by-min-cc
-  "Filter units/rollups by minimum displayed complexity threshold.
-   For units, uses :cc. For rollups, uses :max-cc."
-  [xs min-cc]
-  (let [min-cc (or min-cc 0)]
-    (->> xs
-         (filter (fn [x]
-                   (let [n (or (:cc x) (:max-cc x) 0)]
-                     (<= min-cc n))))
-         vec)))
+(defn parse-min-expression
+  "Parse one metric-qualified minimum threshold expression like `cc=10`.
+   Returns [:metric n] or nil for malformed expressions."
+  [expr]
+  (when-let [[_ metric n] (re-matches #"([a-z-]+)=(\d+)" (str expr))]
+    (let [metric (keyword metric)
+          n      (parse-long n)]
+      (when (and (min-metrics metric) (pos? n))
+        [metric n]))))
+
+(defn mins-map
+  "Build canonical minimum-threshold map from parsed CLI opts.
+   Repeatable `--min` values combine into one metric->threshold map."
+  [{:keys [min]}]
+  (when (seq min)
+    (into {} (keep parse-min-expression) min)))
+
+(defn unit-satisfies-mins?
+  [mins unit]
+  (every? (fn [[metric threshold]]
+            (<= threshold (get unit metric 0)))
+          mins))
+
+(defn filter-units-by-mins
+  "Display-only filter over unit rows. All mins must be satisfied."
+  [units mins]
+  (if (seq mins)
+    (into [] (filter #(unit-satisfies-mins? mins %)) units)
+    (vec units)))
 
 (defn truncate-section
   "Apply section-local top-N truncation when top is positive."
@@ -315,25 +396,37 @@
 
 (defn complexity-options
   "Build canonical complexity options metadata from resolved CLI opts."
-  [{:keys [sort top min-cc]}]
+  [{:keys [sort top] :as opts}]
   {:sort sort
    :top top
-   :min-cc min-cc})
+   :mins (mins-map opts)})
+
+(defn- sort-rollups
+  [rollups sort-key]
+  (vec
+   (case (or sort-key :cc)
+     :loc (sort-by (juxt (comp - :max-loc) (comp - :max-cc) :ns) rollups)
+     :ns  (sort-by (juxt :ns (comp - :max-cc) (comp - :max-loc)) rollups)
+     :var (sort-by (juxt :ns (comp - :max-cc) (comp - :max-loc)) rollups)
+     :cc-risk (sort-by (juxt (comp - :max-cc) (comp - :max-loc) :ns) rollups)
+     (sort-by (juxt (comp - :max-cc) (comp - :max-loc) :ns) rollups))))
 
 (defn finalize-report
   "Attach complexity metadata and apply display shaping in pure code.
    `mode` is :discovered or :explicit; `paths` is resolved typed scan paths."
   [report mode paths opts]
-  (-> report
-      (assoc :gordian/command :complexity
-             :src-dirs (mapv :dir paths)
-             :scope (complexity-scope mode paths)
-             :options (complexity-options opts))
-      (update :units filter-by-min-cc (:min-cc opts))
-      (update :units sort-units (:sort opts))
-      (update :units truncate-section (:top opts))
-      (update :namespace-rollups filter-by-min-cc (:min-cc opts))
-      (update :namespace-rollups truncate-section (:top opts))))
+  (let [mins (mins-map opts)]
+    (-> report
+        (assoc :gordian/command :complexity
+               :metrics metrics
+               :src-dirs (mapv :dir paths)
+               :scope (complexity-scope mode paths)
+               :options (complexity-options opts))
+        (update :units filter-units-by-mins mins)
+        (update :units sort-units (:sort opts))
+        (update :units truncate-section (:top opts))
+        (update :namespace-rollups sort-rollups (:sort opts))
+        (update :namespace-rollups truncate-section (:top opts)))))
 
 (defn max-unit
   "Return the highest-complexity analyzed unit, or nil when no units exist."
@@ -342,16 +435,16 @@
 
 (defn rollup
   "Build the canonical complexity report from scanned file payloads.
-   `files` is a seq of {:file :ns :forms}."
+   `files` is a seq of {:file :ns :forms :source}."
   [files]
   (let [units             (->> files
                                (mapcat #(analyzable-units (assoc % :origin (or (:origin %) :src))))
                                analyze-units)
         namespace-rollups (namespace-rollups units)
         project           (project-rollup units namespace-rollups)]
-    {:gordian/command  :complexity
-     :metric           :cyclomatic-complexity
-     :units            (vec units)
+    {:gordian/command   :complexity
+     :metrics           metrics
+     :units             (vec units)
      :namespace-rollups namespace-rollups
-     :project-rollup   project
-     :max-unit         (max-unit units)}))
+     :project-rollup    project
+     :max-unit          (max-unit units)}))

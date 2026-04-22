@@ -1048,29 +1048,40 @@
 
 (def cyclomatic-data
   {:gordian/command :complexity
+   :metrics [:cyclomatic-complexity :lines-of-code]
    :src-dirs ["resources/fixture"]
-   :units [{:ns 'sample.core :var 'branchy :arity 1 :cc 3 :cc-decision-count 2 :cc-risk {:level :simple :label "Simple, low risk"}}
-           {:ns 'sample.core :var 'simple :arity 1 :cc 1 :cc-decision-count 0 :cc-risk {:level :simple :label "Simple, low risk"}}
-           {:ns 'sample.util :var 'helper :arity 1 :cc 3 :cc-decision-count 2 :cc-risk {:level :simple :label "Simple, low risk"}}]
+   :options {:sort :cc :mins nil}
+   :units [{:ns 'sample.core :var 'branchy :arity 1 :cc 3 :loc 8 :cc-decision-count 2 :cc-risk {:level :simple :label "Simple, low risk"}}
+           {:ns 'sample.core :var 'simple :arity 1 :cc 1 :loc 3 :cc-decision-count 0 :cc-risk {:level :simple :label "Simple, low risk"}}
+           {:ns 'sample.util :var 'helper :arity 1 :cc 3 :loc 5 :cc-decision-count 2 :cc-risk {:level :simple :label "Simple, low risk"}}]
    :namespace-rollups [{:ns 'sample.core
                         :unit-count 2
                         :total-cc 4
                         :avg-cc 2.0
                         :max-cc 3
-                        :cc-risk-counts {:simple 2 :moderate 0 :high 0 :untestable 0}}
+                        :cc-risk-counts {:simple 2 :moderate 0 :high 0 :untestable 0}
+                        :total-loc 11
+                        :avg-loc 5.5
+                        :max-loc 8}
                        {:ns 'sample.util
                         :unit-count 1
                         :total-cc 3
                         :avg-cc 3.0
                         :max-cc 3
-                        :cc-risk-counts {:simple 1 :moderate 0 :high 0 :untestable 0}}]
+                        :cc-risk-counts {:simple 1 :moderate 0 :high 0 :untestable 0}
+                        :total-loc 5
+                        :avg-loc 5.0
+                        :max-loc 5}]
    :project-rollup {:unit-count 3
                     :namespace-count 2
                     :total-cc 7
                     :avg-cc (/ 7.0 3)
                     :max-cc 3
-                    :cc-risk-counts {:simple 3 :moderate 0 :high 0 :untestable 0}}
-   :max-unit {:ns 'sample.core :var 'branchy :arity 1 :cc 3}})
+                    :cc-risk-counts {:simple 3 :moderate 0 :high 0 :untestable 0}
+                    :total-loc 16
+                    :avg-loc (/ 16.0 3)
+                    :max-loc 8}
+   :max-unit {:ns 'sample.core :var 'branchy :arity 1 :cc 3 :loc 8}})
 
 (deftest format-complexity-test
   (let [lines (sut/format-complexity cyclomatic-data)
@@ -1079,16 +1090,19 @@
         bar-cols  (map #(.indexOf % "█") unit-rows)]
     (is (str/includes? text "gordian complexity"))
     (is (str/includes? text "SUMMARY"))
+    (is (str/includes? text "metrics: cyclomatic-complexity, lines-of-code"))
     (is (str/includes? text "namespaces: 2"))
     (is (str/includes? text "units: 3"))
-    (is (str/includes? text "sample.core/branchy [arity 1] (3)"))
+    (is (str/includes? text "sample.core/branchy [arity 1] (cc=3, loc=8)"))
     (is (str/includes? text "UNITS"))
     (is (str/includes? text "unit"))
     (is (str/includes? text "risk"))
     (is (str/includes? text "decisions"))
+    (is (str/includes? text "loc"))
     (is (str/includes? text "NAMESPACE ROLLUP"))
     (is (str/includes? text "PROJECT ROLLUP"))
-    (is (str/includes? text "branchy [arity 1]"))
+    (is (str/includes? text "total-loc"))
+    (is (str/includes? text "max-loc"))
     (is (str/includes? text "███"))
     (is (apply = bar-cols))))
 
@@ -1097,8 +1111,8 @@
     (is (str/includes? text "# gordian complexity"))
     (is (str/includes? text "## Summary"))
     (is (str/includes? text "| Metric | Value |"))
-    (is (str/includes? text "`sample.core/branchy [arity 1]` (3)"))
+    (is (str/includes? text "`sample.core/branchy [arity 1]` (cc=3, loc=8)"))
     (is (str/includes? text "## Units"))
-    (is (str/includes? text "| Unit | CC | Risk | Decisions |"))
-    (is (str/includes? text "## Namespace rollup"))
+    (is (str/includes? text "| Unit | CC | Risk | Decisions | LOC |"))
+    (is (str/includes? text "| Namespace | Units | Total CC | Avg CC | Max CC | Total LOC | Avg LOC | Max LOC |"))
     (is (str/includes? text "## Project rollup"))))

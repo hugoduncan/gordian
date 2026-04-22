@@ -53,8 +53,8 @@
    :max-new-medium-findings {:desc "Maximum newly introduced medium-severity findings" :coerce :long}
    :fail-on               {:desc "Comma-separated strict gate checks e.g. new-cycles,new-high-findings"}
    :rank                  {:desc "Diagnose ranking: actionability (default) or severity" :coerce :keyword}
-   :sort                  {:desc "Complexity sort: cc | ns | var | cc-risk" :coerce :keyword}
-   :min-cc                {:desc "Complexity display threshold: suppress units/rollups below this CC" :coerce :long}
+   :sort                  {:desc "Complexity sort: cc | loc | ns | var | cc-risk" :coerce :keyword}
+   :min                   {:desc "Complexity display filter: repeatable metric=value, e.g. cc=10 or loc=20" :coerce [:string]}
    :top                   {:desc "Show only the top N findings after ranking" :coerce :long}
    :lens                  {:desc "Communities lens: structural | conceptual | change | combined" :coerce :keyword}
    :threshold             {:desc "Communities threshold" :coerce :double}
@@ -80,7 +80,7 @@ Commands:
   communities  Discover latent architecture communities
   dsm          Dependency Structure Matrix view with diagonal block partitions
   tests        Analyze test architecture and test-vs-source coupling
-  complexity   Analyze cyclomatic complexity of functions with namespace rollups
+  complexity   Analyze local code metrics (cyclomatic complexity + LOC) with namespace rollups
   cyclomatic   Compatibility alias for `complexity`
   explain      Everything gordian knows about a namespace
   explain-pair Everything gordian knows about a pair of namespaces
@@ -100,8 +100,8 @@ Options:
   --max-new-medium-findings <n> Maximum newly introduced medium-severity findings
   --fail-on <csv>               Comma-separated strict gate checks
   --rank <mode>                 Diagnose ranking: actionability (default) or severity
-  --sort <key>                  Complexity sort: cc | ns | var | cc-risk
-  --min-cc <n>                  Complexity display threshold
+  --sort <key>                  Complexity sort: cc | loc | ns | var | cc-risk
+  --min <metric=n>              Complexity display filter for units only (repeatable)
   --top <n>                     Show only the top N findings after ranking
   --lens <mode>                 Communities lens: structural | conceptual | change | combined
   --threshold <float>           Communities threshold
@@ -136,7 +136,8 @@ Examples:
   gordian dsm . --html-file dsm.html
   gordian tests .
   gordian complexity .
-  gordian complexity . --min-cc 10
+  gordian complexity . --min cc=10 --min loc=20
+  gordian complexity . --sort loc
   gordian cyclomatic .
   gordian explain gordian.scan        drill into a namespace
   gordian explain-pair a.core b.svc   drill into a pair")
@@ -183,18 +184,23 @@ Examples:
 
       (and (= :cyclomatic command)
            (:sort opts)
-           (not (contains? #{:cc :ns :var :cc-risk} (:sort opts))))
-      {:error "complexity --sort must be one of: cc, ns, var, cc-risk"}
+           (not (contains? #{:cc :loc :ns :var :cc-risk} (:sort opts))))
+      {:error "complexity --sort must be one of: cc, loc, ns, var, cc-risk"}
+
+      (and (= :cyclomatic command)
+           (some? (:min-cc opts)))
+      {:error "complexity no longer accepts --min-cc; use --min cc=<n>"}
+
+      (and (= :cyclomatic command)
+           (seq (:min opts))
+           (not-every? some? (map cyclomatic/parse-min-expression (:min opts))))
+      {:error "complexity --min values must be metric=value with metric in {cc,loc} and positive integer value"}
 
       (and (= :cyclomatic command)
            (:top opts)
            (not (pos? (:top opts))))
       {:error "complexity --top must be a positive integer"}
 
-      (and (= :cyclomatic command)
-           (:min-cc opts)
-           (neg? (:min-cc opts)))
-      {:error "complexity --min-cc must be a non-negative integer"}
 
       (= :compare command)
       (if (and (first args) (second args))
