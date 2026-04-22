@@ -998,6 +998,47 @@ Separated canonical `gordian local` report data from display-shaped slices.
 What changed:
 - preserved canonical `:units` and `:namespace-rollups` in `gordian.local.report`
 - added explicit `:display {:units ... :namespace-rollups ...}` for filtered/sorted/truncated output slices
+
+## Session 33 — Munera task 013 closed
+
+Normalized and tuned the combined `gordian local` burden score so total LCC is
+no longer a direct weighted raw-sum of burden families.
+
+What changed:
+- added explicit calibration seam in `src/gordian/local/burden.clj`
+- raw burden formulas remain unchanged
+- canonical report now includes `:calibration` metadata with:
+  - `:transform :log1p-over-scale`
+  - `:scale-rule :p75-non-zero-with-sparse-median-fallback`
+  - equal `:weights` for all six burden families
+  - per-family `:scale`, `:non-zero-count`, `:sample-count`
+- each unit now includes:
+  - raw `*-burden` fields as before
+  - `:normalized-burdens`
+  - `:lcc-calibration` summary
+  - calibrated `:lcc-total`
+- local report assembly now calibrates from the analyzed unit set, then applies
+  normalized totals consistently to unit ordering, namespace rollups,
+  project rollup, and `:max-unit`
+- text and markdown output now surface `total basis: normalized burdens`
+- README and `doc/schema.md` updated for the new canonical local payload
+
+Observed ranking shift on gordian (`bb -m gordian.main local .`):
+- before, dependency-heavy output/formatter code dominated the top ranks
+- after normalization, watchlist units became more balanced:
+  - `gordian.scc/tarjan` rose to tie near the top
+  - `gordian.explain/shortest-path` remained very high
+  - `gordian.main/build-report` stayed competitive
+  - `gordian.output.local/{format-local,format-local-md}` dropped below the top watchlist group
+  - `gordian.local.evidence/extract-evidence` no longer dominates purely on dependency spikes
+- max unit remains `gordian.output.compare/format-compare-md`, but at calibrated total `8.3` rather than raw-scale `212.7`
+
+Validation:
+- full suite passes: 352 tests, 3165 assertions, 0 failures
+
+Task status change:
+- moved `munera/open/013-normalize-and-tune-local-burden-combination` → `munera/closed/`
+- removed task 013 from `munera/plan.md` open-task list
 - migrated `gordian.output.local` text/markdown formatters to consume `:display`
 - removed unused `metric-name-order` residue from `local/report.clj`
 - added tests locking the canonical-vs-display boundary and explicit EDN shape
