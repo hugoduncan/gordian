@@ -21,3 +21,8 @@
 - [x] Expand tests for unit extraction (`defn`, multi-arity, `defmethod`, `def` + literal `fn`), scoring semantics, risk bands, canonical schema, sort/truncation behavior, scope behavior, validation, and command compatibility/alias behavior
 - [x] Update `doc/schema.md`, README command docs, and task notes to match the finalized command name and canonical report shape
 - [x] Update `munera/plan.md` wording if needed after the command naming / scope decision is finalized
+- [x] Patch plan: add explicit complexity payload metadata for `:scope` and `:options` aligned with resolved CLI/display state, while preserving the standard EDN/JSON Gordian envelope used by other analysis commands
+- [ ] Patch plan: decide rollup-surface policy — implement `--namespace-rollup` / `--project-rollup` or remove that optionality from task/design/docs
+- [ ] Patch plan: add explicit complexity payload metadata for `:scope` and `:options` aligned with resolved CLI/display state
+- [ ] Patch plan: decide rollup-surface policy — implement `--namespace-rollup` / `--project-rollup` or remove that optionality from task/design/docs
+- [deferred] Patch plan: decide `:line` policy — populate source lines where feasible or document the field as nullable/deferred in v1

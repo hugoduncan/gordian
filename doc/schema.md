@@ -272,10 +272,29 @@ Payload keys (alongside envelope):
 | Key | Type | Description |
 |-----|------|-------------|
 | `metric` | keyword | `:cyclomatic-complexity` |
+| `scope` | map | Resolved analysis scope metadata for reproducibility |
+| `options` | map | Applied complexity display/sort options for reproducibility |
 | `units` | vector of maps | Canonical arity-level analyzed units |
 | `namespace-rollups` | vector of maps | Canonical namespace rollups |
 | `project-rollup` | map | Canonical project rollup |
 | `max-unit` | map or nil | Highest-complexity analyzed unit |
+
+### Scope shape
+
+```edn
+{:mode    :discovered|:explicit
+ :source? boolean
+ :tests?  boolean
+ :paths   [string ...]}
+```
+
+### Options shape
+
+```edn
+{:sort   :cc|:ns|:var|:cc-risk|nil
+ :top    pos-int-or-nil
+ :min-cc non-negative-int-or-nil}
+```
 
 ### Canonical unit shape
 

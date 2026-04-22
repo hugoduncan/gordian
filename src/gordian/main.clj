@@ -617,7 +617,17 @@ Examples:
                        vec)
             data  (-> (cyclomatic/rollup files)
                       (assoc :gordian/command :complexity
-                             :src-dirs (mapv :dir paths))
+                             :src-dirs (mapv :dir paths)
+                             :scope {:mode   (if (and (= 1 (count (:src-dirs opts)))
+                                                      (discover/project-root? (first (:src-dirs opts))))
+                                               :discovered
+                                               :explicit)
+                                     :source? (boolean (some #(= :src (:kind %)) paths))
+                                     :tests?  (boolean (some #(= :test (:kind %)) paths))
+                                     :paths   (mapv :dir paths)}
+                             :options {:sort sort-key
+                                       :top top
+                                       :min-cc min-cc})
                       (update :units cyclomatic/filter-by-min-cc min-cc)
                       (update :units cyclomatic/sort-units sort-key)
                       (update :units cyclomatic/truncate-section top)

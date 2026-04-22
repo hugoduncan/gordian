@@ -594,7 +594,9 @@
       (is (contains? parsed :units))
       (is (contains? parsed :namespace-rollups))
       (is (contains? parsed :project-rollup))
-      (is (contains? parsed :max-unit))))
+      (is (contains? parsed :max-unit))
+      (is (contains? parsed :scope))
+      (is (contains? parsed :options))))
 
   (testing "cyclomatic min-cc filters displayed units and rollups"
     (let [out (with-out-str
@@ -604,7 +606,8 @@
                                      :min-cc 20}))
           parsed (read-string out)]
       (is (every? #(<= 20 (:cc %)) (:units parsed)))
-      (is (every? #(<= 20 (:max-cc %)) (:namespace-rollups parsed))))))
+      (is (every? #(<= 20 (:max-cc %)) (:namespace-rollups parsed)))
+      (is (= 20 (get-in parsed [:options :min-cc]))))))
 
 ;;; ── parse-args / --markdown ────────────────────────────────────────────────
 
@@ -629,6 +632,27 @@
   (testing "complexity source-only keeps tests excluded"
     (let [opts (sut/resolve-opts {:command :cyclomatic :src-dirs ["resources/fixture-project"] :source-only true})]
       (is (not (:include-tests opts))))))
+
+(deftest complexity-envelope-metadata-test
+  (testing "complexity EDN output includes reproducibility metadata inside the payload and standard envelope"
+    (let [out (with-out-str
+                (sut/cyclomatic-cmd {:src-dirs ["resources/fixture-project"]
+                                     :command :cyclomatic
+                                     :edn true
+                                     :sort :cc-risk
+                                     :top 5
+                                     :min-cc 2}))
+          parsed (read-string out)]
+      (is (= :complexity (:gordian/command parsed)))
+      (is (contains? parsed :gordian/version))
+      (is (contains? parsed :gordian/schema))
+      (is (= :discovered (get-in parsed [:scope :mode])))
+      (is (= true (get-in parsed [:scope :source?])))
+      (is (= false (get-in parsed [:scope :tests?])))
+      (is (vector? (get-in parsed [:scope :paths])))
+      (is (= :cc-risk (get-in parsed [:options :sort])))
+      (is (= 5 (get-in parsed [:options :top])))
+      (is (= 2 (get-in parsed [:options :min-cc]))))))
 
 (deftest markdown-integration-test
   (testing "analyze --markdown produces markdown"
