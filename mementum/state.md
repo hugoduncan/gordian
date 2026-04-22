@@ -990,3 +990,35 @@ Cleanup/feature:
 - Historical trending
 - clj-kondo integration
 - Watch mode
+
+## Session 29 — Munera task 009 closed
+
+Refactored the `gordian local` evidence/extraction core for reviewability while
+preserving shipped `gordian local` behavior.
+
+What changed:
+- added seam-locking edge-case tests in `test/gordian/local_test.clj` for:
+  - branch variant behavior across `cond`, `condp`, and `case`
+  - nilability and map-keyset variant detection
+  - sentinel counting behavior
+  - abstraction classification boundaries
+  - current working-set point kinds and helper/opaque boundary semantics
+- split the former monolithic `src/gordian/local/evidence.clj` into concern-local pure namespaces:
+  - `local/common.clj` — shared predicates/constants/basic shape helpers
+  - `local/steps.clj` — main-path and step extraction + abstraction-level classification
+  - `local/flow.clj` — flow traversal and branch/logic accounting
+  - `local/shape.clj` — shape classification, variants, branch regions, transitions
+  - `local/dependency.clj` — opaque/helper semantics and semantic-jump helpers
+  - `local/state.clj` — mutable-symbol, rebinding, and temporal dependency helpers
+  - `local/working_set.clj` — program-point construction for working-set scoring
+- reduced `src/gordian/local/evidence.clj` to a thin assembly façade with an explicit evidence-schema docstring
+
+Behavior validation:
+- full suite passes: 348 tests, 2950 assertions, 0 failures
+- representative sanity checks passed:
+  - `bb gordian local src --top 3`
+  - `bb gordian local src --edn`
+
+Task status change:
+- moved `munera/open/009-refactor-local-evidence-model-for-reviewability` → `munera/closed/`
+- removed task 009 from `munera/plan.md` open-task list
