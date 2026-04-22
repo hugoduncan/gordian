@@ -1568,21 +1568,22 @@
 
 (defn format-cyclomatic
   "Format cyclomatic complexity report as human-readable lines."
-  [{:keys [src-dirs summary max-function units namespace-rollups project-rollup]}]
+  [{:keys [src-dirs units namespace-rollups project-rollup max-unit]}]
   (into
    ["gordian complexity"
     (str "src: " (str/join " " src-dirs))
     ""
     "SUMMARY"
-    (str "  namespaces: " (:namespace-count summary))
-    (str "  units: " (:function-count summary))
-    (str "  total complexity: " (:total-complexity summary))
-    (str "  avg complexity: " (format "%.2f" (double (:avg-complexity summary))))
-    (str "  max complexity: " (:max-complexity summary))
-    (str "  max function: " (if max-function
-                              (str (:qualified-name max-function)
-                                   " (" (:complexity max-function) ")")
-                              "(none)"))
+    (str "  namespaces: " (:namespace-count project-rollup))
+    (str "  units: " (:unit-count project-rollup))
+    (str "  total complexity: " (:total-cc project-rollup))
+    (str "  avg complexity: " (format "%.2f" (double (:avg-cc project-rollup))))
+    (str "  max complexity: " (:max-cc project-rollup))
+    (str "  max unit: " (if max-unit
+                          (str (:ns max-unit) "/" (:var max-unit)
+                               " [arity " (:arity max-unit) "]"
+                               " (" (:cc max-unit) ")")
+                          "(none)"))
     ""
     "UNITS"]
    (concat
@@ -1621,7 +1622,7 @@
 
 (defn format-cyclomatic-md
   "Format cyclomatic complexity report as markdown lines."
-  [{:keys [src-dirs summary max-function units namespace-rollups project-rollup]}]
+  [{:keys [src-dirs units namespace-rollups project-rollup max-unit]}]
   (into
    ["# gordian complexity"
     ""
@@ -1631,14 +1632,14 @@
     ""
     "| Metric | Value |"
     "|--------|-------|"
-    (str "| Namespaces | " (:namespace-count summary) " |")
-    (str "| Units | " (:function-count summary) " |")
-    (str "| Total complexity | " (:total-complexity summary) " |")
-    (str "| Avg complexity | " (format "%.2f" (double (:avg-complexity summary))) " |")
-    (str "| Max complexity | " (:max-complexity summary) " |")
-    (str "| Max function | " (if max-function
-                               (str "`" (:qualified-name max-function) "` (" (:complexity max-function) ")")
-                               "(none)") " |")
+    (str "| Namespaces | " (:namespace-count project-rollup) " |")
+    (str "| Units | " (:unit-count project-rollup) " |")
+    (str "| Total complexity | " (:total-cc project-rollup) " |")
+    (str "| Avg complexity | " (format "%.2f" (double (:avg-cc project-rollup))) " |")
+    (str "| Max complexity | " (:max-cc project-rollup) " |")
+    (str "| Max unit | " (if max-unit
+                           (str "`" (:ns max-unit) "/" (:var max-unit) " [arity " (:arity max-unit) "]` (" (:cc max-unit) ")")
+                           "(none)") " |")
     ""
     "## Units"
     ""

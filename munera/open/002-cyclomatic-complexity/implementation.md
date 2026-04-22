@@ -3,8 +3,8 @@
 Task created to add a standard cyclomatic complexity lens to Gordian.
 
 Current status note:
-- there is now a partial implementation in the codebase (`src/gordian/cyclomatic.clj`, CLI wiring in `main.clj`, and output/tests), but it does not yet satisfy task `002`
-- treat the current implementation as a prototype to converge, not as the finished task
+- the implementation now satisfies the task-defining requirements in the codebase (`src/gordian/cyclomatic.clj`, CLI wiring in `main.clj`, output/tests, README/schema/docs)
+- any remaining work is cleanup/polish rather than core task completion
 
 Refinements agreed collaboratively:
 - canonical unit = arity-level top-level executable body
@@ -35,32 +35,16 @@ Requested outcomes:
   - 21–50 High complexity, high risk
   - 51+   Untestable, very high risk
 
-Observed implementation gaps to preserve during convergence:
-- command naming mismatch:
-  - accepted design target is `gordian complexity`
-  - current code exposes `gordian cyclomatic`
-- canonical unit mismatch:
-  - accepted design requires one reported unit per arity-level executable body
-  - current code reports per-function records with `:arity-complexities` and max-over-arities summary
-- unit extraction gaps:
-  - current code handles `defn` / `defn-`
-  - current code does not yet handle `defmethod`
-  - current code does not yet handle top-level `def` with literal `fn`
-- scoring mismatches:
-  - current code counts `doseq`, `for`, and `while` as independent increments, which the accepted v1 rules reject
-  - current code does not yet count `cond->`
-  - current code does not count default branches for `cond`, `condp`, and `case` according to the accepted rules
-- schema mismatch:
-  - current code uses `:complexity`, `:total-complexity`, etc.
-  - accepted output requires metric-qualified fields such as `:cc`, `:cc-decision-count`, `:cc-risk`, `:total-cc`, `:avg-cc`, `:max-cc`, `:cc-risk-counts`
-- CLI behavior mismatch:
-  - current `:cyclomatic` path resolution includes tests by default
-  - accepted behavior requires discovered source paths only by default, with explicit `--tests-only` / `--source-only` scope semantics
-- reporting / UX gaps:
-  - no risk-band reporting yet
-  - no implemented `--sort` behavior for this command yet
-  - no section-local `--top` behavior yet
-  - no horizontal bar charts in human text output yet
+Convergence result:
+- canonical public command is now `gordian complexity`
+- `gordian cyclomatic` remains as a compatibility alias
+- canonical unit model is now arity-level executable bodies
+- extraction covers `defn` / `defn-`, `defmethod`, and top-level `def` + literal `fn`
+- scoring rules now match the accepted v1 design including `cond->`, default-branch handling, and loop/iteration exclusions
+- canonical machine-readable schema now uses metric-qualified fields such as `:cc`, `:cc-decision-count`, `:cc-risk`, `:total-cc`, `:avg-cc`, `:max-cc`, and `:cc-risk-counts`
+- default complexity scope is discovered source paths only, with `--tests-only` / `--source-only` support and validation
+- sort/top behavior is implemented
+- human output includes canonical units / rollups and horizontal bars
 
 Notes:
 - this is intentionally separate from the existing Local Comprehension Complexity task

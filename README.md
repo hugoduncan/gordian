@@ -152,7 +152,7 @@ It reports:
 - per-unit cyclomatic complexity (`defn` arities, `defmethod`, top-level `def` + literal `fn`)
 - namespace rollups over canonical units
 - project rollup with risk-band counts
-- text/markdown summaries plus machine-readable canonical `:cc` fields
+- text/markdown summaries plus machine-readable canonical fields such as `:units`, `:namespace-rollups`, `:project-rollup`, `:max-unit`, and per-unit `:cc`
 
 Current counting rules:
 - base complexity `1` per analyzed unit

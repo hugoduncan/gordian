@@ -1047,18 +1047,8 @@
 ;;; ── cyclomatic output ───────────────────────────────────────────────────
 
 (def cyclomatic-data
-  {:gordian/command :cyclomatic
+  {:gordian/command :complexity
    :src-dirs ["resources/fixture"]
-   :summary {:namespace-count 2
-             :function-count 3
-             :total-complexity 7
-             :avg-complexity (/ 7.0 3)
-             :max-complexity 3}
-   :max-function {:ns 'sample.core
-                  :name 'branchy
-                  :qualified-name 'sample.core/branchy
-                  :complexity 3
-                  :file "src/sample/core.clj"}
    :units [{:ns 'sample.core :var 'branchy :arity 1 :cc 3 :cc-decision-count 2 :cc-risk {:level :simple :label "Simple, low risk"}}
            {:ns 'sample.core :var 'simple :arity 1 :cc 1 :cc-decision-count 0 :cc-risk {:level :simple :label "Simple, low risk"}}
            {:ns 'sample.util :var 'helper :arity 1 :cc 3 :cc-decision-count 2 :cc-risk {:level :simple :label "Simple, low risk"}}]
@@ -1079,7 +1069,8 @@
                     :total-cc 7
                     :avg-cc (/ 7.0 3)
                     :max-cc 3
-                    :cc-risk-counts {:simple 3 :moderate 0 :high 0 :untestable 0}}})
+                    :cc-risk-counts {:simple 3 :moderate 0 :high 0 :untestable 0}}
+   :max-unit {:ns 'sample.core :var 'branchy :arity 1 :cc 3}})
 
 (deftest format-cyclomatic-test
   (let [text (str/join "\n" (sut/format-cyclomatic cyclomatic-data))]
@@ -1087,7 +1078,7 @@
     (is (str/includes? text "SUMMARY"))
     (is (str/includes? text "namespaces: 2"))
     (is (str/includes? text "units: 3"))
-    (is (str/includes? text "sample.core/branchy (3)"))
+    (is (str/includes? text "sample.core/branchy [arity 1] (3)"))
     (is (str/includes? text "UNITS"))
     (is (str/includes? text "NAMESPACE ROLLUP"))
     (is (str/includes? text "PROJECT ROLLUP"))
@@ -1099,7 +1090,7 @@
     (is (str/includes? text "# gordian complexity"))
     (is (str/includes? text "## Summary"))
     (is (str/includes? text "| Metric | Value |"))
-    (is (str/includes? text "`sample.core/branchy` (3)"))
+    (is (str/includes? text "`sample.core/branchy [arity 1]` (3)"))
     (is (str/includes? text "## Units"))
     (is (str/includes? text "| Unit | CC | Risk | Decisions |"))
     (is (str/includes? text "## Namespace rollup"))

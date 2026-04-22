@@ -66,23 +66,6 @@
     (is (= #{:src} (set (map :origin units))))
     (is (= :html (:dispatch (first (filter #(= :defmethod (:kind %)) units)))))))
 
-(deftest function-complexities-test
-  (let [file {:file "src/sample.clj"
-              :ns 'sample.core
-              :origin :src
-              :forms '[(ns sample.core)
-                       (defn a [] 1)
-                       (defn b [x] (if x 1 2))
-                       (defn c
-                         ([x] x)
-                         ([x y] (cond x y :else 0))) ]}
-        result (sut/function-complexities file)]
-    (is (= 'sample.core (:ns result)))
-    (is (= 3 (count (:functions result))))
-    (is (= '{a 1 b 2 c 3}
-           (into {} (map (juxt :name :complexity) (:functions result)))))
-    (is (= [1 3] (:arity-complexities (first (filter #(= 'c (:name %)) (:functions result))))))))
-
 (deftest cc-risk-test
   (is (= {:level :simple :label "Simple, low risk"} (sut/cc-risk 10)))
   (is (= {:level :moderate :label "Moderate complexity, moderate risk"} (sut/cc-risk 11)))
@@ -99,16 +82,15 @@
 
 (deftest rollup-test
   (let [result (sut/rollup fixture-files)]
-    (is (= :cyclomatic (:gordian/command result)))
+    (is (= :complexity (:gordian/command result)))
     (is (= :cyclomatic-complexity (:metric result)))
-    (is (= 3 (get-in result [:summary :namespace-count])))
-    (is (= 3 (get-in result [:summary :function-count])))
-    (is (= 3 (get-in result [:summary :total-complexity])))
-    (is (= 1 (get-in result [:summary :max-complexity])))
-    (is (= 'alpha/hello (get-in result [:max-function :qualified-name])))
-    (is (= ['alpha 'beta 'gamma] (mapv :ns (:namespaces result))))
     (is (= 3 (count (:units result))))
     (is (= ['alpha 'beta 'gamma] (mapv :ns (:namespace-rollups result))))
     (is (= 3 (get-in result [:project-rollup :unit-count])))
+    (is (= 3 (get-in result [:project-rollup :namespace-count])))
+    (is (= 3 (get-in result [:project-rollup :total-cc])))
+    (is (= 1 (get-in result [:project-rollup :max-cc])))
+    (is (= 'alpha (get-in result [:max-unit :ns])))
+    (is (= 'hello (get-in result [:max-unit :var])))
     (is (= {:simple 3 :moderate 0 :high 0 :untestable 0}
            (get-in result [:project-rollup :cc-risk-counts])))))

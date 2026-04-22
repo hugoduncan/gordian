@@ -12,8 +12,7 @@
   - +(k-1) for boolean chains (and/or) with k operands
   - +1 for each catch clause in try
   - +1 for each cond-> condition/form pair
-  - loop/recursion/iteration forms do not independently increment complexity"
-  (:require [clojure.string :as str]))
+  - loop/recursion/iteration forms do not independently increment complexity")
 
 (def ^:private branch-ops
   '#{if if-not if-let if-some when when-not when-let when-some when-first})
@@ -76,20 +75,18 @@
 (defn- condp-branches
   [args]
   (let [clauses (drop 2 args)]
-    (if (<= (count clauses) 1)
-      0
-      (if (even? (count clauses))
-        (/ (count clauses) 2)
-        (inc (/ (dec (count clauses)) 2))))))
+    (cond
+      (<= (count clauses) 1) 0
+      (even? (count clauses)) (/ (count clauses) 2)
+      :else (inc (/ (dec (count clauses)) 2)))))
 
 (defn- case-branches
   [args]
   (let [clauses (drop 1 args)]
-    (if (<= (count clauses) 1)
-      0
-      (if (even? (count clauses))
-        (/ (count clauses) 2)
-        (inc (/ (dec (count clauses)) 2))))))
+    (cond
+      (<= (count clauses) 1) 0
+      (even? (count clauses)) (/ (count clauses) 2)
+      :else (inc (/ (dec (count clauses)) 2)))))
 
 (defn- cond->-branches
   [args]
@@ -226,43 +223,6 @@
                             :cc-decision-count (dec cc)
                             :cc-risk (cc-risk cc))))))))
 
-(defn function-complexities
-  "Backward-compatible function-level summary built from canonical units."
-  [{:keys [file ns] :as parsed-file}]
-  (let [units (analyze-units (analyzable-units parsed-file))]
-    {:file file
-     :ns ns
-     :functions
-     (->> units
-          (group-by (juxt :var :kind :dispatch))
-          vals
-          (mapv (fn [var-units]
-                  (let [{:keys [var]} (first var-units)
-                        arity-cxs (mapv :cc var-units)]
-                    {:ns ns
-                     :file file
-                     :name var
-                     :qualified-name (symbol (str ns) (str var))
-                     :arity-count (count var-units)
-                     :arity-complexities arity-cxs
-                     :complexity (apply max 0 arity-cxs)})))
-          (sort-by (juxt (comp - :complexity) :name))
-          vec)}))
-
-(defn namespace-summary
-  "Build a namespace-level legacy rollup from one file analysis."
-  [{:keys [file ns functions]}]
-  (let [complexities (map :complexity functions)]
-    {:ns ns
-     :file file
-     :function-count (count functions)
-     :total-complexity (reduce + 0 complexities)
-     :avg-complexity (if (seq complexities)
-                       (/ (double (reduce + 0 complexities)) (count complexities))
-                       0.0)
-     :max-complexity (apply max 0 complexities)
-     :functions (sort-by (juxt (comp - :complexity) :name) functions)}))
-
 (defn- empty-risk-counts []
   {:simple 0 :moderate 0 :high 0 :untestable 0})
 
@@ -333,34 +293,23 @@
     (vec (take top xs))
     (vec xs)))
 
-(defn rollup
-  "Build the full cyclomatic report from scanned file payloads.
-   `files` is a seq of {:file :ns :forms}.
+(defn max-unit
+  "Return the highest-complexity analyzed unit, or nil when no units exist."
+  [units]
+  (first (sort-by (juxt (comp - :cc) :ns :var :kind :arity :dispatch) units)))
 
-   Current payload preserves the legacy summary/namespaces view while also
-   emitting canonical units/rollups for the in-progress `002` convergence."
+(defn rollup
+  "Build the canonical complexity report from scanned file payloads.
+   `files` is a seq of {:file :ns :forms}."
   [files]
   (let [units             (->> files
                                (mapcat #(analyzable-units (assoc % :origin (or (:origin %) :src))))
                                analyze-units)
         namespace-rollups (namespace-rollups units)
-        project           (project-rollup units namespace-rollups)
-        namespaces        (->> files
-                               (map function-complexities)
-                               (map namespace-summary)
-                               (sort-by (juxt (comp - :max-complexity) :ns))
-                               vec)
-        max-function      (first (sort-by (juxt (comp - :complexity) :qualified-name)
-                                          (mapcat :functions namespaces)))]
-    {:gordian/command :cyclomatic
-     :metric :cyclomatic-complexity
-     :summary {:namespace-count (:namespace-count project)
-               :function-count (:unit-count project)
-               :total-complexity (:total-cc project)
-               :avg-complexity (:avg-cc project)
-               :max-complexity (:max-cc project)}
-     :max-function (select-keys max-function [:ns :name :qualified-name :complexity :file])
-     :namespaces namespaces
-     :units (vec units)
+        project           (project-rollup units namespace-rollups)]
+    {:gordian/command  :complexity
+     :metric           :cyclomatic-complexity
+     :units            (vec units)
      :namespace-rollups namespace-rollups
-     :project-rollup project}))
+     :project-rollup   project
+     :max-unit         (max-unit units)}))

@@ -586,10 +586,10 @@
                                      :edn true}))
           parsed (read-string out)]
       (is (= :complexity (:gordian/command parsed)))
-      (is (contains? parsed :summary))
       (is (contains? parsed :units))
       (is (contains? parsed :namespace-rollups))
-      (is (contains? parsed :project-rollup)))))
+      (is (contains? parsed :project-rollup))
+      (is (contains? parsed :max-unit)))))
 
 ;;; ── parse-args / --markdown ────────────────────────────────────────────────
 

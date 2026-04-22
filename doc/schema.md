@@ -272,12 +272,10 @@ Payload keys (alongside envelope):
 | Key | Type | Description |
 |-----|------|-------------|
 | `metric` | keyword | `:cyclomatic-complexity` |
-| `summary` | map | Legacy summary compatibility view |
-| `max-function` | map or nil | Legacy max-function compatibility view |
 | `units` | vector of maps | Canonical arity-level analyzed units |
 | `namespace-rollups` | vector of maps | Canonical namespace rollups |
 | `project-rollup` | map | Canonical project rollup |
-| `namespaces` | vector of maps | Legacy namespace compatibility summaries |
+| `max-unit` | map or nil | Highest-complexity analyzed unit |
 
 ### Canonical unit shape
 
@@ -324,12 +322,25 @@ Payload keys (alongside envelope):
                   :untestable integer}}
 ```
 
-### Legacy compatibility keys
+### Max-unit shape
 
-`summary`, `max-function`, and `namespaces` are still emitted during the
-convergence period for compatibility with the earlier `cyclomatic` prototype.
+```edn
+{:metric            :cyclomatic-complexity
+ :ns                symbol
+ :var               symbol
+ :kind              keyword
+ :arity             integer-or-nil
+ :dispatch          any
+ :file              string
+ :line              integer-or-nil
+ :origin            :src|:test
+ :cc                integer
+ :cc-decision-count integer
+ :cc-risk           {:level keyword :label string}}
+```
+
 The canonical machine-readable fields are `metric`, `units`,
-`namespace-rollups`, and `project-rollup`.
+`namespace-rollups`, `project-rollup`, and `max-unit`.
 
 ---
 
