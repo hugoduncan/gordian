@@ -271,9 +271,6 @@
 (defn resolve-command [token]
   (get command-index token))
 
-(defn command-definitions []
-  command-defs)
-
 (defn command-summary-lines []
   (mapv (fn [{:keys [names canonical display-name summary]}]
           {:canonical canonical
@@ -284,14 +281,6 @@
 
 (defn command-definition [command]
   (get command-definitions-by-canonical command))
-
-(defn canonical-command-name [command]
-  (:name (some #(when (= command (:canonical %))
-                  {:name (or (:display-name %) (first (:names %)))})
-               command-defs)))
-
-(defn parse-result-help? [result]
-  (boolean (:help result)))
 
 (defn parse-result-help-command [result]
   (:help-command result))
