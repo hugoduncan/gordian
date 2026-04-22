@@ -14,9 +14,9 @@ Usage: `gordian` (auto-discovers from cwd) or `gordian src/` (explicit dirs)
 
 **v0.2.0 alpha.** Schema envelope, façade detection, family-noise suppression,
 explain-pair verdicts, family-scoped metrics, auto-discovery, config,
-diagnose, explain, markdown, dedicated `tests` mode, DSM, and a partial
-`cyclomatic` complexity implementation.
-324 tests, 2119 assertions, 0 failures.
+diagnose, explain, markdown, dedicated `tests` mode, DSM, and a completed
+`complexity` mode with cyclomatic complexity + LOC.
+328 tests, 2188 assertions, 0 failures.
 
 ## Architecture (src/gordian/)
 
@@ -701,26 +701,37 @@ Canonical command:
 - `gordian cyclomatic` remains as a compatibility alias
 
 Implemented now:
-- pure complexity analysis in `cyclomatic.clj`
+- pure local-metric analysis in `cyclomatic.clj`
 - canonical arity-level unit extraction:
   - `defn` / `defn-`
   - `defmethod`
   - top-level `def` with literal `fn`
+- built-in metrics always active:
+  - `:cyclomatic-complexity`
+  - `:lines-of-code`
 - canonical machine-readable payload:
-  - `:metric :cyclomatic-complexity`
+  - `:metrics [:cyclomatic-complexity :lines-of-code]`
   - `:units`
   - `:namespace-rollups`
   - `:project-rollup`
   - `:max-unit`
+- per-unit fields include:
+  - `:cc`
+  - `:cc-decision-count`
+  - `:cc-risk`
+  - `:loc`
+- rollups include:
+  - `:total-cc` / `:avg-cc` / `:max-cc`
+  - `:total-loc` / `:avg-loc` / `:max-loc`
 - standard risk-band classification:
   - `:simple`
   - `:moderate`
   - `:high`
   - `:untestable`
 - CLI controls:
-  - `--sort cc|ns|var|cc-risk`
+  - `--sort cc|loc|ns|var|cc-risk`
   - `--top N`
-  - `--min-cc N`
+  - repeatable `--min cc=N|loc=N`
   - `--source-only`
   - `--tests-only`
 - output modes:
@@ -731,7 +742,8 @@ Implemented now:
 - text output improvements:
   - fixed-column tabular layout
   - aligned horizontal bar origins
-  - minimum display threshold filtering
+  - dual-metric unit/rollup display
+  - display-only unit filtering via `--min`
 
 Current scoring rules:
 - base complexity 1 per analyzed unit
@@ -750,8 +762,8 @@ Scope semantics:
 - explicit paths override discovery-based scope selection
 
 Task status:
-- Munera task `002-cyclomatic-complexity` is now implemented
-- remaining work, if any, is minor polish rather than task-defining behavior
+- Munera task `002-cyclomatic-complexity` is implemented
+- Munera task `003-complexity-lines-of-code-and-metric-option-scheme` is implemented and closed
 
 Notes:
 - scans `.clj` files

@@ -1,0 +1,16 @@
+- [x] Write the implementation companion doc first, locking CLI examples, schema examples, LOC rules, sort semantics, threshold semantics, display-only filter semantics, and explicit `--min-cc` removal
+- [x] Refactor pure complexity option parsing/finalization so generic `--min metric=value` handling and two-metric sort/truncation semantics live in pure code
+- [x] Remove `--min-cc` from CLI parsing, help output, docs, and tests
+- [x] Add clear validation/error messaging that points users from `--min-cc` to `--min cc=...`
+- [x] Implement LOC counting over the whole reported unit form span using non-blank, non-comment physical source-line counting
+- [x] Add canonical unit field `:loc` and rollup fields `:total-loc`, `:avg-loc`, and `:max-loc`
+- [x] Add explicit report metadata for the fixed two-metric payload, including `:metrics [:cyclomatic-complexity :lines-of-code]`
+- [x] Implement allowed `--sort` keys: `cc`, `loc`, `cc-risk`, `ns`, `var`
+- [x] Implement the documented tie-break rules for each sort key
+- [x] Keep `--top` metric-agnostic and apply it after sort, independently per applicable section
+- [x] Implement `--min` as a display filter for unit rows only, leaving namespace and project rollups based on the full analyzed unit set
+- [x] Update human-readable complexity output to always show both `cc` and `loc` in the same unit and rollup tables
+- [x] Implement bar-selection behavior: use the primary ranking metric for `cc`/`loc` sorts, otherwise default bars to `cc`
+- [x] Make display-only filter behavior explicit in help text, docs, and output wording where needed
+- [x] Update EDN/JSON output and schema/docs to reflect the two-metric canonical payload
+- [x] Add tests for LOC counting rules, malformed/unknown `--min` expressions, combined thresholds, `loc` sorting, tie-breaks, bar-selection behavior, display-only filtering of units, unfiltered rollups, two-metric output shaping, and explicit rejection of `--min-cc`
