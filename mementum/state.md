@@ -991,6 +991,51 @@ Cleanup/feature:
 - clj-kondo integration
 - Watch mode
 
+## Session 33 — Munera tasks 015 and 016 closed
+
+Made `gordian complexity` and `gordian local` namespace/project rollups explicitly opt-in, then completed the follow-up coverage and summary-seam cleanup.
+
+What changed:
+- added explicit independent CLI flags to both commands:
+  - `--namespace-rollup`
+  - `--project-rollup`
+- default behavior for both commands is now unit-focused:
+  - no namespace rollup unless explicitly requested
+  - no project rollup unless explicitly requested
+- canonical machine-readable payloads now omit unrequested rollup sections rather than leaving them present implicitly
+- `:options` metadata now records rollup inclusion booleans for both commands
+- `gordian local` preserved its canonical/display split:
+  - `:display :namespace-rollups` appears only when requested
+- text and markdown output now render rollup sections only when requested
+- docs updated in:
+  - `README.md`
+  - `doc/practical-guide.md`
+  - `doc/schema.md`
+- follow-up task 016 added full rollup flag matrix coverage:
+  - default unit-only
+  - namespace-only
+  - project-only
+  - both-rollups
+  for both `complexity` and `local`
+- extracted tiny summary fallback helper:
+  - `gordian.output.common/local-summary-counts`
+  to make top-line count derivation explicit when `:project-rollup` is absent
+
+Validation:
+- full suite passes: 352 tests, 3128 assertions, 0 failures
+
+Key implementation commits:
+- `c57d198` feat: add explicit rollup flags to complexity and local reports
+- `8aa3b55` test: cover explicit rollup inclusion semantics
+- `74bcb95` docs: describe explicit rollup opt-in for complexity and local
+- `f3ada3b` test: complete rollup flag coverage matrix
+- `73d48c3` docs: close munera tasks 015 and 016
+
+Task status change:
+- moved `munera/open/015-make-complexity-and-local-rollups-explicitly-opt-in` → `munera/closed/`
+- moved `munera/open/016-complete-rollup-flag-coverage-and-tighten-local-report-summary-seams` → `munera/closed/`
+- removed tasks 015 and 016 from `munera/plan.md` open-task list
+
 ## Session 32 — Munera task 012 closed
 
 Separated canonical `gordian local` report data from display-shaped slices.
