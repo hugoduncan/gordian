@@ -61,23 +61,27 @@
    :exclude       {:desc "Exclude namespaces matching regex (repeatable)" :coerce [:string]}})
 
 (def ^:private complexity-spec
-  {:include-tests {:desc "Include test directories in auto-discovery" :coerce :boolean}
-   :sort          {:desc "Sort by cc | loc | ns | var | cc-risk" :coerce :keyword}
-   :bar           {:desc "Bar metric for human-readable histograms: cc | loc" :coerce :keyword}
-   :min           {:desc "Display filter: repeatable metric=value, e.g. cc=10 or loc=20" :coerce [:string]}
-   :min-cc        {:desc "Deprecated: use --min cc=<n>"}
-   :top           {:desc "Show only the top N units after sorting" :coerce :long}
-   :source-only   {:desc "Discovered source paths only" :coerce :boolean}
-   :tests-only    {:desc "Discovered test paths only" :coerce :boolean}})
+  {:include-tests    {:desc "Include test directories in auto-discovery" :coerce :boolean}
+   :sort             {:desc "Sort by cc | loc | ns | var | cc-risk" :coerce :keyword}
+   :bar              {:desc "Bar metric for human-readable histograms: cc | loc" :coerce :keyword}
+   :min              {:desc "Display filter: repeatable metric=value, e.g. cc=10 or loc=20" :coerce [:string]}
+   :min-cc           {:desc "Deprecated: use --min cc=<n>"}
+   :namespace-rollup {:desc "Include namespace rollup section" :coerce :boolean}
+   :project-rollup   {:desc "Include project rollup section" :coerce :boolean}
+   :top              {:desc "Show only the top N units after sorting" :coerce :long}
+   :source-only      {:desc "Discovered source paths only" :coerce :boolean}
+   :tests-only       {:desc "Discovered test paths only" :coerce :boolean}})
 
 (def ^:private local-spec
-  {:include-tests {:desc "Include test directories in auto-discovery" :coerce :boolean}
-   :sort          {:desc "Sort by total | flow | state | shape | abstraction | dependency | working-set | ns | var" :coerce :keyword}
-   :bar           {:desc "Bar metric for human-readable histograms: total | flow | state | shape | abstraction | dependency | working-set" :coerce :keyword}
-   :min           {:desc "Display filter: repeatable metric=value, e.g. total=12 or abstraction=4" :coerce [:string]}
-   :top           {:desc "Show only the top N units after sorting" :coerce :long}
-   :source-only   {:desc "Discovered source paths only" :coerce :boolean}
-   :tests-only    {:desc "Discovered test paths only" :coerce :boolean}})
+  {:include-tests    {:desc "Include test directories in auto-discovery" :coerce :boolean}
+   :sort             {:desc "Sort by total | flow | state | shape | abstraction | dependency | working-set | ns | var" :coerce :keyword}
+   :bar              {:desc "Bar metric for human-readable histograms: total | flow | state | shape | abstraction | dependency | working-set" :coerce :keyword}
+   :min              {:desc "Display filter: repeatable metric=value, e.g. total=12 or abstraction=4" :coerce [:string]}
+   :namespace-rollup {:desc "Include namespace rollup section" :coerce :boolean}
+   :project-rollup   {:desc "Include project rollup section" :coerce :boolean}
+   :top              {:desc "Show only the top N units after sorting" :coerce :long}
+   :source-only      {:desc "Discovered source paths only" :coerce :boolean}
+   :tests-only       {:desc "Discovered test paths only" :coerce :boolean}})
 
 (defn- merge-specs [& specs]
   (apply merge specs))
@@ -197,13 +201,15 @@
                     :src-dirs (if (seq args) (vec args) ["."]))) }
    {:canonical :complexity
     :names ["complexity"]
-    :summary "Analyze local code metrics (cyclomatic complexity + LOC) with namespace rollups"
+    :summary "Analyze local code metrics (cyclomatic complexity + LOC)"
     :description ["Analyze local executable-unit complexity and lines of code."]
     :usage "gordian complexity [<dir-or-src>...] [options]"
     :positional ["<dir-or-src>...  Project root or explicit source directories (default: .)"]
     :examples ["gordian complexity ."
                "gordian complexity . --sort loc"
                "gordian complexity . --sort ns --bar loc"
+               "gordian complexity . --namespace-rollup"
+               "gordian complexity . --project-rollup"
                "gordian complexity . --min cc=10 --min loc=20"
                "gordian complexity . --json"]
     :spec (merge-specs output-spec complexity-spec)
@@ -246,6 +252,8 @@
     :examples ["gordian local ."
                "gordian local . --sort abstraction"
                "gordian local . --sort ns --bar working-set"
+               "gordian local . --namespace-rollup"
+               "gordian local . --project-rollup"
                "gordian local . --min total=12 --min abstraction=4"
                "gordian local . --json"]
     :spec (merge-specs output-spec local-spec)

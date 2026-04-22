@@ -407,10 +407,12 @@
 
 (defn complexity-options
   "Build canonical complexity options metadata from resolved CLI opts."
-  [{:keys [sort top bar] :as opts}]
+  [{:keys [sort top bar namespace-rollup project-rollup] :as opts}]
   {:sort sort
    :top top
    :bar bar
+   :namespace-rollup (boolean namespace-rollup)
+   :project-rollup (boolean project-rollup)
    :mins (mins-map opts)})
 
 (defn- sort-rollups
@@ -427,19 +429,22 @@
   "Attach complexity metadata and apply display shaping in pure code.
    `mode` is :discovered or :explicit; `paths` is resolved typed scan paths."
   [report mode paths opts]
-  (let [mins (mins-map opts)]
-    (-> report
-        (assoc :gordian/command :complexity
-               :metrics metrics
-               :src-dirs (mapv :dir paths)
-               :scope (complexity-scope mode paths)
-               :options (complexity-options opts)
-               :bar-metric (effective-bar-metric opts))
-        (update :units filter-units-by-mins mins)
-        (update :units sort-units (:sort opts))
-        (update :units truncate-section (:top opts))
-        (update :namespace-rollups sort-rollups (:sort opts))
-        (update :namespace-rollups truncate-section (:top opts)))))
+  (let [mins    (mins-map opts)
+        options (complexity-options opts)]
+    (cond-> (-> report
+                (assoc :gordian/command :complexity
+                       :metrics metrics
+                       :src-dirs (mapv :dir paths)
+                       :scope (complexity-scope mode paths)
+                       :options options
+                       :bar-metric (effective-bar-metric opts))
+                (update :units filter-units-by-mins mins)
+                (update :units sort-units (:sort opts))
+                (update :units truncate-section (:top opts))
+                (update :namespace-rollups sort-rollups (:sort opts))
+                (update :namespace-rollups truncate-section (:top opts)))
+      (not (:namespace-rollup options)) (dissoc :namespace-rollups)
+      (not (:project-rollup options)) (dissoc :project-rollup))))
 
 (defn max-unit
   "Return the highest-complexity analyzed unit, or nil when no units exist."

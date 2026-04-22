@@ -35,10 +35,12 @@
     (into {} (keep parse-min-expression) min)))
 
 (defn local-options
-  [{:keys [sort top bar] :as opts}]
+  [{:keys [sort top bar namespace-rollup project-rollup] :as opts}]
   {:sort sort
    :top top
    :bar bar
+   :namespace-rollup (boolean namespace-rollup)
+   :project-rollup (boolean project-rollup)
    :mins (mins-map opts)})
 
 (defn local-scope [mode paths]
@@ -189,24 +191,27 @@
      :max-unit (max-unit units)}))
 
 (defn display-data
-  [{:keys [units namespace-rollups]} {:keys [sort top mins]}]
-  {:units (-> units
-              (filter-units-by-mins mins)
-              (sort-units sort)
-              (truncate-section top))
-   :namespace-rollups (-> namespace-rollups
-                          (sort-rollups sort)
-                          (truncate-section top))})
+  [{:keys [units namespace-rollups]} {:keys [sort top mins namespace-rollup]}]
+  (cond-> {:units (-> units
+                      (filter-units-by-mins mins)
+                      (sort-units sort)
+                      (truncate-section top))}
+    namespace-rollup
+    (assoc :namespace-rollups (-> namespace-rollups
+                                  (sort-rollups sort)
+                                  (truncate-section top)))))
 
 (defn finalize-report
   [report mode paths opts]
   (let [options (local-options opts)]
-    (-> report
-        (assoc :src-dirs (mapv :dir paths)
-               :scope (local-scope mode paths)
-               :options options
-               :bar-metric (effective-bar-metric opts)
-               :display (display-data report options)))))
+    (cond-> (-> report
+                (assoc :src-dirs (mapv :dir paths)
+                       :scope (local-scope mode paths)
+                       :options options
+                       :bar-metric (effective-bar-metric opts)
+                       :display (display-data report options)))
+      (not (:namespace-rollup options)) (dissoc :namespace-rollups)
+      (not (:project-rollup options)) (dissoc :project-rollup))))
 
 (defn valid-sort-key? [k]
   (contains? sort-keys k))
