@@ -162,21 +162,27 @@
 
 (defn analyze-units
   [files]
-  (->> files
-       (mapcat #(units/analyzable-units (assoc % :origin (or (:origin %) :src))))
-       (map evidence/extract-evidence)
-       (map burden/score-unit)
-       (map #(assoc % :findings (findings/findings-for-unit %)))
-       (map #(dissoc % :body :args :unit-id :evidence))
-       vec))
+  (let [units (->> files
+                   (mapcat #(units/analyzable-units (assoc % :origin (or (:origin %) :src))))
+                   (map evidence/extract-evidence)
+                   (map burden/score-unit)
+                   vec)
+        calibration (burden/calibrate units)]
+    {:calibration calibration
+     :units (->> units
+                 (map #(assoc % :findings (findings/findings-for-unit %)))
+                 (map #(burden/apply-calibration calibration %))
+                 (map #(dissoc % :body :args :unit-id :evidence))
+                 vec)}))
 
 (defn rollup
   [files]
-  (let [units             (analyze-units files)
+  (let [{:keys [units calibration]} (analyze-units files)
         namespace-rollups (namespace-rollups units)
         project           (project-rollup units namespace-rollups)]
     {:gordian/command :local
      :metric :local-comprehension-complexity
+     :calibration calibration
      :units units
      :namespace-rollups namespace-rollups
      :project-rollup project

@@ -282,15 +282,26 @@
                                               :shape-assumptions 2
                                               :mutable-entities 1
                                               :unresolved-semantics 2
-                                              :active-predicates 2}]}})]
+                                              :active-predicates 2}]}})
+        calibration {:transform :log1p-over-scale
+                     :weights {:flow 1.0 :state 1.0 :shape 1.0 :abstraction 1.0 :dependency 1.0 :working-set 1.0}
+                     :families {:flow {:scale 4.0}
+                                :state {:scale 4.0}
+                                :shape {:scale 4.0}
+                                :abstraction {:scale 4.0}
+                                :dependency {:scale 4.0}
+                                :working-set {:scale 4.0}}}
+        applied (burden/apply-calibration calibration scored)]
     (is (= 8.5 (:flow-burden scored)))
     (is (= 8 (:state-burden scored)))
     (is (= 8.0 (:shape-burden scored)))
     (is (= 7 (:abstraction-burden scored)))
     (is (= 8 (:dependency-burden scored)))
     (is (= 10 (:peak (:working-set scored))))
-    (is (pos? (:lcc-total scored)))
-    (is (= :very-high (get-in scored [:lcc-severity :level])))))
+    (is (pos? (:lcc-total applied)))
+    (is (= #{:flow :state :shape :abstraction :dependency :working-set}
+           (set (keys (:normalized-burdens applied)))))
+    (is (= :high (get-in applied [:lcc-severity :level])))))
 
 (deftest findings-test
   (let [unit {:flow-burden 8.5
@@ -354,6 +365,8 @@
     (is (= 3 (count (:units result))))
     (is (every? :lcc-total (:units result)))
     (is (every? :working-set (:units result)))
+    (is (every? :normalized-burdens (:units result)))
+    (is (= :log1p-over-scale (get-in result [:calibration :transform])))
     (is (= ['sample.local] (mapv :ns (:namespace-rollups result))))
     (is (= 3 (get-in result [:project-rollup :unit-count])))
     (is (= 1 (get-in result [:project-rollup :namespace-count])))
@@ -364,15 +377,25 @@
 (deftest finalize-report-separates-canonical-and-display-bases
   (let [units [{:ns 'b.core :var 'z :kind :defn-arity :arity 1
                 :flow-burden 1 :state-burden 0 :shape-burden 0 :abstraction-burden 1 :dependency-burden 0
-                :working-set {:peak 3 :avg 2.0 :burden 0.0} :lcc-total 2.4 :findings []}
+                :working-set {:peak 3 :avg 2.0 :burden 0.0}
+                :normalized-burdens {:flow 0.69 :state 0.0 :shape 0.0 :abstraction 0.69 :dependency 0.0 :working-set 0.0}
+                :lcc-total 1.38 :findings []}
                {:ns 'a.core :var 'x :kind :defn-arity :arity 1
                 :flow-burden 3 :state-burden 1 :shape-burden 1 :abstraction-burden 2 :dependency-burden 1
-                :working-set {:peak 5 :avg 3.5 :burden 1.25} :lcc-total 10.0 :findings []}
+                :working-set {:peak 5 :avg 3.5 :burden 1.25}
+                :normalized-burdens {:flow 1.38 :state 0.69 :shape 0.69 :abstraction 1.10 :dependency 0.69 :working-set 0.81}
+                :lcc-total 5.36 :findings []}
                {:ns 'a.core :var 'y :kind :defmethod :dispatch :json
                 :flow-burden 2 :state-burden 0 :shape-burden 3 :abstraction-burden 4 :dependency-burden 3
-                :working-set {:peak 7 :avg 4.0 :burden 3.5} :lcc-total 18.0 :findings []}]
+                :working-set {:peak 7 :avg 4.0 :burden 3.5}
+                :normalized-burdens {:flow 1.10 :state 0.0 :shape 1.38 :abstraction 1.61 :dependency 1.38 :working-set 1.50}
+                :lcc-total 6.97 :findings []}]
         report {:gordian/command :local
                 :metric :local-comprehension-complexity
+                :calibration {:transform :log1p-over-scale
+                              :weights {:flow 1.0 :state 1.0 :shape 1.0 :abstraction 1.0 :dependency 1.0 :working-set 1.0}
+                              :families {:flow {:scale 1.0} :state {:scale 1.0} :shape {:scale 1.0}
+                                         :abstraction {:scale 1.0} :dependency {:scale 1.0} :working-set {:scale 1.0}}}
                 :units units
                 :namespace-rollups (report/namespace-rollups units)
                 :project-rollup (report/project-rollup units (report/namespace-rollups units))
@@ -380,7 +403,7 @@
         finalized (report/finalize-report report
                                           :explicit
                                           [{:dir "src" :kind :src}]
-                                          {:sort :total :top 1 :min ["total=10"]})]
+                                          {:sort :total :top 1 :min ["total=5"]})]
     (is (= ['b.core 'a.core 'a.core] (mapv :ns (:units finalized)))
         "canonical units remain intact")
     (is (= ['a.core] (mapv :ns (get-in finalized [:display :units]))))
@@ -388,4 +411,4 @@
     (is (= ['a.core] (mapv :ns (get-in finalized [:display :namespace-rollups]))))
     (is (= 3 (get-in finalized [:project-rollup :unit-count])))
     (is (= 'y (get-in finalized [:max-unit :var])))
-    (is (= {:total 10} (get-in finalized [:options :mins])))))
+    (is (= {:total 5} (get-in finalized [:options :mins])))))
