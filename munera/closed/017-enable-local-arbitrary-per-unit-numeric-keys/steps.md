@@ -27,4 +27,4 @@
 - [x] Phase 6: otherwise narrow task/docs/design wording to the maintained documented schema surface explicitly
 - [x] Phase 6: make namespace-rollup sorting semantics explicit and coherent for arbitrary `--sort` keys
 - [x] Phase 6: add tests locking the final supported-key authority and rollup-sort behavior
-- [ ] Phase 6: re-review task 017 and only then close it
+- [x] Phase 6: re-review task 017 and only then close it

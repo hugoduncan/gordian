@@ -2,6 +2,7 @@ Approach:
 - preserve existing `gordian local` UX for current burden-family aliases
 - introduce one explicit metric-resolution seam for aliases and arbitrary numeric key paths
 - implement the narrowest useful arbitrary-key model first: documented direct numeric keys and nested numeric dotted paths
+- address review feedback before closure by removing residual shadow-schema duplication or explicitly narrowing the task, and by making rollup sort semantics coherent for arbitrary keys
 
 Execution phases:
 
@@ -49,8 +50,19 @@ Exit condition:
 Exit condition:
 - arbitrary-key support is covered, documented, and backward compatible
 
+### Phase 6 — review follow-up convergence
+- decide whether supported arbitrary numeric keys must be derived from the authoritative canonical unit shape rather than a maintained shadow schema map
+- if yes, remove the shadow-schema duplication and derive supported numeric paths from the canonical unit/report seam; if no, narrow the task/design/docs explicitly to a maintained documented schema surface
+- make namespace-rollup sorting semantics explicit and coherent when `--sort` uses arbitrary unit-only numeric keys
+- add tests that lock the chosen rollup-sort behavior and the final authoritative supported-key source
+
+Exit condition:
+- review feedback is resolved explicitly, task semantics are coherent, and the task is ready to close
+
 Expected shape:
 - existing built-in local metric aliases still work unchanged
 - arbitrary numeric per-unit keys can be used in `--sort`, `--min`, and `--bar`
 - one explicit metric-resolution seam replaces duplicated hardcoded mappings
-- docs/help/tests converge on the same key model
+- supported-key authority is explicit rather than shadowed ambiguously
+- arbitrary-key sort behavior and namespace-rollup behavior are coherent and documented
+- docs/help/tests converge on the final key model
