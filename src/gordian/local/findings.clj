@@ -1,4 +1,5 @@
-(ns gordian.local.findings)
+(ns gordian.local.findings
+  (:require [gordian.local.burden :as burden]))
 
 (defn- finding
   [kind severity score message]
@@ -8,17 +9,15 @@
   [{:keys [flow-burden state-burden shape-burden abstraction-burden dependency-burden
            working-set evidence]}]
   (let [max-depth (get-in evidence [:flow :max-depth] 0)
+        logic (get-in evidence [:flow :logic] 0)
         mutable-sites (get-in evidence [:state :mutation-sites] 0)
+        mutable-entities (get-in evidence [:state :mutable-entities] 0)
         temporal (get-in evidence [:state :temporal-dependencies] 0)
         transitions (get-in evidence [:shape :transitions] 0)
         variants (get-in evidence [:shape :variant] 0)
         distinct-levels (count (get-in evidence [:abstraction :distinct-levels]))
         levels (get-in evidence [:abstraction :levels] [])
-        oscillations (->> levels
-                          (partition 2 1 [])
-                          (filter (fn [[a b]] (and a b (not= a b))))
-                          count
-                          (#(max 0 (dec %))))
+        oscillations (burden/oscillation-count levels)
         opaque-stages (get-in evidence [:dependency :opaque-stages] 0)
         helper-score (+ (get-in evidence [:dependency :helpers] 0)
                         (max 0 (dec (get-in evidence [:dependency :semantic-jumps] 0))))
@@ -29,9 +28,13 @@
       (conj (finding :deep-control-nesting :high flow-burden
                      "Control nesting reaches 3+ counted levels"))
 
-      (>= mutable-sites 1)
+      (>= logic 2.0)
+      (conj (finding :predicate-density :medium flow-burden
+                     "Conditions contain several nested or chained predicate checks"))
+
+      (or (>= mutable-sites 1) (>= mutable-entities 2))
       (conj (finding :mutable-state-tracking :high state-burden
-                     "Explicit mutable state updates must be tracked locally"))
+                     "Explicit mutable state updates or tracked cells must be carried locally"))
 
       (>= temporal 1)
       (conj (finding :temporal-coupling :medium state-burden

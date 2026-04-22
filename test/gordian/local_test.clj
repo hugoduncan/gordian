@@ -37,33 +37,116 @@
                        (case (:kind z)
                          :ok {:result z}
                          {:error true})
-                       {:error false}))]} 
+                       {:error false}))]}
         ev (:evidence (evidence/extract-evidence unit))]
     (is (pos? (get-in ev [:flow :branch])))
     (is (pos? (get-in ev [:flow :logic])))
-    (is (pos? (get-in ev [:state :mutation-sites])))
+    (is (seq (:main-steps ev)))
+    (is (seq (:branch-regions ev)))
     (is (pos? (get-in ev [:shape :destructure])))
-    (is (pos? (get-in ev [:dependency :helpers])))
+    (is (pos? (get-in ev [:dependency :semantic-jumps])))
     (is (seq (:program-points ev)))))
+
+(deftest abstraction-oscillation-follows-main-path-steps
+  (let [unit {:ns 'sample.local
+              :var 'f
+              :kind :defn-arity
+              :arity 1
+              :args '[x]
+              :body '[(helper x)
+                      (assoc {} :x x)
+                      (println x)
+                      (helper-2 x)]}
+        ev (:evidence (evidence/extract-evidence unit))]
+    (is (= [:domain :data-shaping :mechanism :domain]
+           (get-in ev [:abstraction :levels])))
+    (is (= 7 (burden/abstraction-burden (:abstraction ev))))))
+
+(deftest shape-variant-comes-from-branch-outcome-differences
+  (let [unit {:ns 'sample.local
+              :var 'f
+              :kind :defn-arity
+              :arity 1
+              :args '[x]
+              :body '[(if x {:ok true} nil)
+                      (case x :a {:kind :a} {:error true})]}
+        ev (:evidence (evidence/extract-evidence unit))]
+    (is (= 2 (get-in ev [:shape :variant])))
+    (is (= 4 (-> ev :shape :variant (* 2))))))
+
+(deftest working-set-uses-v1-program-point-model
+  (let [unit {:ns 'sample.local
+              :var 'f
+              :kind :defn-arity
+              :arity 1
+              :args '[input]
+              :body '[(let [a {:x 1}
+                         b (helper a)
+                         c (atom [])]
+                     (when (valid? b)
+                       (swap! c conj b)
+                       (-> b
+                           helper-2
+                           helper-3)
+                       @c))]}
+        ev (:evidence (evidence/extract-evidence unit))
+        points (:program-points ev)]
+    (is (seq points))
+    (is (= #{:binding-group :branch-entry :main-path-step :pipeline-stage}
+           (set (map :kind points))))
+    (is (every? #(contains? % :live-bindings) points))
+    (is (every? #(contains? % :active-predicates) points))
+    (is (every? #(contains? % :mutable-entities) points))
+    (is (every? #(contains? % :shape-assumptions) points))
+    (is (every? #(contains? % :unresolved-semantics) points))))
+
+(deftest dependency-does-not-double-count-opaque-pipeline-stages-as-helpers
+  (let [unit {:ns 'sample.local
+              :var 'f
+              :kind :defn-arity
+              :arity 1
+              :args '[x]
+              :body '[(-> x helper-a helper-b helper-c)]}
+        ev (:evidence (evidence/extract-evidence unit))]
+    (is (= 3 (get-in ev [:dependency :opaque-stages])))
+    (is (= 0 (get-in ev [:dependency :helpers])))
+    (is (= 3 (get-in ev [:dependency :semantic-jumps])))
+    (is (= 3 (burden/dependency-burden (:dependency ev))))))
+
+(deftest state-distinguishes-local-mutation-from-external-effects
+  (let [unit {:ns 'sample.local
+              :var 'f
+              :kind :defn-arity
+              :arity 1
+              :args '[]
+              :body '[(let [state (atom [])]
+                        (swap! state conj :x)
+                        @state
+                        (swap! global-state conj :y)
+                        (println state))]}
+        ev (:evidence (evidence/extract-evidence unit))]
+    (is (= 1 (get-in ev [:state :mutation-sites])))
+    (is (= 2 (get-in ev [:state :effect-writes])))
+    (is (= 1 (get-in ev [:state :temporal-dependencies])))))
 
 (deftest burden-scoring-test
   (let [scored (burden/score-unit
                 {:evidence {:flow {:branch 3 :nest 2 :interrupt 1 :recursion 1 :logic 1.5 :max-depth 3}
-                            :state {:mutation-sites 1 :rebindings 2 :temporal-dependencies 1 :effect-reads 1 :effect-writes 1}
+                            :state {:mutation-sites 1 :rebindings 2 :temporal-dependencies 1 :effect-reads 1 :effect-writes 1 :mutable-entities 1}
                             :shape {:transitions 3 :destructure 1.0 :variant 1 :nesting 1 :sentinel 1}
                             :abstraction {:levels [:domain :mechanism :data-shaping :domain]
                                           :distinct-levels #{:domain :mechanism :data-shaping}
                                           :incidental 1}
                             :dependency {:helpers 2 :opaque-stages 4 :inversion 1 :semantic-jumps 3}
-                            :program-points [{:bindings #{'x 'y}
-                                              :shape-bindings 1
-                                              :mutable-count 1
-                                              :opaque-count 1
+                            :program-points [{:live-bindings #{'x 'y}
+                                              :shape-assumptions 1
+                                              :mutable-entities 1
+                                              :unresolved-semantics 1
                                               :active-predicates 1}
-                                             {:bindings #{'x 'y 'z}
-                                              :shape-bindings 2
-                                              :mutable-count 1
-                                              :opaque-count 2
+                                             {:live-bindings #{'x 'y 'z}
+                                              :shape-assumptions 2
+                                              :mutable-entities 1
+                                              :unresolved-semantics 2
                                               :active-predicates 2}]}})]
     (is (= 8.5 (:flow-burden scored)))
     (is (= 8 (:state-burden scored)))
@@ -81,14 +164,15 @@
               :abstraction-burden 7
               :dependency-burden 6
               :working-set {:peak 8 :avg 6.0 :burden 5.5}
-              :evidence {:flow {:max-depth 3}
-                         :state {:mutation-sites 1 :temporal-dependencies 1}
+              :evidence {:flow {:max-depth 3 :logic 2.0}
+                         :state {:mutation-sites 1 :temporal-dependencies 1 :mutable-entities 1}
                          :shape {:transitions 3 :variant 1}
                          :abstraction {:distinct-levels #{:domain :mechanism :data-shaping}
                                        :levels [:domain :mechanism :data-shaping :domain :mechanism]}
                          :dependency {:opaque-stages 3 :helpers 2 :semantic-jumps 3}}}
         kinds (set (map :kind (findings/findings-for-unit unit)))]
     (is (contains? kinds :deep-control-nesting))
+    (is (contains? kinds :predicate-density))
     (is (contains? kinds :mutable-state-tracking))
     (is (contains? kinds :temporal-coupling))
     (is (contains? kinds :shape-churn))

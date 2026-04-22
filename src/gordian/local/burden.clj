@@ -19,13 +19,15 @@
 (defn shape-burden [{:keys [transitions destructure variant nesting sentinel]}]
   (+ transitions destructure (* 2 variant) nesting sentinel))
 
+(defn oscillation-count [levels]
+  (let [transitions (count (filter identity (map (fn [a b] (and a b (not= a b)))
+                                                  levels
+                                                  (rest levels))))]
+    (max 0 (dec transitions))))
+
 (defn abstraction-burden [{:keys [levels distinct-levels incidental]}]
   (let [level-mix (* 2 (max 0 (dec (count distinct-levels))))
-        oscillation (->> levels
-                         (partition 2 1 [])
-                         (filter (fn [[a b]] (and a b (not= a b))))
-                         count
-                         (#(max 0 (dec %))))]
+        oscillation (oscillation-count levels)]
     (+ level-mix oscillation incidental)))
 
 (defn dependency-burden [{:keys [helpers opaque-stages inversion semantic-jumps]}]
@@ -35,12 +37,12 @@
      (max 0 (dec semantic-jumps))))
 
 (defn working-set [{:keys [program-points]}]
-  (let [point-score (fn [{:keys [bindings shape-bindings mutable-count opaque-count active-predicates]}]
-                      (+ (count (remove #{'_} bindings))
+  (let [point-score (fn [{:keys [live-bindings active-predicates mutable-entities shape-assumptions unresolved-semantics]}]
+                      (+ (count (remove #{'_} live-bindings))
                          active-predicates
-                         mutable-count
-                         shape-bindings
-                         (min 2 opaque-count)))
+                         mutable-entities
+                         shape-assumptions
+                         (min 2 unresolved-semantics)))
         samples (mapv point-score program-points)
         peak (apply max 0 samples)
         avg (if (seq samples)
