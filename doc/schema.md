@@ -363,6 +363,101 @@ The canonical machine-readable fields are `metric`, `units`,
 
 ---
 
+## local
+
+Command: `gordian local [dirs...] --edn`
+
+Local comprehension complexity analysis is independent of the structural/conceptual/change
+pair lenses. The standard envelope is still present, but the payload is focused
+on canonical executable-unit local burden vectors plus calibrated totals and rollups.
+
+Payload keys (alongside envelope):
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `metric` | keyword | `:local-comprehension-complexity` |
+| `scope` | map | Resolved analysis scope metadata for reproducibility |
+| `options` | map | Applied local display/sort options for reproducibility |
+| `calibration` | map | Deterministic normalization scales and weights for this analyzed unit set |
+| `units` | vector of maps | Canonical analyzed units with raw burdens and normalized combination data |
+| `namespace-rollups` | vector of maps | Canonical namespace rollups |
+| `project-rollup` | map | Canonical project rollup |
+| `max-unit` | map or nil | Highest-total analyzed unit |
+
+### Scope shape
+
+```edn
+{:mode    :discovered|:explicit
+ :source? boolean
+ :tests?  boolean
+ :paths   [string ...]}
+```
+
+### Options shape
+
+```edn
+{:sort :total|:flow|:state|:shape|:abstraction|:dependency|:working-set|:ns|:var|nil
+ :top  pos-int-or-nil
+ :mins {keyword pos-int ...}}
+```
+
+### Calibration shape
+
+```edn
+{:transform  :log1p-over-scale
+ :scale-rule :p75-non-zero-with-sparse-median-fallback
+ :weights    {:flow 1.0
+              :state 1.0
+              :shape 1.0
+              :abstraction 1.0
+              :dependency 1.0
+              :working-set 1.0}
+ :families   {:flow        {:scale double :non-zero-count integer :sample-count integer}
+              :state       {:scale double :non-zero-count integer :sample-count integer}
+              :shape       {:scale double :non-zero-count integer :sample-count integer}
+              :abstraction {:scale double :non-zero-count integer :sample-count integer}
+              :dependency  {:scale double :non-zero-count integer :sample-count integer}
+              :working-set {:scale double :non-zero-count integer :sample-count integer}}}
+```
+
+### Canonical unit shape
+
+```edn
+{:ns                  symbol
+ :var                 symbol
+ :kind                keyword
+ :arity               integer-or-nil
+ :dispatch            any
+ :file                string
+ :line                integer-or-nil
+ :origin              :src|:test
+ :flow-burden         double
+ :state-burden        double
+ :shape-burden        double
+ :abstraction-burden  double
+ :dependency-burden   double
+ :working-set         {:peak integer :avg double :burden double}
+ :normalized-burdens  {:flow double
+                       :state double
+                       :shape double
+                       :abstraction double
+                       :dependency double
+                       :working-set double}
+ :lcc-calibration     {:weights {...}
+                       :transform :log1p-over-scale}
+ :lcc-total           double
+ :lcc-severity        {:level keyword :label string}
+ :findings            [finding]}
+```
+
+`*-burden` fields are raw burden-family values. `:normalized-burdens` are the
+per-family transformed values actually used for `:lcc-total`.
+
+The canonical machine-readable fields are `metric`, `calibration`, `units`,
+`namespace-rollups`, `project-rollup`, and `max-unit`.
+
+---
+
 ## subgraph
 
 Command: `gordian subgraph <prefix> --edn`

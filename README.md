@@ -252,7 +252,9 @@ Current v1 semantics:
 - working-set sampling uses explicit v1 program points: binding groups, branch entry, threaded stages, and main-path steps
 - `regularity-burden` is intentionally omitted from the first executable slice
 - `:working-set` reports `:peak`, `:avg`, and derived `:burden`
-- `:lcc-total` is a weighted headline rollup over the implemented burden families
+- raw burden families remain available directly on each unit
+- `:lcc-total` is a calibrated headline rollup over normalized burden families
+- calibration is derived deterministically from the analyzed unit set using per-family non-zero distribution scales
 
 Scope and ranking controls mirror `complexity` where practical:
 - default with project discovery = source paths only

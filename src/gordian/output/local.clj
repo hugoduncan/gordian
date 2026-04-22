@@ -121,6 +121,7 @@
       (str "  avg dependency: " (format "%.2f" (double (:avg-dependency project-rollup))))
       (str "  avg ws: " (format "%.2f" (double (:avg-working-set project-rollup))))
       (str "  mins: " (if (seq (:mins options)) (pr-str (:mins options)) "{}"))
+      (str "  total basis: normalized burdens")
       (str "  bar metric: " (name bar-metric))
       (str "  max unit: " (if max-unit (max-unit-label max-unit) "(none)"))
       ""
@@ -208,6 +209,7 @@
       (str "| Avg dependency | " (format "%.2f" (double (:avg-dependency project-rollup))) " |")
       (str "| Avg WS | " (format "%.2f" (double (:avg-working-set project-rollup))) " |")
       (str "| Mins | `" (pr-str (:mins options)) "` |")
+      (str "| Total basis | `normalized burdens` |")
       (str "| Bar metric | `" (name bar-metric) "` |")
       (str "| Max unit | "
            (if max-unit

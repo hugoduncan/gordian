@@ -267,6 +267,15 @@
    :src-dirs ["resources/fixture"]
    :options {:sort :total :bar nil :mins nil}
    :bar-metric :total
+   :calibration {:transform :log1p-over-scale
+                 :scale-rule :p75-non-zero-with-sparse-median-fallback
+                 :weights {:flow 1.0 :state 1.0 :shape 1.0 :abstraction 1.0 :dependency 1.0 :working-set 1.0}
+                 :families {:flow {:scale 2.0 :non-zero-count 3 :sample-count 3}
+                            :state {:scale 1.0 :non-zero-count 1 :sample-count 3}
+                            :shape {:scale 1.0 :non-zero-count 2 :sample-count 3}
+                            :abstraction {:scale 2.0 :non-zero-count 3 :sample-count 3}
+                            :dependency {:scale 2.0 :non-zero-count 2 :sample-count 3}
+                            :working-set {:scale 1.25 :non-zero-count 3 :sample-count 3}}}
    :units [{:ns 'sample.core
             :var 'branchy
             :kind :defn-arity
@@ -277,7 +286,15 @@
             :abstraction-burden 4.0
             :dependency-burden 2.0
             :working-set {:peak 6 :avg 4.0 :burden 2.5}
-            :lcc-total 17.5
+            :normalized-burdens {:flow 0.9162907318741551
+                                 :state 0.6931471805599453
+                                 :shape 1.0986122886681096
+                                 :abstraction 1.0986122886681096
+                                 :dependency 0.6931471805599453
+                                 :working-set 1.0986122886681096}
+            :lcc-calibration {:weights {:flow 1.0 :state 1.0 :shape 1.0 :abstraction 1.0 :dependency 1.0 :working-set 1.0}
+                              :transform :log1p-over-scale}
+            :lcc-total 5.6
             :findings [{:kind :abstraction-oscillation}
                        {:kind :working-set-overload}]}
            {:ns 'sample.core
@@ -290,7 +307,15 @@
             :abstraction-burden 1.0
             :dependency-burden 0.0
             :working-set {:peak 3 :avg 2.0 :burden 1.0}
-            :lcc-total 3.9
+            :normalized-burdens {:flow 0.4054651081081644
+                                 :state 0.0
+                                 :shape 0.0
+                                 :abstraction 0.4054651081081644
+                                 :dependency 0.0
+                                 :working-set 0.5877866649021191}
+            :lcc-calibration {:weights {:flow 1.0 :state 1.0 :shape 1.0 :abstraction 1.0 :dependency 1.0 :working-set 1.0}
+                              :transform :log1p-over-scale}
+            :lcc-total 1.4
             :findings []}
            {:ns 'sample.util
             :var 'helper
@@ -302,13 +327,21 @@
             :abstraction-burden 2.0
             :dependency-burden 3.0
             :working-set {:peak 5 :avg 3.5 :burden 1.25}
-            :lcc-total 9.7
+            :normalized-burdens {:flow 0.6931471805599453
+                                 :state 0.0
+                                 :shape 0.6931471805599453
+                                 :abstraction 0.6931471805599453
+                                 :dependency 0.9162907318741551
+                                 :working-set 0.6931471805599453}
+            :lcc-calibration {:weights {:flow 1.0 :state 1.0 :shape 1.0 :abstraction 1.0 :dependency 1.0 :working-set 1.0}
+                              :transform :log1p-over-scale}
+            :lcc-total 3.7
             :findings [{:kind :helper-chasing}]}]
    :namespace-rollups [{:ns 'sample.core
                         :unit-count 2
-                        :total-lcc 21.4
-                        :avg-lcc 10.7
-                        :max-lcc 17.5
+                        :total-lcc 7.0
+                        :avg-lcc 3.5
+                        :max-lcc 5.6
                         :avg-flow 2.0
                         :avg-state 0.5
                         :avg-shape 1.0
@@ -317,9 +350,9 @@
                         :avg-working-set 1.75}
                        {:ns 'sample.util
                         :unit-count 1
-                        :total-lcc 9.7
-                        :avg-lcc 9.7
-                        :max-lcc 9.7
+                        :total-lcc 3.7
+                        :avg-lcc 3.7
+                        :max-lcc 3.7
                         :avg-flow 2.0
                         :avg-state 0.0
                         :avg-shape 1.0
@@ -336,7 +369,15 @@
                       :abstraction-burden 4.0
                       :dependency-burden 2.0
                       :working-set {:peak 6 :avg 4.0 :burden 2.5}
-                      :lcc-total 17.5
+                      :normalized-burdens {:flow 0.9162907318741551
+                                           :state 0.6931471805599453
+                                           :shape 1.0986122886681096
+                                           :abstraction 1.0986122886681096
+                                           :dependency 0.6931471805599453
+                                           :working-set 1.0986122886681096}
+                      :lcc-calibration {:weights {:flow 1.0 :state 1.0 :shape 1.0 :abstraction 1.0 :dependency 1.0 :working-set 1.0}
+                                        :transform :log1p-over-scale}
+                      :lcc-total 5.6
                       :findings [{:kind :abstraction-oscillation}
                                  {:kind :working-set-overload}]}
                      {:ns 'sample.core
@@ -349,7 +390,15 @@
                       :abstraction-burden 1.0
                       :dependency-burden 0.0
                       :working-set {:peak 3 :avg 2.0 :burden 1.0}
-                      :lcc-total 3.9
+                      :normalized-burdens {:flow 0.4054651081081644
+                                           :state 0.0
+                                           :shape 0.0
+                                           :abstraction 0.4054651081081644
+                                           :dependency 0.0
+                                           :working-set 0.5877866649021191}
+                      :lcc-calibration {:weights {:flow 1.0 :state 1.0 :shape 1.0 :abstraction 1.0 :dependency 1.0 :working-set 1.0}
+                                        :transform :log1p-over-scale}
+                      :lcc-total 1.4
                       :findings []}
                      {:ns 'sample.util
                       :var 'helper
@@ -361,13 +410,21 @@
                       :abstraction-burden 2.0
                       :dependency-burden 3.0
                       :working-set {:peak 5 :avg 3.5 :burden 1.25}
-                      :lcc-total 9.7
+                      :normalized-burdens {:flow 0.6931471805599453
+                                           :state 0.0
+                                           :shape 0.6931471805599453
+                                           :abstraction 0.6931471805599453
+                                           :dependency 0.9162907318741551
+                                           :working-set 0.6931471805599453}
+                      :lcc-calibration {:weights {:flow 1.0 :state 1.0 :shape 1.0 :abstraction 1.0 :dependency 1.0 :working-set 1.0}
+                                        :transform :log1p-over-scale}
+                      :lcc-total 3.7
                       :findings [{:kind :helper-chasing}]}]
              :namespace-rollups [{:ns 'sample.core
                                   :unit-count 2
-                                  :total-lcc 21.4
-                                  :avg-lcc 10.7
-                                  :max-lcc 17.5
+                                  :total-lcc 7.0
+                                  :avg-lcc 3.5
+                                  :max-lcc 5.6
                                   :avg-flow 2.0
                                   :avg-state 0.5
                                   :avg-shape 1.0
@@ -376,9 +433,9 @@
                                   :avg-working-set 1.75}
                                  {:ns 'sample.util
                                   :unit-count 1
-                                  :total-lcc 9.7
-                                  :avg-lcc 9.7
-                                  :max-lcc 9.7
+                                  :total-lcc 3.7
+                                  :avg-lcc 3.7
+                                  :max-lcc 3.7
                                   :avg-flow 2.0
                                   :avg-state 0.0
                                   :avg-shape 1.0
@@ -387,9 +444,9 @@
                                   :avg-working-set 1.25}]}
    :project-rollup {:unit-count 3
                     :namespace-count 2
-                    :total-lcc 31.1
-                    :avg-lcc (/ 31.1 3)
-                    :max-lcc 17.5
+                    :total-lcc 10.7
+                    :avg-lcc (/ 10.7 3)
+                    :max-lcc 5.6
                     :avg-flow (/ 5.0 3)
                     :avg-state (/ 1.0 3)
                     :avg-shape 1.0
@@ -399,4 +456,4 @@
                     :finding-counts {:abstraction-oscillation 1
                                      :working-set-overload 1
                                      :helper-chasing 1}}
-   :max-unit {:ns 'sample.core :var 'branchy :kind :defn-arity :arity 1 :lcc-total 17.5}})
+   :max-unit {:ns 'sample.core :var 'branchy :kind :defn-arity :arity 1 :lcc-total 5.6}})
