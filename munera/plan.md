@@ -2,4 +2,4 @@
 
 Open tasks in intended order:
 
-- none currently queued
+- 013-normalize-and-tune-local-burden-combination
