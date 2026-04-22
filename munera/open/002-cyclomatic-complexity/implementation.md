@@ -26,8 +26,8 @@ Requested outcomes:
 - default scope = discovered project source paths
 - alternate scopes = source-only, tests-only, or explicit paths
 - output modes = human, EDN, JSON
-- optional namespace rollup
-- optional project rollup
+- namespace rollup
+- project rollup
 - human output includes horizontal bar chart
 - standard risk levels:
   - 1–10  Simple, low risk
@@ -89,10 +89,10 @@ Patch plan from task review:
          input-options,
          purpose(re-run(analysis) ∧ reproducible)
        }
-2. rollup-surface decision
-   - either implement `--namespace-rollup` / `--project-rollup` as real CLI controls
-   - or explicitly remove them from the task/design/docs and state that rollups are always emitted in v1
-   - prefer one clear policy over half-documented optionality
+2. rollup-surface decision ✅
+   - resolved policy: rollups are always emitted in v1
+   - removed `--namespace-rollup` / `--project-rollup` optionality from task/design/docs
+   - result: one clear policy, no half-documented optionality, and simpler payload/output expectations
 3. source-location decision — deferred
    - either populate `:line` from parsed forms where feasible
    - or explicitly document `:line` as nullable/deferred in v1 and keep tests/schema aligned with that decision

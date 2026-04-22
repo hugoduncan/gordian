@@ -101,8 +101,8 @@ Canonical report shape should include:
 - metric identity metadata, e.g. `:metric :cyclomatic-complexity`
 - analyzed units with identity, origin, `:cc`, `:cc-decision-count`, and `:cc-risk`
 - unit identity fields should include `:ns`, `:var`, `:kind`, `:arity`, `:dispatch`, `:file`, `:line`, and `:origin`
-- optional namespace rollups using compact metric-qualified aggregate field names such as `:total-cc`, `:avg-cc`, `:max-cc`, and `:cc-risk-counts`
-- optional project rollup using the same compact metric-qualified aggregate field names
+- namespace rollups using compact metric-qualified aggregate field names such as `:total-cc`, `:avg-cc`, `:max-cc`, and `:cc-risk-counts`
+- project rollup using the same compact metric-qualified aggregate field names
 - any applied sort/top options for reproducibility
 - human output includes units, namespace rollups, project rollup, and horizontal bar charts
 

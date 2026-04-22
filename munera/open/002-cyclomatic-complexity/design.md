@@ -23,8 +23,8 @@ In scope:
   - human-readable text
   - EDN
   - JSON
-- optional namespace rollup
-- optional project rollup
+- namespace rollup
+- project rollup
 - `--top` and `--sort` options
 - human output includes horizontal bar-chart style visualisation
 - standard risk levels:
@@ -53,8 +53,8 @@ Acceptance criteria:
 - every reported cyclomatic complexity value is classified into the standard risk bands above
 - canonical reporting unit is arity-level for top-level executable bodies
 - output includes `:cc-decision-count` alongside `:cc` and `:cc-risk`
-- optional namespace rollup groups results by namespace
-- optional project rollup summarizes project-wide totals/distribution
+- namespace rollup groups results by namespace
+- project rollup summarizes project-wide totals/distribution
 - `--top` limits reported rows independently within each applicable section
 - `--sort` controls ordering of reported units/rollups using documented simple v1 sort keys
 - implementation follows Gordian’s pure-core / thin-IO architecture style
@@ -149,8 +149,6 @@ Exact CLI surface and validation rules:
   - `--tests-only`
   - `--json`
   - `--edn`
-  - `--namespace-rollup`
-  - `--project-rollup`
   - `--top N`
   - `--sort KEY`
 - validation rules:
@@ -177,9 +175,7 @@ Canonical EDN shape example:
          :tests? false
          :paths ["src" "components/foo/src"]}
  :options {:sort :cc
-           :top 20
-           :namespace-rollup true
-           :project-rollup true}
+           :top 20}
  :units [{:ns 'gordian.main
           :var 'build-report
           :kind :defn-arity
