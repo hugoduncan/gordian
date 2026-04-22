@@ -1566,11 +1566,69 @@
   [n]
   (apply str (repeat (max 0 (min 50 (int n))) "█")))
 
+(defn- rule
+  [n]
+  (apply str (repeat n "-")))
+
+(defn- complexity-unit-label
+  [{:keys [ns var arity]}]
+  (str ns "/" var " [arity " arity "]"))
+
+(defn- complexity-max-unit-label
+  [max-unit]
+  (str (:ns max-unit) "/" (:var max-unit)
+       " [arity " (:arity max-unit) "]"
+       " (" (:cc max-unit) ")"))
+
+(defn- complexity-unit-header
+  [unit-label-width bar-col-gap]
+  [(str "  " (pad-right unit-label-width "unit")
+        "  " (pad-left 4 "cc")
+        "  " (pad-right 10 "risk")
+        "  " (pad-left 9 "decisions")
+        bar-col-gap "bar")
+   (str "  " (rule unit-label-width)
+        "  " (rule 4)
+        "  " (rule 10)
+        "  " (rule 9)
+        bar-col-gap (rule 3))])
+
+(defn- complexity-unit-row
+  [unit-label-width bar-col-gap {:keys [cc cc-decision-count cc-risk] :as unit}]
+  (str "  " (pad-right unit-label-width (complexity-unit-label unit))
+       "  " (pad-left 4 cc)
+       "  " (pad-right 10 (name (:level cc-risk)))
+       "  " (pad-left 9 cc-decision-count)
+       bar-col-gap (bar cc)))
+
+(defn- complexity-rollup-header
+  [ns-label-width bar-col-gap]
+  [(str "  " (pad-right ns-label-width "namespace")
+        "  " (pad-left 5 "units")
+        "  " (pad-left 5 "total")
+        "  " (pad-left 6 "avg")
+        "  " (pad-left 4 "max")
+        bar-col-gap "bar")
+   (str "  " (rule ns-label-width)
+        "  " (rule 5)
+        "  " (rule 5)
+        "  " (rule 6)
+        "  " (rule 4)
+        bar-col-gap (rule 3))])
+
+(defn- complexity-rollup-row
+  [ns-label-width bar-col-gap {:keys [ns unit-count total-cc avg-cc max-cc]}]
+  (str "  " (pad-right ns-label-width (str ns))
+       "  " (pad-left 5 unit-count)
+       "  " (pad-left 5 total-cc)
+       "  " (pad-left 6 (format "%.2f" (double avg-cc)))
+       "  " (pad-left 4 max-cc)
+       bar-col-gap (bar max-cc)))
 
 (defn format-cyclomatic
   "Format cyclomatic complexity report as human-readable lines."
   [{:keys [src-dirs units namespace-rollups project-rollup max-unit]}]
-  (let [unit-label-width (max 10 (apply max (concat [10] (map #(count (str (:ns %) "/" (:var %) " [arity " (:arity %) "]")) units))))
+  (let [unit-label-width (max 10 (apply max (concat [10] (map (comp count complexity-unit-label) units))))
         ns-label-width   (max 10 (apply max (concat [10] (map #(count (str (:ns %))) namespace-rollups))))
         bar-col-gap      "  "]
     (into
@@ -1584,54 +1642,23 @@
       (str "  avg complexity: " (format "%.2f" (double (:avg-cc project-rollup))))
       (str "  max complexity: " (:max-cc project-rollup))
       (str "  max unit: " (if max-unit
-                            (str (:ns max-unit) "/" (:var max-unit)
-                                 " [arity " (:arity max-unit) "]"
-                                 " (" (:cc max-unit) ")")
+                            (complexity-max-unit-label max-unit)
                             "(none)"))
       ""
       "UNITS"
-      (str "  " (pad-right unit-label-width "unit")
-           "  " (pad-left 4 "cc")
-           "  " (pad-right 10 "risk")
-           "  " (pad-left 9 "decisions")
-           bar-col-gap "bar")
-      (str "  " (apply str (repeat unit-label-width "-"))
-           "  " (apply str (repeat 4 "-"))
-           "  " (apply str (repeat 10 "-"))
-           "  " (apply str (repeat 9 "-"))
-           bar-col-gap (apply str (repeat 3 "-")))]
+      (first (complexity-unit-header unit-label-width bar-col-gap))
+      (second (complexity-unit-header unit-label-width bar-col-gap))]
      (concat
       (if (seq units)
-        (map (fn [{:keys [ns var arity cc cc-decision-count cc-risk]}]
-               (str "  " (pad-right unit-label-width (str ns "/" var " [arity " arity "]"))
-                    "  " (pad-left 4 cc)
-                    "  " (pad-right 10 (name (:level cc-risk)))
-                    "  " (pad-left 9 cc-decision-count)
-                    bar-col-gap (bar cc)))
+        (map (partial complexity-unit-row unit-label-width bar-col-gap)
              units)
         ["  (none)"])
       [""
        "NAMESPACE ROLLUP"
-       (str "  " (pad-right ns-label-width "namespace")
-            "  " (pad-left 5 "units")
-            "  " (pad-left 5 "total")
-            "  " (pad-left 6 "avg")
-            "  " (pad-left 4 "max")
-            bar-col-gap "bar")
-       (str "  " (apply str (repeat ns-label-width "-"))
-            "  " (apply str (repeat 5 "-"))
-            "  " (apply str (repeat 5 "-"))
-            "  " (apply str (repeat 6 "-"))
-            "  " (apply str (repeat 4 "-"))
-            bar-col-gap (apply str (repeat 3 "-")))]
+       (first (complexity-rollup-header ns-label-width bar-col-gap))
+       (second (complexity-rollup-header ns-label-width bar-col-gap))]
       (if (seq namespace-rollups)
-        (map (fn [{:keys [ns unit-count total-cc avg-cc max-cc]}]
-               (str "  " (pad-right ns-label-width (str ns))
-                    "  " (pad-left 5 unit-count)
-                    "  " (pad-left 5 total-cc)
-                    "  " (pad-left 6 (format "%.2f" (double avg-cc)))
-                    "  " (pad-left 4 max-cc)
-                    bar-col-gap (bar max-cc)))
+        (map (partial complexity-rollup-row ns-label-width bar-col-gap)
              namespace-rollups)
         ["  (none)"])
       [""

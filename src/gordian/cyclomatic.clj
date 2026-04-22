@@ -304,6 +304,37 @@
     (vec (take top xs))
     (vec xs)))
 
+(defn complexity-scope
+  "Build canonical complexity scope metadata from resolved typed paths.
+   `mode` is :discovered or :explicit."
+  [mode paths]
+  {:mode    mode
+   :source? (boolean (some #(= :src (:kind %)) paths))
+   :tests?  (boolean (some #(= :test (:kind %)) paths))
+   :paths   (mapv :dir paths)})
+
+(defn complexity-options
+  "Build canonical complexity options metadata from resolved CLI opts."
+  [{:keys [sort top min-cc]}]
+  {:sort sort
+   :top top
+   :min-cc min-cc})
+
+(defn finalize-report
+  "Attach complexity metadata and apply display shaping in pure code.
+   `mode` is :discovered or :explicit; `paths` is resolved typed scan paths."
+  [report mode paths opts]
+  (-> report
+      (assoc :gordian/command :complexity
+             :src-dirs (mapv :dir paths)
+             :scope (complexity-scope mode paths)
+             :options (complexity-options opts))
+      (update :units filter-by-min-cc (:min-cc opts))
+      (update :units sort-units (:sort opts))
+      (update :units truncate-section (:top opts))
+      (update :namespace-rollups filter-by-min-cc (:min-cc opts))
+      (update :namespace-rollups truncate-section (:top opts))))
+
 (defn max-unit
   "Return the highest-complexity analyzed unit, or nil when no units exist."
   [units]

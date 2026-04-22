@@ -601,9 +601,13 @@ Examples:
             src-dirs))))
 
 (defn cyclomatic-cmd
-  "Run cyclomatic complexity mode with resolved opts map."
-  [{:keys [json edn markdown top min-cc] :as opts}]
-  (let [sort-key (:sort opts)
+  "Run complexity mode with resolved opts map.
+   `cyclomatic` remains as a compatibility alias at the CLI surface."
+  [{:keys [json edn markdown] :as opts}]
+  (let [mode  (if (and (= 1 (count (:src-dirs opts)))
+                       (discover/project-root? (first (:src-dirs opts))))
+                :discovered
+                :explicit)
         paths (resolve-complexity-paths opts)]
     (if (:error paths)
       (println (str "Error: " (:error paths)))
@@ -615,24 +619,10 @@ Examples:
                                       (keep #(some-> (scan/parse-file-all-forms %)
                                                      (assoc :origin kind))))))
                        vec)
-            data  (-> (cyclomatic/rollup files)
-                      (assoc :gordian/command :complexity
-                             :src-dirs (mapv :dir paths)
-                             :scope {:mode   (if (and (= 1 (count (:src-dirs opts)))
-                                                      (discover/project-root? (first (:src-dirs opts))))
-                                               :discovered
-                                               :explicit)
-                                     :source? (boolean (some #(= :src (:kind %)) paths))
-                                     :tests?  (boolean (some #(= :test (:kind %)) paths))
-                                     :paths   (mapv :dir paths)}
-                             :options {:sort sort-key
-                                       :top top
-                                       :min-cc min-cc})
-                      (update :units cyclomatic/filter-by-min-cc min-cc)
-                      (update :units cyclomatic/sort-units sort-key)
-                      (update :units cyclomatic/truncate-section top)
-                      (update :namespace-rollups cyclomatic/filter-by-min-cc min-cc)
-                      (update :namespace-rollups cyclomatic/truncate-section top))]
+            data  (cyclomatic/finalize-report (cyclomatic/rollup files)
+                                               mode
+                                               paths
+                                               opts)]
         (cond
           json     (println (report-json/generate (envelope/wrap opts data :complexity)))
           edn      (print   (report-edn/generate  (envelope/wrap opts data :complexity)))

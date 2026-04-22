@@ -23,6 +23,7 @@
 - [x] Update `munera/plan.md` wording if needed after the command naming / scope decision is finalized
 - [x] Patch plan: add explicit complexity payload metadata for `:scope` and `:options` aligned with resolved CLI/display state, while preserving the standard EDN/JSON Gordian envelope used by other analysis commands
 - [ ] Patch plan: decide rollup-surface policy — implement `--namespace-rollup` / `--project-rollup` or remove that optionality from task/design/docs
-- [ ] Patch plan: add explicit complexity payload metadata for `:scope` and `:options` aligned with resolved CLI/display state
-- [ ] Patch plan: decide rollup-surface policy — implement `--namespace-rollup` / `--project-rollup` or remove that optionality from task/design/docs
 - [deferred] Patch plan: decide `:line` policy — populate source lines where feasible or document the field as nullable/deferred in v1
+- [x] Cleanup plan: extract a pure complexity report finalizer (metadata + min-cc + sort + top shaping) so `main.clj` stays thinner
+- [x] Cleanup plan: factor complexity text table rendering into small private helpers to reduce inline column/layout duplication in `output.clj`
+- [ ] Cleanup plan: tighten internal naming/docstrings where helpful so command-facing `complexity` terminology and metric-facing `cyclomatic` terminology stay intentionally separated

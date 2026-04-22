@@ -96,3 +96,18 @@ Patch plan from task review:
 3. source-location decision — deferred
    - either populate `:line` from parsed forms where feasible
    - or explicitly document `:line` as nullable/deferred in v1 and keep tests/schema aligned with that decision
+
+Code-shaper cleanup checklist:
+1. pure report finalization ✅
+   - extracted complexity-specific payload shaping from `main.clj` into pure helpers in `gordian.cyclomatic`
+   - includes payload metadata assembly plus display transformations (`:min-cc`, `:sort`, `:top`)
+   - result: `main.clj` is thinner and more focused on path resolution, scanning, envelope wrapping, and output dispatch
+2. text table rendering simplification ✅
+   - factored complexity text-table header/row/rule construction into small private helpers in `output.clj`
+   - avoided introducing a generic table engine; used local helpers to reduce repeated inline layout code
+   - result: current output preserved while formatting logic became easier to edit safely
+3. terminology tightening
+   - review command-facing names/docstrings for places where `complexity` vs `cyclomatic` terminology is drifting unintentionally
+   - keep user-facing command language centered on `complexity`
+   - keep metric-specific implementation language centered on `cyclomatic` where that distinction is helpful
+   - target effect: less convergence-history leakage and a cleaner conceptual boundary between command and metric
