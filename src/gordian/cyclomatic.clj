@@ -12,8 +12,6 @@
   - +1 for each catch clause in try"
   (:require [clojure.string :as str]))
 
-;(set! *warn-on-reflection* true)
-
 (def ^:private branch-ops
   '#{if if-not if-let if-some when when-not when-let when-some when-first})
 
@@ -29,24 +27,38 @@
     (string? (first xs)) rest
     (map? (first xs)) rest))
 
+(defn- fn-arities
+  "Return a vector of {:args [...] :body [...]} arities for an fn-like tail."
+  [tail]
+  (cond
+    (vector? (first tail))
+    [{:args (first tail)
+      :body (vec (rest tail))}]
+
+    (seq? (first tail))
+    (->> tail
+         (filter seq?)
+         (mapv (fn [arity]
+                 {:args (first arity)
+                  :body (vec (rest arity))})))
+
+    :else
+    []))
+
 (defn- defn-arities
   "Return a vector of {:args [...] :body [...]} arities for a defn-like tail."
   [tail]
-  (let [tail (strip-doc-and-attr tail)]
-    (cond
-      (vector? (first tail))
-      [{:args (first tail)
-        :body (vec (rest tail))}]
+  (fn-arities (strip-doc-and-attr tail)))
 
-      (seq? (first tail))
-      (->> tail
-           (filter seq?)
-           (mapv (fn [arity]
-                   {:args (first arity)
-                    :body (vec (rest arity))})))
-
-      :else
-      [])))
+(defn- literal-fn-arities
+  "Return arities for a top-level literal fn form, or nil if form is not a
+  literal fn with an analyzable shape."
+  [form]
+  (when (and (seq? form)
+             (= 'fn (first form)))
+    (let [tail (rest form)
+          tail (if (symbol? (first tail)) (rest tail) tail)]
+      (fn-arities tail))))
 
 (defn- cond-branches
   [args]
@@ -119,32 +131,100 @@
   [body]
   (+ 1 (reduce + 0 (map complexity* body))))
 
+(defn analyzable-units
+  "Extract analyzable top-level units from one parsed file payload
+   {:file :ns :forms}. Returns one unit per arity-level executable body.
+
+   Implemented v1 extraction:
+   - defn / defn-
+   - defmethod
+   - top-level def with literal fn value"
+  [{:keys [file ns forms origin]}]
+  (->> forms
+       (mapcat
+        (fn [form]
+          (cond
+            (and (seq? form)
+                 (defn-ops (first form))
+                 (symbol? (second form)))
+            (let [name (second form)]
+              (map-indexed
+               (fn [i {:keys [args body]}]
+                 {:ns ns
+                  :var name
+                  :kind :defn-arity
+                  :arity (count args)
+                  :dispatch nil
+                  :file file
+                  :line nil
+                  :origin origin
+                  :body body
+                  :unit-id [ns name :defn-arity i]})
+               (defn-arities (nnext form))))
+
+            (and (seq? form)
+                 (= 'defmethod (first form))
+                 (symbol? (second form)))
+            [{:ns ns
+              :var (second form)
+              :kind :defmethod
+              :arity nil
+              :dispatch (nth form 2 nil)
+              :file file
+              :line nil
+              :origin origin
+              :body (vec (drop 3 form))
+              :unit-id [ns (second form) :defmethod (nth form 2 nil)]}]
+
+            (and (seq? form)
+                 (= 'def (first form))
+                 (symbol? (second form)))
+            (let [name      (second form)
+                  value-form (nth form 2 nil)]
+              (map-indexed
+               (fn [i {:keys [args body]}]
+                 {:ns ns
+                  :var name
+                  :kind :def-fn-arity
+                  :arity (count args)
+                  :dispatch nil
+                  :file file
+                  :line nil
+                  :origin origin
+                  :body body
+                  :unit-id [ns name :def-fn-arity i]})
+               (or (literal-fn-arities value-form) [])))
+
+            :else
+            [])))
+       vec))
+
 (defn function-complexities
   "Analyze one parsed file payload {:file :ns :forms}.
    Returns {:file :ns :functions [...]}.
 
    Each function record includes max complexity across arities and the
    individual arity complexities for transparency."
-  [{:keys [file ns forms]}]
-  {:file file
-   :ns ns
-   :functions
-   (->> forms
-        (keep (fn [form]
-                (when (and (seq? form)
-                           (defn-ops (first form))
-                           (symbol? (second form)))
-                  (let [name       (second form)
-                        arities    (defn-arities (nnext form))
-                        arity-cxs  (mapv (comp arity-complexity :body) arities)]
+  [{:keys [file ns] :as parsed-file}]
+  (let [units (analyzable-units parsed-file)]
+    {:file file
+     :ns ns
+     :functions
+     (->> units
+          (group-by (juxt :var :kind :dispatch))
+          vals
+          (mapv (fn [var-units]
+                  (let [{:keys [var]} (first var-units)
+                        arity-cxs (mapv (comp arity-complexity :body) var-units)]
                     {:ns ns
                      :file file
-                     :name name
-                     :qualified-name (symbol (str ns) (str name))
-                     :arity-count (count arities)
+                     :name var
+                     :qualified-name (symbol (str ns) (str var))
+                     :arity-count (count var-units)
                      :arity-complexities arity-cxs
-                     :complexity (apply max 0 arity-cxs)}))))
-        vec)})
+                     :complexity (apply max 0 arity-cxs)})))
+          (sort-by (juxt (comp - :complexity) :name))
+          vec)}))
 
 (defn namespace-summary
   "Build a namespace-level rollup from one file analysis."

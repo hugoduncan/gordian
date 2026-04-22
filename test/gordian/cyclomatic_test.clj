@@ -30,9 +30,32 @@
   (testing "try counts catch clauses"
     (is (= 2 (sut/arity-complexity '((try (inc x) (catch Exception _ 0))))))))
 
+(deftest analyzable-units-test
+  (let [file {:file "src/sample.clj"
+              :ns 'sample.core
+              :origin :src
+              :forms '[(ns sample.core)
+                       (defn a [] 1)
+                       (defn b [x] (if x 1 2))
+                       (defn c
+                         ([x] x)
+                         ([x y] (cond x y :else 0)))
+                       (defmethod render :html [x] (when x :ok))
+                       (def helper (fn
+                                     ([x] x)
+                                     ([x y] (or x y))))]}
+        units (sut/analyzable-units file)]
+    (is (= 7 (count units)))
+    (is (= 2 (count (filter #(= 'c (:var %)) units))))
+    (is (= 1 (count (filter #(= :defmethod (:kind %)) units))))
+    (is (= 2 (count (filter #(= :def-fn-arity (:kind %)) units))))
+    (is (= #{:src} (set (map :origin units))))
+    (is (= :html (:dispatch (first (filter #(= :defmethod (:kind %)) units)))))))
+
 (deftest function-complexities-test
   (let [file {:file "src/sample.clj"
               :ns 'sample.core
+              :origin :src
               :forms '[(ns sample.core)
                        (defn a [] 1)
                        (defn b [x] (if x 1 2))
