@@ -182,6 +182,9 @@ gordian complexity --tests-only .
 gordian complexity . --sort cc-risk --top 20
 gordian complexity . --sort loc
 gordian complexity . --sort ns --bar loc
+gordian complexity . --namespace-rollup
+gordian complexity . --project-rollup
+gordian complexity . --namespace-rollup --project-rollup
 gordian complexity . --min cc=10
 gordian complexity . --min cc=10 --min loc=20
 gordian complexity . --edn > complexity.edn
@@ -191,9 +194,9 @@ gordian complexity . --markdown > complexity.md
 
 It reports:
 - per-unit cyclomatic complexity and lines of code (`defn` arities, `defmethod`, top-level `def` + literal `fn`)
-- namespace rollups over canonical units
-- project rollup with risk-band counts plus LOC totals
-- text/markdown summaries plus machine-readable canonical fields such as `:metrics`, `:scope`, `:options`, `:bar-metric`, `:units`, `:namespace-rollups`, `:project-rollup`, `:max-unit`, and per-unit `:cc` / `:loc`
+- optional namespace rollup via `--namespace-rollup`
+- optional project rollup via `--project-rollup`
+- text/markdown summaries plus machine-readable canonical fields such as `:metrics`, `:scope`, `:options`, `:bar-metric`, `:units`, optional `:namespace-rollups`, optional `:project-rollup`, `:max-unit`, and per-unit `:cc` / `:loc`
 
 Current counting rules:
 - base complexity `1` per analyzed unit
@@ -213,10 +216,12 @@ Scope and ranking controls:
 - `--sort` supports `cc`, `loc`, `ns`, `var`, and `cc-risk`
 - `--bar` supports `cc` and `loc` for human-readable histogram bars
 - when `--bar` is omitted, bars default to `loc` for `--sort loc`, otherwise `cc`
+- `--namespace-rollup` includes the namespace rollup section
+- `--project-rollup` includes the project rollup section
 - repeatable `--min metric=value` filters displayed unit rows only, e.g. `--min cc=10` or `--min loc=20`
 - multiple `--min` constraints combine conjunctively
-- namespace and project rollups remain computed from the full analyzed unit set
-- `--top` truncates units and namespace-rollup sections independently
+- when requested, namespace and project rollups remain computed from the full analyzed unit set
+- `--top` truncates units and requested namespace-rollup sections independently
 
 This mode complements Gordian's architectural analysis: it measures local
 branching complexity within executable units rather than namespace coupling
@@ -242,6 +247,9 @@ gordian local src/
 gordian local --tests-only .
 gordian local . --sort abstraction --top 20
 gordian local . --sort ns --bar working-set
+gordian local . --namespace-rollup
+gordian local . --project-rollup
+gordian local . --namespace-rollup --project-rollup
 gordian local . --min total=12
 gordian local . --min abstraction=4 --min working-set=3
 gordian local . --edn > local.edn
@@ -253,8 +261,8 @@ It reports:
 - per-unit burden vectors for top-level `defn` arities and `defmethod` bodies
 - burden families: flow, state, shape, abstraction, dependency, working-set
 - per-unit findings for high-signal local comprehension burdens
-- namespace rollups over burden-family averages
-- project rollup with average burdens and finding counts
+- optional namespace rollup over burden-family averages via `--namespace-rollup`
+- optional project rollup with average burdens and finding counts via `--project-rollup`
 
 Current v1 semantics:
 - canonical units are top-level `defn` arities and `defmethod` bodies
@@ -276,10 +284,12 @@ Scope and ranking controls mirror `complexity` where practical:
 - explicit paths override discovery-based scope selection
 - `--sort` supports `total`, `flow`, `state`, `shape`, `abstraction`, `dependency`, `working-set`, `ns`, and `var`
 - `--bar` supports `total`, `flow`, `state`, `shape`, `abstraction`, `dependency`, and `working-set`
+- `--namespace-rollup` includes the namespace rollup section
+- `--project-rollup` includes the project rollup section
 - repeatable `--min metric=value` filters displayed unit rows only
 - multiple `--min` constraints combine conjunctively
-- namespace and project rollups remain computed from the full analyzed unit set
-- `--top` truncates units and namespace-rollup sections independently
+- when requested, namespace and project rollups remain computed from the full analyzed unit set
+- `--top` truncates units and requested namespace-rollup sections independently
 
 This mode complements `gordian complexity`: it focuses on local comprehension
 burden for safe change rather than branch count and LOC alone.

@@ -275,8 +275,8 @@ Payload keys (alongside envelope):
 | `scope` | map | Resolved analysis scope metadata for reproducibility |
 | `options` | map | Applied complexity display/sort options for reproducibility |
 | `units` | vector of maps | Canonical arity-level analyzed units |
-| `namespace-rollups` | vector of maps | Canonical namespace rollups |
-| `project-rollup` | map | Canonical project rollup |
+| `namespace-rollups` | vector of maps | Canonical namespace rollups, present only when `:options :namespace-rollup` is true |
+| `project-rollup` | map | Canonical project rollup, present only when `:options :project-rollup` is true |
 | `max-unit` | map or nil | Highest-complexity analyzed unit |
 
 ### Scope shape
@@ -291,9 +291,12 @@ Payload keys (alongside envelope):
 ### Options shape
 
 ```edn
-{:sort   :cc|:ns|:var|:cc-risk|nil
- :top    pos-int-or-nil
- :min-cc non-negative-int-or-nil}
+{:sort             :cc|:loc|:ns|:var|:cc-risk|nil
+ :top              pos-int-or-nil
+ :bar              :cc|:loc|nil
+ :namespace-rollup boolean
+ :project-rollup   boolean
+ :mins             {keyword pos-int ...}|nil}
 ```
 
 ### Canonical unit shape
@@ -358,8 +361,8 @@ Payload keys (alongside envelope):
  :cc-risk           {:level keyword :label string}}
 ```
 
-The canonical machine-readable fields are `metric`, `units`,
-`namespace-rollups`, `project-rollup`, and `max-unit`.
+The canonical machine-readable fields are `metric`, `units`, and `max-unit`,
+plus optional `namespace-rollups` and `project-rollup` when explicitly requested.
 
 ---
 
@@ -380,8 +383,8 @@ Payload keys (alongside envelope):
 | `options` | map | Applied local display/sort options for reproducibility |
 | `calibration` | map | Deterministic normalization scales and weights for this analyzed unit set |
 | `units` | vector of maps | Canonical analyzed units with raw burdens and normalized combination data |
-| `namespace-rollups` | vector of maps | Canonical namespace rollups |
-| `project-rollup` | map | Canonical project rollup |
+| `namespace-rollups` | vector of maps | Canonical namespace rollups, present only when `:options :namespace-rollup` is true |
+| `project-rollup` | map | Canonical project rollup, present only when `:options :project-rollup` is true |
 | `max-unit` | map or nil | Highest-total analyzed unit |
 
 ### Scope shape
@@ -396,9 +399,12 @@ Payload keys (alongside envelope):
 ### Options shape
 
 ```edn
-{:sort :total|:flow|:state|:shape|:abstraction|:dependency|:working-set|:ns|:var|nil
- :top  pos-int-or-nil
- :mins {keyword pos-int ...}}
+{:sort             :total|:flow|:state|:shape|:abstraction|:dependency|:working-set|:ns|:var|nil
+ :top              pos-int-or-nil
+ :bar              :total|:flow|:state|:shape|:abstraction|:dependency|:working-set|nil
+ :namespace-rollup boolean
+ :project-rollup   boolean
+ :mins             {keyword pos-int ...}|nil}
 ```
 
 ### Calibration shape
@@ -453,8 +459,8 @@ Payload keys (alongside envelope):
 `*-burden` fields are raw burden-family values. `:normalized-burdens` are the
 per-family transformed values actually used for `:lcc-total`.
 
-The canonical machine-readable fields are `metric`, `calibration`, `units`,
-`namespace-rollups`, `project-rollup`, and `max-unit`.
+The canonical machine-readable fields are `metric`, `calibration`, `units`, and `max-unit`,
+plus optional `namespace-rollups` and `project-rollup` when explicitly requested.
 
 ---
 

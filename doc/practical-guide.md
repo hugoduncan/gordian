@@ -1031,6 +1031,8 @@ Goal:
 ```bash
 gordian complexity . --sort cc-risk --top 20
 gordian complexity . --sort loc --top 20
+gordian complexity . --namespace-rollup
+gordian complexity . --project-rollup
 gordian complexity . --min cc=10 --min loc=20
 ```
 
@@ -1047,6 +1049,7 @@ Interpretation:
 - high `loc` with modest `cc` often means long procedural bodies or broad data shaping
 - high `cc` and high `loc` together are strong candidates for extraction or simplification
 - `cc-risk` is a quick triage sort; `loc` is a useful second pass
+- add `--namespace-rollup` or `--project-rollup` only when you explicitly want summary sections beyond the default unit-focused view
 
 `complexity` is local and unit-oriented. It does not tell you whether the
 surrounding namespace architecture is healthy.
@@ -1056,6 +1059,8 @@ surrounding namespace architecture is healthy.
 ```bash
 gordian local . --sort total --top 20
 gordian local . --sort abstraction --top 20
+gordian local . --namespace-rollup
+gordian local . --project-rollup
 gordian local . --min total=12
 gordian local . --min abstraction=4 --min working-set=3
 ```
@@ -1075,6 +1080,7 @@ Interpretation:
 - high `shape` suggests return-form or data-shape variability across branches
 - high `dependency` suggests local understanding depends on too many external helpers
 - high `total` with a balanced burden profile often marks genuinely review-hostile code
+- add `--namespace-rollup` or `--project-rollup` only when you explicitly want summary sections beyond the default unit-focused view
 
 `local` complements `complexity`:
 - `complexity` tells you about branch count and size
