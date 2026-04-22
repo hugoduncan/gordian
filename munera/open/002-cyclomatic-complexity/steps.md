@@ -13,6 +13,9 @@
 - [x] Implement CLI validation for conflicting scope flags, explicit-path/scope-flag conflicts, output-mode exclusivity, unknown sort keys, and non-positive `--top`
 - [x] Update command wiring in `main.clj` to use the finalized command shape and finalized scope resolution semantics
 - [x] Update text output to present canonical units / rollups and add horizontal bar charts
+- [x] Align horizontal bar origins in text output so equal-value bars visually start in the same column regardless of label width
+- [x] Refine text output into a true tabular layout with fixed columns rather than repeated inline field labels like `cc=`, `risk=`, and `decisions=`
+- [x] Add a display-threshold option for complexity output so users can suppress units/rollups below a minimum reported `:cc`
 - [x] Update EDN / JSON output to emit the finalized canonical payload shape consistently with the Gordian envelope
 - [x] Update markdown output only if retained as part of the finalized command surface; otherwise document its status explicitly
 - [x] Expand tests for unit extraction (`defn`, multi-arity, `defmethod`, `def` + literal `fn`), scoring semantics, risk bands, canonical schema, sort/truncation behavior, scope behavior, validation, and command compatibility/alias behavior

@@ -1073,17 +1073,24 @@
    :max-unit {:ns 'sample.core :var 'branchy :arity 1 :cc 3}})
 
 (deftest format-cyclomatic-test
-  (let [text (str/join "\n" (sut/format-cyclomatic cyclomatic-data))]
+  (let [lines (sut/format-cyclomatic cyclomatic-data)
+        text  (str/join "\n" lines)
+        unit-rows (filter #(and (str/includes? % "[arity") (str/includes? % "█")) lines)
+        bar-cols  (map #(.indexOf % "█") unit-rows)]
     (is (str/includes? text "gordian complexity"))
     (is (str/includes? text "SUMMARY"))
     (is (str/includes? text "namespaces: 2"))
     (is (str/includes? text "units: 3"))
     (is (str/includes? text "sample.core/branchy [arity 1] (3)"))
     (is (str/includes? text "UNITS"))
+    (is (str/includes? text "unit"))
+    (is (str/includes? text "risk"))
+    (is (str/includes? text "decisions"))
     (is (str/includes? text "NAMESPACE ROLLUP"))
     (is (str/includes? text "PROJECT ROLLUP"))
     (is (str/includes? text "branchy [arity 1]"))
-    (is (str/includes? text "███"))))
+    (is (str/includes? text "███"))
+    (is (apply = bar-cols))))
 
 (deftest format-cyclomatic-md-test
   (let [text (str/join "\n" (sut/format-cyclomatic-md cyclomatic-data))]

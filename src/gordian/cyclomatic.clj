@@ -286,6 +286,17 @@
 
        (sort-by (juxt (comp - :cc) :ns :var :kind :arity :dispatch) units)))))
 
+(defn filter-by-min-cc
+  "Filter units/rollups by minimum displayed complexity threshold.
+   For units, uses :cc. For rollups, uses :max-cc."
+  [xs min-cc]
+  (let [min-cc (or min-cc 0)]
+    (->> xs
+         (filter (fn [x]
+                   (let [n (or (:cc x) (:max-cc x) 0)]
+                     (<= min-cc n))))
+         vec)))
+
 (defn truncate-section
   "Apply section-local top-N truncation when top is positive."
   [xs top]

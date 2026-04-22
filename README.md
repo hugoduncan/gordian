@@ -143,6 +143,7 @@ gordian complexity .
 gordian complexity src/
 gordian complexity --tests-only .
 gordian complexity . --sort cc-risk --top 20
+gordian complexity . --min-cc 10
 gordian complexity . --edn > complexity.edn
 gordian complexity . --json > complexity.json
 gordian complexity . --markdown > complexity.md
@@ -170,6 +171,7 @@ Scope and ranking controls:
 - `--tests-only` analyzes discovered test paths only
 - explicit paths override discovery-based scope selection
 - `--sort` supports `cc`, `ns`, `var`, and `cc-risk`
+- `--min-cc` suppresses units below the threshold and rollups whose `max-cc` is below it
 - `--top` truncates units and namespace-rollup sections independently
 
 This mode complements Gordian's architectural analysis: it measures local

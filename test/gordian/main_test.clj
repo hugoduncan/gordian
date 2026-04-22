@@ -399,6 +399,11 @@
     (is (= "complexity --top must be a positive integer"
            (:error (sut/parse-args ["complexity" "--top" "0"]))))))
 
+(deftest parse-args-complexity-min-cc-test
+  (testing "complexity rejects negative min-cc"
+    (is (= "complexity --min-cc must be a non-negative integer"
+           (:error (sut/parse-args ["complexity" "--min-cc" "-1"]))))))
+
 ;;; ── diagnose integration ─────────────────────────────────────────────────
 
 (deftest diagnose-integration-test
@@ -589,7 +594,17 @@
       (is (contains? parsed :units))
       (is (contains? parsed :namespace-rollups))
       (is (contains? parsed :project-rollup))
-      (is (contains? parsed :max-unit)))))
+      (is (contains? parsed :max-unit))))
+
+  (testing "cyclomatic min-cc filters displayed units and rollups"
+    (let [out (with-out-str
+                (sut/cyclomatic-cmd {:src-dirs ["src"]
+                                     :command :cyclomatic
+                                     :edn true
+                                     :min-cc 20}))
+          parsed (read-string out)]
+      (is (every? #(<= 20 (:cc %)) (:units parsed)))
+      (is (every? #(<= 20 (:max-cc %)) (:namespace-rollups parsed))))))
 
 ;;; ── parse-args / --markdown ────────────────────────────────────────────────
 

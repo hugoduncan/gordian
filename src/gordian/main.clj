@@ -54,6 +54,7 @@
    :fail-on               {:desc "Comma-separated strict gate checks e.g. new-cycles,new-high-findings"}
    :rank                  {:desc "Diagnose ranking: actionability (default) or severity" :coerce :keyword}
    :sort                  {:desc "Complexity sort: cc | ns | var | cc-risk" :coerce :keyword}
+   :min-cc                {:desc "Complexity display threshold: suppress units/rollups below this CC" :coerce :long}
    :top                   {:desc "Show only the top N findings after ranking" :coerce :long}
    :lens                  {:desc "Communities lens: structural | conceptual | change | combined" :coerce :keyword}
    :threshold             {:desc "Communities threshold" :coerce :double}
@@ -100,6 +101,7 @@ Options:
   --fail-on <csv>               Comma-separated strict gate checks
   --rank <mode>                 Diagnose ranking: actionability (default) or severity
   --sort <key>                  Complexity sort: cc | ns | var | cc-risk
+  --min-cc <n>                  Complexity display threshold
   --top <n>                     Show only the top N findings after ranking
   --lens <mode>                 Communities lens: structural | conceptual | change | combined
   --threshold <float>           Communities threshold
@@ -134,6 +136,7 @@ Examples:
   gordian dsm . --html-file dsm.html
   gordian tests .
   gordian complexity .
+  gordian complexity . --min-cc 10
   gordian cyclomatic .
   gordian explain gordian.scan        drill into a namespace
   gordian explain-pair a.core b.svc   drill into a pair")
@@ -187,6 +190,11 @@ Examples:
            (:top opts)
            (not (pos? (:top opts))))
       {:error "complexity --top must be a positive integer"}
+
+      (and (= :cyclomatic command)
+           (:min-cc opts)
+           (neg? (:min-cc opts)))
+      {:error "complexity --min-cc must be a non-negative integer"}
 
       (= :compare command)
       (if (and (first args) (second args))
@@ -594,7 +602,7 @@ Examples:
 
 (defn cyclomatic-cmd
   "Run cyclomatic complexity mode with resolved opts map."
-  [{:keys [json edn markdown top] :as opts}]
+  [{:keys [json edn markdown top min-cc] :as opts}]
   (let [sort-key (:sort opts)
         paths (resolve-complexity-paths opts)]
     (if (:error paths)
@@ -610,8 +618,10 @@ Examples:
             data  (-> (cyclomatic/rollup files)
                       (assoc :gordian/command :complexity
                              :src-dirs (mapv :dir paths))
+                      (update :units cyclomatic/filter-by-min-cc min-cc)
                       (update :units cyclomatic/sort-units sort-key)
                       (update :units cyclomatic/truncate-section top)
+                      (update :namespace-rollups cyclomatic/filter-by-min-cc min-cc)
                       (update :namespace-rollups cyclomatic/truncate-section top))]
         (cond
           json     (println (report-json/generate (envelope/wrap opts data :complexity)))

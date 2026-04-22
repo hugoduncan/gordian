@@ -72,12 +72,16 @@
   (is (= {:level :high :label "High complexity, high risk"} (sut/cc-risk 21)))
   (is (= {:level :untestable :label "Untestable, very high risk"} (sut/cc-risk 51))))
 
-(deftest sort-and-truncation-test
+(deftest sort-filter-and-truncation-test
   (let [units [{:ns 'b.core :var 'z :kind :defn-arity :arity 1 :dispatch nil :cc 4 :cc-risk (sut/cc-risk 4)}
                {:ns 'a.core :var 'x :kind :defn-arity :arity 1 :dispatch nil :cc 9 :cc-risk (sut/cc-risk 9)}
-               {:ns 'a.core :var 'y :kind :defn-arity :arity 1 :dispatch nil :cc 11 :cc-risk (sut/cc-risk 11)}]]
+               {:ns 'a.core :var 'y :kind :defn-arity :arity 1 :dispatch nil :cc 11 :cc-risk (sut/cc-risk 11)}]
+        rollups [{:ns 'a.core :max-cc 9}
+                 {:ns 'b.core :max-cc 4}]]
     (is (= ['a.core 'a.core 'b.core] (mapv :ns (sut/sort-units units :ns))))
     (is (= ['y 'x 'z] (mapv :var (sut/sort-units units :cc-risk))))
+    (is (= ['x 'y] (mapv :var (sut/filter-by-min-cc units 9))))
+    (is (= ['a.core] (mapv :ns (sut/filter-by-min-cc rollups 9))))
     (is (= 2 (count (sut/truncate-section units 2))))))
 
 (deftest rollup-test
