@@ -991,6 +991,37 @@ Cleanup/feature:
 - clj-kondo integration
 - Watch mode
 
+## Session 31 — Munera task 011 closed
+
+Made branch locality explicit in `gordian local` step evidence and tightened
+semantic ownership boundaries in the local-analysis core without changing the
+command/report surface.
+
+What changed:
+- made branch locality explicit in `local/steps.clj`
+  - main-path step records now carry `:branch-local?`
+  - `:active-predicates` remains as predicate-depth context, not a proxy for locality
+- migrated downstream consumers to the explicit invariant
+  - `local/dependency.clj` now reads `:branch-local?` directly
+  - `local/working_set.clj` now records `:branch-local?` on program points and continues
+    to exclude branch-local pipeline/main-path samples using the explicit field
+- locked the invariant in tests
+  - added direct step-level coverage for explicit branch-locality behavior in
+    `test/gordian/local_test.clj`
+  - verified dependency logic no longer changes when only `:active-predicates` is perturbed
+- reduced semantic concentration in `local/common.clj`
+  - extracted semantic op registries into new `local/ops.clj`
+  - left `local/common.clj` focused on syntax/tree/binding helpers
+
+Validation:
+- full suite passes: 351 tests, 3167 assertions, 0 failures
+- representative sanity check passes:
+  - `bb -m gordian.main local src --top 5`
+
+Task status change:
+- moved `munera/open/011-make-local-branch-locality-explicit-and-tighten-semantic-ownership` → `munera/closed/`
+- removed task 011 from `munera/plan.md` open-task list
+
 ## Session 30 — Munera task 010 closed
 
 Clarified and tightened the remaining post-009 `gordian local` evidence
