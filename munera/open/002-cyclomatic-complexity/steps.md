@@ -17,4 +17,4 @@
 - [x] Update markdown output only if retained as part of the finalized command surface; otherwise document its status explicitly
 - [x] Expand tests for unit extraction (`defn`, multi-arity, `defmethod`, `def` + literal `fn`), scoring semantics, risk bands, canonical schema, sort/truncation behavior, scope behavior, validation, and command compatibility/alias behavior
 - [x] Update `doc/schema.md`, README command docs, and task notes to match the finalized command name and canonical report shape
-- [ ] Update `munera/plan.md` wording if needed after the command naming / scope decision is finalized
+- [x] Update `munera/plan.md` wording if needed after the command naming / scope decision is finalized

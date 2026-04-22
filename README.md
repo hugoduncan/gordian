@@ -134,36 +134,47 @@ Interpretation notes:
 
 ## Complexity mode (`complexity`)
 
-`gordian complexity` analyzes function-level cyclomatic complexity and rolls it
-up by namespace. `gordian cyclomatic` remains available as a compatibility
-alias.
+`gordian complexity` analyzes cyclomatic complexity for top-level executable
+bodies at arity granularity. `gordian cyclomatic` remains available as a
+compatibility alias.
 
 ```bash
 gordian complexity .
 gordian complexity src/
-gordian complexity src/ test/
+gordian complexity --tests-only .
+gordian complexity . --sort cc-risk --top 20
 gordian complexity . --edn > complexity.edn
 gordian complexity . --json > complexity.json
 gordian complexity . --markdown > complexity.md
 ```
 
 It reports:
-- per-function complexity
-- per-arity complexity for multi-arity functions
-- namespace totals, averages, and maxima
-- overall summary and max-complexity function
+- per-unit cyclomatic complexity (`defn` arities, `defmethod`, top-level `def` + literal `fn`)
+- namespace rollups over canonical units
+- project rollup with risk-band counts
+- text/markdown summaries plus machine-readable canonical `:cc` fields
 
 Current counting rules:
-- base complexity `1` per function arity
-- `if` family adds `1`
-- `doseq`, `for`, `while` add `1`
-- `cond` and `condp` count non-default branches
-- `case` counts explicit branches, ignoring default
+- base complexity `1` per analyzed unit
+- `if` / `when` family adds `1`
+- `cond` counts every clause pair, including trailing `:else`
+- `condp` counts every clause pair and default when present
+- `case` counts every branch arm and default when present
+- `cond->` counts each condition/form pair
 - `and` / `or` add `operand-count - 1`
 - each `catch` in `try` adds `1`
+- `loop`, `recur`, recursion, `for`, `doseq`, and `while` do not independently add complexity
 
-This mode complements Gordian's architectural analysis: it measures code-path
-branching within functions rather than namespace coupling across the system.
+Scope and ranking controls:
+- default with project discovery = source paths only
+- `--tests-only` analyzes discovered test paths only
+- explicit paths override discovery-based scope selection
+- `--sort` supports `cc`, `ns`, `var`, and `cc-risk`
+- `--top` truncates units and namespace-rollup sections independently
+
+This mode complements Gordian's architectural analysis: it measures local
+branching complexity within executable units rather than namespace coupling
+across the system.
 
 ## Install via bbin
 

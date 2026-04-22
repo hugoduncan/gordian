@@ -265,62 +265,71 @@ Command: `gordian complexity [dirs...] --edn`
 
 Cyclomatic complexity analysis is independent of the structural/conceptual/change
 pair lenses. The standard envelope is still present, but the payload is focused
-on function and namespace complexity rollups.
+on canonical arity-level executable-unit complexity plus rollups.
 
 Payload keys (alongside envelope):
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `summary` | map | Overall complexity rollup |
-| `max-function` | map or nil | Highest-complexity function |
-| `namespaces` | vector of maps | Per-namespace complexity summaries |
+| `metric` | keyword | `:cyclomatic-complexity` |
+| `summary` | map | Legacy summary compatibility view |
+| `max-function` | map or nil | Legacy max-function compatibility view |
+| `units` | vector of maps | Canonical arity-level analyzed units |
+| `namespace-rollups` | vector of maps | Canonical namespace rollups |
+| `project-rollup` | map | Canonical project rollup |
+| `namespaces` | vector of maps | Legacy namespace compatibility summaries |
 
-### Summary shape
+### Canonical unit shape
 
 ```edn
-{:namespace-count  integer
- :function-count   integer
- :total-complexity integer
- :avg-complexity   double
- :max-complexity   integer}
+{:metric            :cyclomatic-complexity
+ :ns                symbol
+ :var               symbol
+ :kind              keyword
+ :arity             integer-or-nil
+ :dispatch          any
+ :file              string
+ :line              integer-or-nil
+ :origin            :src|:test
+ :cc                integer
+ :cc-decision-count integer
+ :cc-risk           {:level keyword :label string}}
 ```
 
-### Max-function shape
+### Namespace rollup shape
 
 ```edn
 {:ns             symbol
- :name           symbol
- :qualified-name symbol
- :complexity     integer
- :file           string}
+ :unit-count     integer
+ :total-cc       integer
+ :avg-cc         double
+ :max-cc         integer
+ :cc-risk-counts {:simple integer
+                  :moderate integer
+                  :high integer
+                  :untestable integer}}
 ```
 
-### Namespace summary shape
+### Project rollup shape
 
 ```edn
-{:ns               symbol
- :file             string
- :function-count   integer
- :total-complexity integer
- :avg-complexity   double
- :max-complexity   integer
- :functions        [function]}
+{:unit-count     integer
+ :namespace-count integer
+ :total-cc       integer
+ :avg-cc         double
+ :max-cc         integer
+ :cc-risk-counts {:simple integer
+                  :moderate integer
+                  :high integer
+                  :untestable integer}}
 ```
 
-### Function shape
+### Legacy compatibility keys
 
-```edn
-{:ns                 symbol
- :file               string
- :name               symbol
- :qualified-name     symbol
- :arity-count        integer
- :arity-complexities [integer]
- :complexity         integer} ; max across arities
-```
-
-For multi-arity functions, `:complexity` is currently the maximum of
-`:arity-complexities`.
+`summary`, `max-function`, and `namespaces` are still emitted during the
+convergence period for compatibility with the earlier `cyclomatic` prototype.
+The canonical machine-readable fields are `metric`, `units`,
+`namespace-rollups`, and `project-rollup`.
 
 ---
 
