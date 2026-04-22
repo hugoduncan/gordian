@@ -21,3 +21,10 @@
 - [x] Phase 5: run representative `gordian local` sanity checks with alias and nested-key inputs
 - [x] Phase 5: run full suite
 - [x] Phase 5: final review for backward compatibility and code-shape improvement
+
+- [x] Phase 6: resolve whether supported arbitrary numeric keys are derived from the authoritative canonical unit/report shape or from a maintained documented schema surface
+- [x] Phase 6: if needed, remove shadow-schema duplication and derive supported numeric paths from the authoritative seam
+- [x] Phase 6: otherwise narrow task/docs/design wording to the maintained documented schema surface explicitly
+- [x] Phase 6: make namespace-rollup sorting semantics explicit and coherent for arbitrary `--sort` keys
+- [x] Phase 6: add tests locking the final supported-key authority and rollup-sort behavior
+- [ ] Phase 6: re-review task 017 and only then close it

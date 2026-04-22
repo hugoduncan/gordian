@@ -368,6 +368,8 @@
     (is (= {:sort nil :top nil :bar nil :namespace-rollup true :project-rollup false :mins nil} options))
     (is (= 2 (count (report/truncate-section units 2))))
     (is (= ['a.core 'b.core] (mapv :ns rollups)))
+    (is (= ['a.core 'b.core] (mapv :ns (report/sort-rollups units rollups :working-set.peak))))
+    (is (= ['a.core 'b.core] (mapv :ns (report/sort-rollups units rollups :normalized-burdens.working-set))))
     (is (= 3 (get-in (report/project-rollup units rollups) [:unit-count])))
     (is (report/valid-sort-key? :working-set.peak))
     (is (report/valid-sort-key? :normalized-burdens.working-set))

@@ -285,9 +285,11 @@ Scope and ranking controls mirror `complexity` where practical:
 - `--tests-only` analyzes discovered test paths only
 - explicit paths override discovery-based scope selection
 - `--sort` supports built-in aliases `total`, `flow`, `state`, `shape`, `abstraction`, `dependency`, `working-set`, plus `ns` and `var`, and also dotted numeric unit keys such as `working-set.peak` or `normalized-burdens.working-set`
+- the supported dotted numeric keys come from `local`'s explicit documented numeric schema surface, which is the authoritative CLI contract for arbitrary numeric keys
+- when `--namespace-rollup` is requested with an arbitrary numeric `--sort` key, namespace rollups sort by the average of that same metric across units in each namespace
 - `--bar` supports built-in aliases and dotted numeric unit keys such as `working-set.avg`
 - `--min metric=value` supports built-in aliases and dotted numeric unit keys such as `working-set.peak=7`
-- built-in aliases remain supported for the core burden families; dotted keys address numeric fields directly from the canonical unit payload
+- built-in aliases remain supported for the core burden families; dotted keys address numeric fields directly from the authoritative documented local numeric schema surface
 - `--namespace-rollup` includes the namespace rollup section
 - `--project-rollup` includes the project rollup section
 - repeatable `--min metric=value` filters displayed unit rows only

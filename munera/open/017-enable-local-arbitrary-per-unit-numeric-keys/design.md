@@ -30,7 +30,7 @@ The result is a command that is easy to use for the fixed happy path, but unnece
 The desired behavior is:
 - keep existing built-in aliases working
 - allow `--sort`, `--min`, and `--bar` to target arbitrary per-unit numeric keys through a documented key syntax
-- validate against the actual per-unit report shape, not an ad hoc static allowlist
+- validate against an explicit authoritative documented local numeric schema surface, not an ad hoc scattered allowlist
 - keep non-numeric keys rejected with clear errors
 
 ## Scope
@@ -43,7 +43,7 @@ The desired behavior is:
 - extend `--bar` to accept arbitrary numeric per-unit keys that are meaningful for histogram display
 - centralize metric/key resolution in `gordian.local.report` or an adjacent local-report seam
 - preserve existing built-in names and semantics for current burden-family metrics
-- support nested numeric per-unit keys where clearly justified by the canonical unit shape
+- support nested numeric per-unit keys where clearly justified by the documented authoritative local numeric schema surface
 - add tests covering valid arbitrary keys, invalid keys, and backward compatibility
 - update README/help text to explain the supported key syntax and examples
 
@@ -68,7 +68,9 @@ The desired behavior is:
 - `gordian local --sort` also accepts documented arbitrary numeric per-unit keys
 - `gordian local --min metric=value` accepts documented arbitrary numeric per-unit keys
 - `gordian local --bar` accepts documented arbitrary numeric per-unit keys
-- nested numeric keys from the canonical unit payload can be addressed by the chosen syntax
+- nested numeric keys from the authoritative documented local numeric schema surface can be addressed by the chosen syntax
+- the authoritative source of supported numeric keys is explicit and reviewable
+- when namespace rollups are requested with an arbitrary numeric sort key, rollups sort by the average of that same metric across units in the namespace
 - non-numeric keys are rejected with clear error messages
 - unknown keys are rejected with clear error messages
 - existing examples such as `--sort abstraction`, `--min total=12`, and `--bar working-set` keep working

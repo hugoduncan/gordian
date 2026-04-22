@@ -17,7 +17,7 @@
 (def ^:private special-sort-keys
   #{:ns :var})
 
-(def ^:private canonical-unit-numeric-shape
+(def ^:private supported-local-numeric-schema
   {:line 0
    :arity 0
    :flow-burden 0.0
@@ -47,15 +47,15 @@
                     x)
      :else #{})))
 
-(def ^:private direct-numeric-metric-paths
-  (numeric-leaf-paths canonical-unit-numeric-shape))
+(def ^:private supported-local-numeric-paths
+  (numeric-leaf-paths supported-local-numeric-schema))
 
 (defn metric-token->path
   [metric]
   (when metric
     (or (get metric-aliases metric)
         (let [path (mapv keyword (str/split (name metric) #"\."))]
-          (when (contains? direct-numeric-metric-paths path)
+          (when (contains? supported-local-numeric-paths path)
             path)))))
 
 (defn numeric-metric-token?
@@ -178,7 +178,8 @@
   [units]
   (first (sort-by (juxt (comp - double :lcc-total) :ns :var :kind :arity :dispatch) units)))
 
-(defn- rollup-sort-value [sort-key rollup]
+(defn- rollup-sort-value
+  [sort-key ns-units rollup]
   (case sort-key
     :flow (:avg-flow rollup)
     :state (:avg-state rollup)
@@ -188,18 +189,22 @@
     :working-set (:avg-working-set rollup)
     :ns nil
     :var nil
-    (:max-lcc rollup)))
+    (if (numeric-metric-token? sort-key)
+      (avg (map #(metric-value % sort-key) ns-units))
+      (:max-lcc rollup))))
 
 (defn sort-rollups
-  [rollups sort-key]
-  (vec
-   (case (or sort-key :total)
-     :ns (sort-by (juxt :ns (comp - double :max-lcc)) rollups)
-     :var (sort-by (juxt :ns (comp - double :max-lcc)) rollups)
-     (sort-by (juxt (comp - double #(rollup-sort-value sort-key %))
-                    (comp - double :max-lcc)
-                    :ns)
-              rollups))))
+  [units rollups sort-key]
+  (let [units-by-ns (group-by :ns units)]
+    (vec
+     (case (or sort-key :total)
+       :ns (sort-by (juxt :ns (comp - double :max-lcc)) rollups)
+       :var (sort-by (juxt :ns (comp - double :max-lcc)) rollups)
+       (sort-by (juxt (fn [rollup]
+                        (- (double (rollup-sort-value sort-key (get units-by-ns (:ns rollup) []) rollup))))
+                      (comp - double :max-lcc)
+                      :ns)
+                rollups)))))
 
 (defn analyze-units
   [files]
@@ -236,8 +241,7 @@
                       (sort-units sort)
                       (truncate-section top))}
     namespace-rollup
-    (assoc :namespace-rollups (-> namespace-rollups
-                                  (sort-rollups sort)
+    (assoc :namespace-rollups (-> (sort-rollups units namespace-rollups sort)
                                   (truncate-section top)))))
 
 (defn finalize-report
