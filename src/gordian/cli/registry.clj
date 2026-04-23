@@ -65,6 +65,7 @@
    :sort             {:desc "Sort by cc | loc | ns | var | cc-risk" :coerce :keyword}
    :bar              {:desc "Bar metric for human-readable histograms: cc | loc" :coerce :keyword}
    :min              {:desc "Display filter: repeatable metric=value, e.g. cc=10 or loc=20" :coerce [:string]}
+   :fail-above       {:desc "Enforcement threshold: repeatable metric=value, e.g. cc=20 or loc=80" :coerce [:string]}
    :min-cc           {:desc "Deprecated: use --min cc=<n>"}
    :namespace-rollup {:desc "Include namespace rollup section" :coerce :boolean}
    :project-rollup   {:desc "Include project rollup section" :coerce :boolean}
@@ -77,6 +78,7 @@
    :sort             {:desc "Sort by total | flow | state | shape | abstraction | dependency | working-set | ns | var, or dotted numeric unit key e.g. working-set.peak" :coerce :keyword}
    :bar              {:desc "Bar metric for human-readable histograms: any local numeric metric alias or dotted numeric unit key e.g. working-set.avg" :coerce :keyword}
    :min              {:desc "Display filter: repeatable metric=value, e.g. total=12, abstraction=4, or working-set.peak=7" :coerce [:string]}
+   :fail-above       {:desc "Enforcement threshold: repeatable metric=value, e.g. total=15 or working-set.peak=7.5" :coerce [:string]}
    :namespace-rollup {:desc "Include namespace rollup section" :coerce :boolean}
    :project-rollup   {:desc "Include project rollup section" :coerce :boolean}
    :top              {:desc "Show only the top N units after sorting" :coerce :long}
@@ -211,13 +213,14 @@
                "gordian complexity . --namespace-rollup"
                "gordian complexity . --project-rollup"
                "gordian complexity . --min cc=10 --min loc=20"
+               "gordian complexity . --fail-above cc=20 --fail-above loc=80"
                "gordian complexity . --json"]
     :spec (merge-specs output-spec complexity-spec)
     :parse (fn [{:keys [args opts]}]
              (assoc opts :command :complexity
                     :explicit-paths? (boolean (seq args))
                     :src-dirs (if (seq args) (vec args) ["."])))
-    :validate (fn [{:keys [sort bar min top source-only tests-only min-cc explicit-paths?]}]
+    :validate (fn [{:keys [sort bar min fail-above top source-only tests-only min-cc explicit-paths?]}]
                 (cond
                   (and source-only tests-only)
                   {:error "complexity rejects --source-only combined with --tests-only"}
@@ -241,6 +244,10 @@
                        (not-every? some? (map cyclomatic/parse-min-expression min)))
                   {:error "complexity --min values must be metric=value with metric in {cc,loc} and positive integer value"}
 
+                  (and (seq fail-above)
+                       (not-every? some? (map cyclomatic/parse-fail-above-expression fail-above)))
+                  {:error "complexity --fail-above values must be metric=value with metric in {cc,loc} and positive integer value"}
+
                   (and top (not (pos? top)))
                   {:error "complexity --top must be a positive integer"}))}
    {:canonical :local
@@ -255,13 +262,14 @@
                "gordian local . --namespace-rollup"
                "gordian local . --project-rollup"
                "gordian local . --min total=12 --min working-set.peak=7"
+               "gordian local . --fail-above total=15 --fail-above working-set.peak=7.5"
                "gordian local . --json"]
     :spec (merge-specs output-spec local-spec)
     :parse (fn [{:keys [args opts]}]
              (assoc opts :command :local
                     :explicit-paths? (boolean (seq args))
                     :src-dirs (if (seq args) (vec args) ["."])))
-    :validate (fn [{:keys [sort bar min top source-only tests-only explicit-paths?]}]
+    :validate (fn [{:keys [sort bar min fail-above top source-only tests-only explicit-paths?]}]
                 (cond
                   (and source-only tests-only)
                   {:error "local rejects --source-only combined with --tests-only"}
@@ -281,6 +289,10 @@
                   (and (seq min)
                        (not-every? some? (map local/parse-min-expression min)))
                   {:error "local --min values must be metric=value with a local numeric metric alias or dotted numeric unit key, e.g. total=12 or working-set.peak=7"}
+
+                  (and (seq fail-above)
+                       (not-every? some? (map local/parse-fail-above-expression fail-above)))
+                  {:error "local --fail-above values must be metric=value with a local numeric metric alias or dotted numeric unit key and a positive numeric value, e.g. total=12 or working-set.peak=7.5"}
 
                   (and top (not (pos? top)))
                   {:error "local --top must be a positive integer"}))}

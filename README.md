@@ -187,6 +187,8 @@ gordian complexity . --project-rollup
 gordian complexity . --namespace-rollup --project-rollup
 gordian complexity . --min cc=10
 gordian complexity . --min cc=10 --min loc=20
+gordian complexity . --fail-above cc=20
+gordian complexity . --fail-above cc=20 --fail-above loc=80
 gordian complexity . --edn > complexity.edn
 gordian complexity . --json > complexity.json
 gordian complexity . --markdown > complexity.md
@@ -219,7 +221,12 @@ Scope and ranking controls:
 - `--namespace-rollup` includes the namespace rollup section
 - `--project-rollup` includes the project rollup section
 - repeatable `--min metric=value` filters displayed unit rows only, e.g. `--min cc=10` or `--min loc=20`
+- repeatable `--fail-above metric=value` enables command-native pass/fail enforcement, e.g. `--fail-above cc=20` or `--fail-above loc=80`
 - multiple `--min` constraints combine conjunctively
+- multiple `--fail-above` checks also combine conjunctively; the command passes iff every configured check passes
+- fail thresholds are evaluated against the full analyzed unit set before display shaping, so `--min` and `--top` do not change enforcement results
+- threshold boundary semantics are strict upper bounds: `value > threshold` fails, `value == threshold` passes
+- when zero units are analyzed, enforcement passes vacuously and records unit count `0`
 - when requested, namespace and project rollups remain computed from the full analyzed unit set
 - `--top` truncates units and requested namespace-rollup sections independently
 
@@ -254,6 +261,8 @@ gordian local . --namespace-rollup --project-rollup
 gordian local . --min total=12
 gordian local . --min abstraction=4 --min working-set=3
 gordian local . --min working-set.peak=7 --min working-set.avg=4
+gordian local . --fail-above total=15
+gordian local . --fail-above total=15 --fail-above working-set.peak=7.5
 gordian local . --edn > local.edn
 gordian local . --json > local.json
 gordian local . --markdown > local.md
@@ -289,11 +298,17 @@ Scope and ranking controls mirror `complexity` where practical:
 - when `--namespace-rollup` is requested with an arbitrary numeric `--sort` key, namespace rollups sort by the average of that same metric across units in each namespace
 - `--bar` supports built-in aliases and dotted numeric unit keys such as `working-set.avg`
 - `--min metric=value` supports built-in aliases and dotted numeric unit keys such as `working-set.peak=7`
+- `--fail-above metric=value` supports the same local numeric metric aliases and dotted numeric unit keys, with positive numeric values such as `total=15` or `working-set.peak=7.5`
 - built-in aliases remain supported for the core burden families; dotted keys address numeric fields directly from the authoritative documented local numeric schema surface
 - `--namespace-rollup` includes the namespace rollup section
 - `--project-rollup` includes the project rollup section
 - repeatable `--min metric=value` filters displayed unit rows only
+- repeatable `--fail-above metric=value` enables command-native pass/fail enforcement over analyzed units
 - multiple `--min` constraints combine conjunctively
+- multiple `--fail-above` checks combine conjunctively; the command passes iff every configured check passes
+- fail thresholds are evaluated against the full analyzed unit set before display shaping, so `--min` and `--top` do not change enforcement results
+- threshold boundary semantics are strict upper bounds: `value > threshold` fails, `value == threshold` passes
+- when zero units are analyzed, enforcement passes vacuously and records unit count `0`
 - when requested, namespace and project rollups remain computed from the full analyzed unit set
 - `--top` truncates units and requested namespace-rollup sections independently
 
@@ -309,6 +324,8 @@ A simple command-selection rule:
 - use `diagnose` / `explain` / `subgraph` for namespace architecture questions
 - use `complexity` for branch-count and LOC hotspots inside executable units
 - use `local` for comprehension-burden hotspots inside executable units
+- use `complexity --fail-above ...` or `local --fail-above ...` for absolute local-metric ceilings in CI or automation
+- use `gate` for baseline/diff-oriented architectural ratchets rather than absolute local-unit ceilings
 
 ## Install via bbin
 

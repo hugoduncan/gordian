@@ -1,6 +1,7 @@
 (ns gordian.output.complexity
   (:require [clojure.string :as str]
-            [gordian.output.common :as common]))
+            [gordian.output.common :as common]
+            [gordian.output.enforcement :as enforcement]))
 
 (defn- complexity-unit-label
   [{:keys [ns var arity]}]
@@ -74,7 +75,7 @@
 
 (defn format-complexity
   "Format complexity report as human-readable lines."
-  [{:keys [src-dirs units namespace-rollups project-rollup max-unit options metrics bar-metric]}]
+  [{:keys [src-dirs units namespace-rollups project-rollup max-unit options metrics bar-metric enforcement]}]
   (let [unit-label-width (max 10 (apply max (concat [10] (map (comp count complexity-unit-label) units))))
         ns-label-width   (max 10 (apply max (concat [10] (map #(count (str (:ns %))) namespace-rollups))))
         bar-col-gap      "  "
@@ -127,11 +128,13 @@
          (str "  simple=" (get-in project-rollup [:cc-risk-counts :simple])
               " moderate=" (get-in project-rollup [:cc-risk-counts :moderate])
               " high=" (get-in project-rollup [:cc-risk-counts :high])
-              " untestable=" (get-in project-rollup [:cc-risk-counts :untestable]))])))))
+              " untestable=" (get-in project-rollup [:cc-risk-counts :untestable]))])
+      (when enforcement
+        (enforcement/format-enforcement-text enforcement))))))
 
 (defn format-complexity-md
   "Format complexity report as markdown lines."
-  [{:keys [src-dirs units namespace-rollups project-rollup max-unit options metrics bar-metric]}]
+  [{:keys [src-dirs units namespace-rollups project-rollup max-unit options metrics bar-metric enforcement]}]
   (let [{:keys [namespace-count unit-count]} (common/local-summary-counts project-rollup units)]
     (into
      ["# gordian complexity"
@@ -194,7 +197,9 @@
          (str "- **Total LOC:** " (:total-loc project-rollup))
          (str "- **Avg LOC:** " (format "%.2f" (double (:avg-loc project-rollup))))
          (str "- **Max LOC:** " (:max-loc project-rollup))
-         (str "- **Risk counts:** `" (pr-str (:cc-risk-counts project-rollup)) "`")])))))
+         (str "- **Risk counts:** `" (pr-str (:cc-risk-counts project-rollup)) "`")])
+      (when enforcement
+        (enforcement/format-enforcement-md enforcement))))))
 
 (defn print-complexity
   "Print a human-readable complexity report to stdout."

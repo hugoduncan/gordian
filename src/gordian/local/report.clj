@@ -70,6 +70,31 @@
       (when (and (numeric-metric-token? metric) (pos? n))
         [metric n]))))
 
+(defn parse-fail-above-expression
+  [expr]
+  (when-let [[_ metric n] (re-matches #"([a-zA-Z0-9.-]+)=([0-9]+(?:\.[0-9]+)?)" (str expr))]
+    (let [metric (keyword metric)
+          n      (Double/parseDouble n)]
+      (when (and (numeric-metric-token? metric) (pos? n))
+        [metric n]))))
+
+(defn unit->enforcement-violation
+  [{:keys [ns var kind arity dispatch]}]
+  {:ns ns
+   :var var
+   :kind kind
+   :arity arity
+   :dispatch dispatch})
+
+(defn fail-above-checks
+  [{:keys [fail-above]}]
+  (when (seq fail-above)
+    (mapv (fn [[metric threshold]]
+            {:metric (metric-token->path metric)
+             :metric-token metric
+             :threshold threshold})
+          (keep parse-fail-above-expression fail-above))))
+
 (defn mins-map [{:keys [min]}]
   (when (seq min)
     (into {} (keep parse-min-expression) min)))

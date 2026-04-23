@@ -361,6 +361,40 @@
       (when (and (min-metrics metric) (pos? n))
         [metric n]))))
 
+(defn parse-fail-above-expression
+  "Parse one metric-qualified fail threshold expression like `cc=10`.
+   Returns [:metric n] or nil for malformed expressions."
+  [expr]
+  (parse-min-expression expr))
+
+(defn metric-token->metric
+  [metric]
+  (case metric
+    :cc :cyclomatic-complexity
+    :loc :lines-of-code
+    nil))
+
+(defn metric-value
+  [unit metric]
+  (double (or (get unit metric 0) 0)))
+
+(defn unit->enforcement-violation
+  [{:keys [ns var kind arity dispatch]}]
+  {:ns ns
+   :var var
+   :kind kind
+   :arity arity
+   :dispatch dispatch})
+
+(defn fail-above-checks
+  [{:keys [fail-above]}]
+  (when (seq fail-above)
+    (mapv (fn [[metric threshold]]
+            {:metric (metric-token->metric metric)
+             :metric-token metric
+             :threshold threshold})
+          (keep parse-fail-above-expression fail-above))))
+
 (defn mins-map
   "Build canonical minimum-threshold map from parsed CLI opts.
    Repeatable `--min` values combine into one metric->threshold map."

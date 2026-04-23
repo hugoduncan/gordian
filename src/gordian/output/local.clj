@@ -1,6 +1,7 @@
 (ns gordian.output.local
   (:require [clojure.string :as str]
-            [gordian.output.common :as common]))
+            [gordian.output.common :as common]
+            [gordian.output.enforcement :as enforcement]))
 
 (defn- unit-label [{:keys [ns var kind arity dispatch]}]
   (case kind
@@ -98,7 +99,7 @@
        gap (common/bar (bar-value bar-metric rollup))))
 
 (defn format-local
-  [{:keys [src-dirs project-rollup max-unit options bar-metric display]}]
+  [{:keys [src-dirs project-rollup max-unit options bar-metric display enforcement]}]
   (let [units (:units display)
         namespace-rollups (:namespace-rollups display)
         label-width (max 10 (apply max (concat [10] (map (comp count unit-label) units))))
@@ -150,10 +151,12 @@
               " avg-shape=" (format "%.2f" (double (:avg-shape project-rollup)))
               " avg-abstraction=" (format "%.2f" (double (:avg-abstraction project-rollup)))
               " avg-dependency=" (format "%.2f" (double (:avg-dependency project-rollup)))
-              " avg-ws=" (format "%.2f" (double (:avg-working-set project-rollup))))])))))
+              " avg-ws=" (format "%.2f" (double (:avg-working-set project-rollup))))])
+      (when enforcement
+        (enforcement/format-enforcement-text enforcement))))))
 
 (defn format-local-md
-  [{:keys [src-dirs project-rollup max-unit options bar-metric display]}]
+  [{:keys [src-dirs project-rollup max-unit options bar-metric display enforcement]}]
   (let [units (:units display)
         namespace-rollups (:namespace-rollups display)
         {:keys [namespace-count unit-count]} (common/local-summary-counts project-rollup units)
@@ -231,7 +234,9 @@
          (str "- **Total LCC:** " (format "%.1f" (double (:total-lcc project-rollup))))
          (str "- **Avg LCC:** " (format "%.2f" (double (:avg-lcc project-rollup))))
          (str "- **Max LCC:** " (format "%.1f" (double (:max-lcc project-rollup))))
-         (str "- **Finding counts:** `" (pr-str (:finding-counts project-rollup)) "`")])))))
+         (str "- **Finding counts:** `" (pr-str (:finding-counts project-rollup)) "`")])
+      (when enforcement
+        (enforcement/format-enforcement-md enforcement))))))
 
 (defn print-local [result]
   (run! println (format-local result)))

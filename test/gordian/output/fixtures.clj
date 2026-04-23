@@ -261,6 +261,16 @@
                     :max-loc 8}
    :max-unit {:ns 'sample.core :var 'branchy :arity 1 :cc 3 :loc 8}})
 
+(def cyclomatic-enforcement
+  {:subject :units
+   :unit-count 3
+   :checks [{:metric :cyclomatic-complexity :metric-token :cc :threshold 2 :passed? false :violation-count 2 :max-observed 3.0}
+            {:metric :lines-of-code :metric-token :loc :threshold 7 :passed? false :violation-count 1 :max-observed 8.0}]
+   :violations [{:check-index 0 :metric :cyclomatic-complexity :metric-token :cc :threshold 2 :actual 3.0 :ns 'sample.core :var 'branchy :kind :defn-arity :arity 1 :dispatch nil}
+                {:check-index 0 :metric :cyclomatic-complexity :metric-token :cc :threshold 2 :actual 3.0 :ns 'sample.util :var 'helper :kind :defmethod :arity nil :dispatch :html}
+                {:check-index 1 :metric :lines-of-code :metric-token :loc :threshold 7 :actual 8.0 :ns 'sample.core :var 'branchy :kind :defn-arity :arity 1 :dispatch nil}]
+   :passed? false})
+
 (def local-data
   {:gordian/command :local
    :metric :local-comprehension-complexity
@@ -457,3 +467,12 @@
                                      :working-set-overload 1
                                      :helper-chasing 1}}
    :max-unit {:ns 'sample.core :var 'branchy :kind :defn-arity :arity 1 :lcc-total 5.6}})
+
+(def local-enforcement
+  {:subject :units
+   :unit-count 3
+   :checks [{:metric [:lcc-total] :metric-token :total :threshold 5.0 :passed? false :violation-count 1 :max-observed 5.6}
+            {:metric [:working-set :peak] :metric-token :working-set.peak :threshold 5.5 :passed? false :violation-count 1 :max-observed 6.0}]
+   :violations [{:check-index 0 :metric [:lcc-total] :metric-token :total :threshold 5.0 :actual 5.6 :ns 'sample.core :var 'branchy :kind :defn-arity :arity 1 :dispatch nil}
+                {:check-index 1 :metric [:working-set :peak] :metric-token :working-set.peak :threshold 5.5 :actual 6.0 :ns 'sample.core :var 'branchy :kind :defn-arity :arity 1 :dispatch nil}]
+   :passed? false})

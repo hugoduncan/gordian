@@ -243,6 +243,21 @@
     (is (str/includes? text "| Namespace | Units | Total CC | Avg CC | Max CC | Total LOC | Avg LOC | Max LOC |"))
     (is (str/includes? text "## Project rollup"))))
 
+(deftest format-complexity-enforcement-test
+  (let [data (assoc fx/cyclomatic-data :enforcement fx/cyclomatic-enforcement)
+        text (str/join "\n" (sut/format-complexity data))
+        md   (str/join "\n" (sut/format-complexity-md data))]
+    (is (str/includes? text "ENFORCEMENT"))
+    (is (str/includes? text "result: FAIL"))
+    (is (str/includes? text "FAILURES"))
+    (is (str/includes? text "cc<=2"))
+    (is (str/includes? text "loc<=7"))
+    (is (str/includes? text "sample.core/branchy [arity 1]"))
+    (is (str/includes? md "## Enforcement"))
+    (is (str/includes? md "### Failures"))
+    (is (str/includes? md "`cc<=2`"))
+    (is (str/includes? md "`loc<=7`"))))
+
 (deftest format-local-test
   (let [lines (sut/format-local fx/local-data)
         text  (str/join "\n" lines)
@@ -292,3 +307,18 @@
     (is (str/includes? text "working-set-overload"))
     (is (str/includes? text "## Namespace rollup"))
     (is (str/includes? text "## Project rollup"))))
+
+(deftest format-local-enforcement-test
+  (let [data (assoc fx/local-data :enforcement fx/local-enforcement)
+        text (str/join "\n" (sut/format-local data))
+        md   (str/join "\n" (sut/format-local-md data))]
+    (is (str/includes? text "ENFORCEMENT"))
+    (is (str/includes? text "result: FAIL"))
+    (is (str/includes? text "FAILURES"))
+    (is (str/includes? text "total<=5.0"))
+    (is (str/includes? text "working-set.peak<=5.5"))
+    (is (str/includes? text "sample.core/branchy [arity 1]"))
+    (is (str/includes? md "## Enforcement"))
+    (is (str/includes? md "### Failures"))
+    (is (str/includes? md "`total<=5.0`"))
+    (is (str/includes? md "`working-set.peak<=5.5`"))))

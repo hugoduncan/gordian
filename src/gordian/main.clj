@@ -28,6 +28,7 @@
             [gordian.config      :as config]
             [gordian.filter      :as gfilter]
             [gordian.family      :as family]
+            [gordian.enforcement :as enforcement]
             [gordian.envelope    :as envelope]
             [gordian.dot         :as dot]
             [gordian.json        :as report-json]
@@ -391,7 +392,7 @@
             src-dirs))))
 
 (defn complexity-cmd
-  "Run complexity mode with resolved opts map."
+  "Run complexity mode with resolved opts map. Returns 0 on success, 1 on threshold failure."
   [{:keys [json edn markdown] :as opts}]
   (let [mode  (if (and (= 1 (count (:src-dirs opts)))
                        (discover/project-root? (first (:src-dirs opts))))
@@ -399,27 +400,37 @@
                 :explicit)
         paths (resolve-local-analysis-paths opts)]
     (if (:error paths)
-      (println (str "Error: " (:error paths)))
-      (let [files (->> paths
-                       (mapcat (fn [{:keys [dir kind]}]
-                                 (->> (fs/glob dir "**.clj")
-                                      (map str)
-                                      clojure.core/sort
-                                      (keep #(some-> (scan/parse-file-all-forms %)
-                                                     (assoc :origin kind))))))
-                       vec)
-            data  (cyclomatic/finalize-report (cyclomatic/rollup files)
-                                               mode
-                                               paths
-                                               opts)]
+      (do
+        (println (str "Error: " (:error paths)))
+        1)
+      (let [files         (->> paths
+                               (mapcat (fn [{:keys [dir kind]}]
+                                         (->> (fs/glob dir "**.clj")
+                                              (map str)
+                                              clojure.core/sort
+                                              (keep #(some-> (scan/parse-file-all-forms %)
+                                                             (assoc :origin kind))))))
+                               vec)
+            canonical    (cyclomatic/rollup files)
+            base-data    (cyclomatic/finalize-report canonical
+                                                     mode
+                                                     paths
+                                                     opts)
+            enforcement  (when-let [checks (seq (cyclomatic/fail-above-checks opts))]
+                           (enforcement/evaluate {:units (:units canonical)
+                                                  :checks checks
+                                                  :metric-value cyclomatic/metric-value
+                                                  :unit->violation cyclomatic/unit->enforcement-violation}))
+            data         (cond-> base-data enforcement (assoc :enforcement enforcement))]
         (cond
           json     (println (report-json/generate (envelope/wrap opts data :complexity)))
           edn      (print   (report-edn/generate  (envelope/wrap opts data :complexity)))
           markdown (run! println (output/format-complexity-md data))
-          :else    (output/print-complexity data))))))
+          :else    (output/print-complexity data))
+        (if (and enforcement (not (:passed? enforcement))) 1 0)))))
 
 (defn local-cmd
-  "Run local mode with resolved opts map."
+  "Run local mode with resolved opts map. Returns 0 on success, 1 on threshold failure."
   [{:keys [json edn markdown] :as opts}]
   (let [mode  (if (and (= 1 (count (:src-dirs opts)))
                        (discover/project-root? (first (:src-dirs opts))))
@@ -427,24 +438,33 @@
                 :explicit)
         paths (resolve-local-analysis-paths opts)]
     (if (:error paths)
-      (println (str "Error: " (:error paths)))
-      (let [files (->> paths
-                       (mapcat (fn [{:keys [dir kind]}]
-                                 (->> (fs/glob dir "**.clj")
-                                      (map str)
-                                      clojure.core/sort
-                                      (keep #(some-> (scan/parse-file-all-forms %)
-                                                     (assoc :origin kind))))))
-                       vec)
-            data  (local/finalize-report (local/rollup files)
-                                         mode
-                                         paths
-                                         opts)]
+      (do
+        (println (str "Error: " (:error paths)))
+        1)
+      (let [files        (->> paths
+                              (mapcat (fn [{:keys [dir kind]}]
+                                        (->> (fs/glob dir "**.clj")
+                                             (map str)
+                                             clojure.core/sort
+                                             (keep #(some-> (scan/parse-file-all-forms %)
+                                                            (assoc :origin kind))))))
+                              vec)
+            base-data    (local/finalize-report (local/rollup files)
+                                                mode
+                                                paths
+                                                opts)
+            enforcement  (when-let [checks (seq (local/fail-above-checks opts))]
+                           (enforcement/evaluate {:units (:units base-data)
+                                                  :checks checks
+                                                  :metric-value local/metric-value
+                                                  :unit->violation local/unit->enforcement-violation}))
+            data         (cond-> base-data enforcement (assoc :enforcement enforcement))]
         (cond
           json     (println (report-json/generate (envelope/wrap opts data :local)))
           edn      (print   (report-edn/generate  (envelope/wrap opts data :local)))
           markdown (run! println (output/format-local-md data))
-          :else    (output/print-local data))))))
+          :else    (output/print-local data))
+        (if (and enforcement (not (:passed? enforcement))) 1 0)))))
 
 (defn gate-cmd
   "Run gate with resolved opts map.
@@ -530,7 +550,9 @@
                                   (print-help))
                                 (System/exit 1))
                             (if-let [handler (get command-handlers (:command opts))]
-                              (handler opts)
+                              (let [result (handler opts)]
+                                (when (contains? #{:complexity :local} (:command opts))
+                                  (System/exit result)))
                               (if (= :gate (:command opts))
                                 (System/exit (gate-cmd opts))
                                 (analyze opts)))))))))

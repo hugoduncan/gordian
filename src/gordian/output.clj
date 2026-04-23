@@ -5,6 +5,7 @@
             [gordian.output.complexity :as complexity]
             [gordian.output.diagnose :as diagnose]
             [gordian.output.dsm :as dsm]
+            [gordian.output.enforcement :as enforcement]
             [gordian.output.explain :as explain]
             [gordian.output.gate :as gate]
             [gordian.output.local :as local]

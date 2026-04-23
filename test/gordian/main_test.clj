@@ -130,7 +130,59 @@
     (let [out (with-out-str (sut/local-cmd {:src-dirs ["resources/fixture"] :markdown true}))]
       (is (str/includes? out "# gordian local"))
       (is (str/includes? out "## Units"))
-      (is (not (str/includes? out "## Project rollup"))))))
+      (is (not (str/includes? out "## Project rollup")))))
+
+  (testing "local fail thresholds produce enforcement payload and failing exit code"
+    (let [buf (with-out-str
+                (is (= 1
+                       (sut/local-cmd {:src-dirs ["resources/fixture"]
+                                       :command :local
+                                       :edn true
+                                       :fail-above ["total=0.6" "working-set.peak=0.5"]}))))
+          parsed (read-string buf)]
+      (is (contains? parsed :enforcement))
+      (is (= :units (get-in parsed [:enforcement :subject])))
+      (is (= 3 (get-in parsed [:enforcement :unit-count])))
+      (is (false? (get-in parsed [:enforcement :passed?])))
+      (is (= [[:lcc-total] [:working-set :peak]]
+             (mapv :metric (get-in parsed [:enforcement :checks]))))
+      (is (= [:total :working-set.peak]
+             (mapv :metric-token (get-in parsed [:enforcement :checks]))))
+      (is (every? #(contains? % :actual) (get-in parsed [:enforcement :violations])))))
+
+  (testing "local fail thresholds pass at equality boundary"
+    (is (= 0
+           (sut/local-cmd {:src-dirs ["resources/fixture"]
+                           :command :local
+                           :edn true
+                           :fail-above ["total=0.6931471805599453" "working-set.peak=1"]}))))
+
+  (testing "local --min and --top do not affect enforcement population"
+    (let [buf (with-out-str
+                (is (= 1
+                       (sut/local-cmd {:src-dirs ["resources/fixture"]
+                                       :command :local
+                                       :edn true
+                                       :min ["total=99"]
+                                       :top 1
+                                       :fail-above ["total=0.6"]}))))
+          parsed (read-string buf)]
+      (is (= {:total 99} (get-in parsed [:options :mins])))
+      (is (= 3 (get-in parsed [:enforcement :unit-count])))
+      (is (= 2 (count (get-in parsed [:enforcement :violations]))))))
+
+  (testing "local zero-unit enforcement passes vacuously"
+    (fs/with-temp-dir [tmp {:prefix "gordian-local-empty"}]
+      (let [buf (with-out-str
+                  (is (= 0
+                         (sut/local-cmd {:src-dirs [(str tmp)]
+                                         :command :local
+                                         :edn true
+                                         :fail-above ["total=1.1"]}))))
+            parsed (read-string buf)]
+        (is (= 0 (get-in parsed [:enforcement :unit-count])))
+        (is (true? (get-in parsed [:enforcement :passed?])))
+        (is (= [] (get-in parsed [:enforcement :violations])))))))
 
 (deftest edn-output-test
   (testing "--edn outputs parseable EDN to stdout"
@@ -357,7 +409,23 @@
     (is (contains? (sut/parse-args ["local" "." "--min" "bogus=10"]) :error)))
 
   (testing "local rejects explicit paths with tests-only"
-    (is (contains? (sut/parse-args ["local" "src/" "--tests-only"]) :error))))
+    (is (contains? (sut/parse-args ["local" "src/" "--tests-only"]) :error)))
+
+  (testing "local accepts repeatable fail thresholds"
+    (let [opts (sut/parse-args ["local" "." "--fail-above" "total=15" "--fail-above" "working-set.peak=7.5"])]
+      (is (= ["total=15" "working-set.peak=7.5"] (:fail-above opts)))))
+
+  (testing "local rejects malformed fail threshold"
+    (is (= "local --fail-above values must be metric=value with a local numeric metric alias or dotted numeric unit key and a positive numeric value, e.g. total=12 or working-set.peak=7.5"
+           (:error (sut/parse-args ["local" "." "--fail-above" "bogus"])))) )
+
+  (testing "local rejects unknown fail-threshold metric"
+    (is (= "local --fail-above values must be metric=value with a local numeric metric alias or dotted numeric unit key and a positive numeric value, e.g. total=12 or working-set.peak=7.5"
+           (:error (sut/parse-args ["local" "." "--fail-above" "bogus=10"])))) )
+
+  (testing "local rejects non-numeric fail-threshold value"
+    (is (= "local --fail-above values must be metric=value with a local numeric metric alias or dotted numeric unit key and a positive numeric value, e.g. total=12 or working-set.peak=7.5"
+           (:error (sut/parse-args ["local" "." "--fail-above" "total=oops"])))) ))
 
 (deftest parse-args-explain-test
   (testing "explain <ns> → :command :explain"
@@ -538,7 +606,23 @@
 
   (testing "complexity rejects non-positive top"
     (is (= "complexity --top must be a positive integer"
-           (:error (sut/parse-args ["complexity" "--top" "0"]))))))
+           (:error (sut/parse-args ["complexity" "--top" "0"])))) )
+
+  (testing "complexity accepts repeatable fail thresholds"
+    (let [opts (sut/parse-args ["complexity" "." "--fail-above" "cc=20" "--fail-above" "loc=80"])]
+      (is (= ["cc=20" "loc=80"] (:fail-above opts)))))
+
+  (testing "complexity rejects malformed fail threshold"
+    (is (= "complexity --fail-above values must be metric=value with metric in {cc,loc} and positive integer value"
+           (:error (sut/parse-args ["complexity" "--fail-above" "bogus"])))) )
+
+  (testing "complexity rejects unknown fail-threshold metric"
+    (is (= "complexity --fail-above values must be metric=value with metric in {cc,loc} and positive integer value"
+           (:error (sut/parse-args ["complexity" "--fail-above" "bogus=10"])))) )
+
+  (testing "complexity rejects non-numeric fail-threshold value"
+    (is (= "complexity --fail-above values must be metric=value with metric in {cc,loc} and positive integer value"
+           (:error (sut/parse-args ["complexity" "--fail-above" "cc=oops"])))) ))
 
 ;;; ── diagnose integration ─────────────────────────────────────────────────
 
@@ -745,7 +829,64 @@
           parsed (read-string out)]
       (is (every? #(<= 20 (:cc %)) (:units parsed)))
       (is (seq (:namespace-rollups parsed)))
-      (is (= {:cc 20} (get-in parsed [:options :mins]))))))
+      (is (= {:cc 20} (get-in parsed [:options :mins])))))
+
+  (testing "complexity fail thresholds pass at equality boundary"
+    (is (= 0
+           (sut/complexity-cmd {:src-dirs ["resources/fixture-project/src"]
+                                :command :complexity
+                                :edn true
+                                :fail-above ["cc=1" "loc=2"]}))))
+
+  (testing "complexity fail thresholds produce enforcement payload and failing exit code"
+    (let [buf    (with-out-str
+                   (is (= 1
+                          (sut/complexity-cmd {:src-dirs ["resources/fixture-project/src"]
+                                               :command :complexity
+                                               :edn true
+                                               :fail-above ["cc=1" "loc=1"]}))))
+          parsed (read-string buf)]
+      (is (contains? parsed :enforcement))
+      (is (= :units (get-in parsed [:enforcement :subject])))
+      (is (= 1 (get-in parsed [:enforcement :unit-count])))
+      (is (false? (get-in parsed [:enforcement :passed?])))
+      (is (= [:cyclomatic-complexity :lines-of-code]
+             (mapv :metric (get-in parsed [:enforcement :checks]))))
+      (is (= [:cc :loc]
+             (mapv :metric-token (get-in parsed [:enforcement :checks]))))
+      (is (= [1 1]
+             (mapv :threshold (get-in parsed [:enforcement :checks]))))
+      (is (= [true false]
+             (mapv :passed? (get-in parsed [:enforcement :checks]))))
+      (is (every? #(contains? % :actual) (get-in parsed [:enforcement :violations])))
+      (is (every? #(contains? % :ns) (get-in parsed [:enforcement :violations])))))
+
+  (testing "complexity fail thresholds ignore display shaping from --min and --top"
+    (let [opts   {:src-dirs ["resources/fixture-project/src"]
+                  :command :complexity
+                  :min ["cc=99"]
+                  :top 1
+                  :fail-above ["loc=1"]}
+          status (sut/complexity-cmd (assoc opts :edn true))
+          out    (with-out-str (sut/complexity-cmd (assoc opts :edn true)))
+          parsed (read-string out)]
+      (is (= 1 status))
+      (is (= {:cc 99} (get-in parsed [:options :mins])))
+      (is (= 1 (get-in parsed [:enforcement :unit-count])))
+      (is (= 1 (count (get-in parsed [:enforcement :violations]))))))
+
+  (testing "complexity zero-unit enforcement passes vacuously"
+    (fs/with-temp-dir [tmp {:prefix "gordian-complexity-empty"}]
+      (let [buf (with-out-str
+                  (is (= 0
+                         (sut/complexity-cmd {:src-dirs [(str tmp)]
+                                              :command :complexity
+                                              :edn true
+                                              :fail-above ["cc=1"]}))))
+            parsed (read-string buf)]
+        (is (= 0 (get-in parsed [:enforcement :unit-count])))
+        (is (true? (get-in parsed [:enforcement :passed?])))
+        (is (= [] (get-in parsed [:enforcement :violations])))))))
 
 ;;; ── parse-args / --markdown ────────────────────────────────────────────────
 
