@@ -2,4 +2,4 @@
 
 Open tasks in intended order:
 
-- (none)
+- 018 — add failure thresholds to `complexity` and `local`

@@ -1,0 +1,62 @@
+- [ ] Phase 1: lock the explicit fail-threshold option shape for both commands
+- [ ] Phase 1: lock unit-only enforcement semantics for v1
+- [ ] Phase 1: lock comparator semantics as `value > threshold` fails and equality passes
+- [ ] Phase 1: lock all-checks-must-pass aggregation semantics
+- [ ] Phase 1: define zero-unit behavior as vacuous pass with explicit analyzed unit count `0`
+- [ ] Phase 1: define exit-code behavior as threshold pass `0`, threshold fail `1`, and ordinary errors unchanged
+- [ ] Phase 1: lock the canonical `:enforcement` payload shape and required fields
+- [ ] Phase 1: lock omission semantics so `:enforcement` is absent when fail thresholds are not supplied
+- [ ] Phase 1: lock metric identity semantics as canonical metric identifier plus original CLI metric token
+- [ ] Phase 1: identify the existing metric-resolution seams to reuse in `complexity` and `local`
+
+- [ ] Phase 2: add repeatable `--fail-above` parsing to `gordian complexity`
+- [ ] Phase 2: validate `complexity` fail-threshold metrics against `{cc,loc}`
+- [ ] Phase 2: validate `complexity` fail-threshold values as strictly positive integers
+- [ ] Phase 2: implement canonical complexity enforcement evaluation over full analyzed units
+- [ ] Phase 2: attach enforcement configuration and results to the complexity payload
+- [ ] Phase 2: retain all complexity violations canonically
+- [ ] Phase 2: verify `--min` and `--top` do not affect complexity enforcement results
+
+- [ ] Phase 3: add repeatable `--fail-above` parsing to `gordian local`
+- [ ] Phase 3: route local fail-threshold parsing through the shared local metric-resolution seam
+- [ ] Phase 3: validate local fail-threshold values as strictly positive numeric values, including decimals
+- [ ] Phase 3: implement canonical local enforcement evaluation over full analyzed units
+- [ ] Phase 3: attach enforcement configuration and results to the local payload
+- [ ] Phase 3: retain all local violations canonically
+- [ ] Phase 3: verify `--min` and `--top` do not affect local enforcement results
+
+- [ ] Phase 4: wire enforcement outcomes to command exit status
+- [ ] Phase 4: render explicit enforcement summary in complexity text output
+- [ ] Phase 4: render dedicated complexity failures section independent of normal unit-table filtering/truncation
+- [ ] Phase 4: render explicit enforcement summary in complexity markdown output
+- [ ] Phase 4: render explicit enforcement summary in local text output
+- [ ] Phase 4: render dedicated local failures section independent of normal unit-table filtering/truncation
+- [ ] Phase 4: render explicit enforcement summary in local markdown output
+- [ ] Phase 4: define deterministic ordering for human-readable check and violation output using configured check order, descending actual value, and stable namespace/var/arity tie-breaks
+- [ ] Phase 4: keep no-threshold behavior unchanged
+
+- [ ] Phase 5: update scoped help for `gordian complexity`
+- [ ] Phase 5: update scoped help for `gordian local`
+- [ ] Phase 5: update `README.md` automation examples
+- [ ] Phase 5: document the distinction between `--min` and `--fail-above`
+- [ ] Phase 5: document that fail thresholds use the full analyzed unit set
+- [ ] Phase 5: document equality-boundary semantics
+- [ ] Phase 5: document zero-unit vacuous-pass behavior
+- [ ] Phase 5: document when to use local fail thresholds vs `gordian gate`
+
+- [ ] Phase 6: add parse/validation tests for complexity fail thresholds
+- [ ] Phase 6: add parse/validation tests for local fail thresholds
+- [ ] Phase 6: add tests for malformed threshold expressions
+- [ ] Phase 6: add tests for unknown threshold metrics
+- [ ] Phase 6: add tests for non-numeric threshold values
+- [ ] Phase 6: add passing integration tests for complexity enforcement
+- [ ] Phase 6: add failing integration tests for complexity enforcement
+- [ ] Phase 6: add passing integration tests for local enforcement
+- [ ] Phase 6: add failing integration tests for local enforcement
+- [ ] Phase 6: add equality-boundary tests
+- [ ] Phase 6: add zero-unit behavior tests
+- [ ] Phase 6: add machine-readable payload tests for enforcement results, omission when inactive, canonical metric identity, CLI metric token retention, and all-violation retention
+- [ ] Phase 6: add regression tests showing `--min` and `--top` do not change enforcement outcomes or hide failure explanations
+- [ ] Phase 6: add regression tests for unchanged default behavior
+- [ ] Phase 6: run representative sanity checks
+- [ ] Phase 6: run full suite
