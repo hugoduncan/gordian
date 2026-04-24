@@ -151,11 +151,14 @@
       (is (every? #(contains? % :actual) (get-in parsed [:enforcement :violations])))))
 
   (testing "local fail thresholds pass at equality boundary"
-    (is (= 0
-           (sut/local-cmd {:src-dirs ["resources/fixture"]
-                           :command :local
-                           :edn true
-                           :fail-above ["total=0.6931471805599453" "working-set.peak=1"]}))))
+    (let [status (atom nil)
+          _out   (with-out-str
+                   (reset! status
+                           (sut/local-cmd {:src-dirs ["resources/fixture"]
+                                           :command :local
+                                           :edn true
+                                           :fail-above ["total=0.6931471805599453" "working-set.peak=1"]})))]
+      (is (= 0 @status))))
 
   (testing "local --min and --top shape emitted units but do not affect enforcement population"
     (let [buf (with-out-str
@@ -834,11 +837,14 @@
       (is (= {:cc 20} (get-in parsed [:options :mins])))))
 
   (testing "complexity fail thresholds pass at equality boundary"
-    (is (= 0
-           (sut/complexity-cmd {:src-dirs ["resources/fixture-project/src"]
-                                :command :complexity
-                                :edn true
-                                :fail-above ["cc=1" "loc=2"]}))))
+    (let [status (atom nil)
+          _out   (with-out-str
+                   (reset! status
+                           (sut/complexity-cmd {:src-dirs ["resources/fixture-project/src"]
+                                                :command :complexity
+                                                :edn true
+                                                :fail-above ["cc=1" "loc=2"]})))]
+      (is (= 0 @status))))
 
   (testing "complexity fail thresholds produce enforcement payload and failing exit code"
     (let [buf    (with-out-str
@@ -869,10 +875,12 @@
                   :min ["cc=99"]
                   :top 1
                   :fail-above ["loc=1"]}
-          status (sut/complexity-cmd (assoc opts :edn true))
-          out    (with-out-str (sut/complexity-cmd (assoc opts :edn true)))
+          status (atom nil)
+          out    (with-out-str
+                   (reset! status
+                           (sut/complexity-cmd (assoc opts :edn true))))
           parsed (read-string out)]
-      (is (= 1 status))
+      (is (= 1 @status))
       (is (= {:cc 99} (get-in parsed [:options :mins])))
       (is (= 1 (get-in parsed [:enforcement :unit-count])))
       (is (= 1 (count (get-in parsed [:enforcement :violations]))))))
