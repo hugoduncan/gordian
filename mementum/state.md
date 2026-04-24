@@ -1,6 +1,6 @@
 # Gordian — Working State
 
-**Last updated:** 2026-04-22
+**Last updated:** 2026-04-24
 
 ## What this project is
 
@@ -153,11 +153,13 @@ cli/*            command registry, parsing, help              pure-ish
 
 ### `local`
 - canonical units are top-level `defn` arities and `defmethod` bodies
-- display shaping is separate from canonical report data via `:display`
 - built-in aliases and dotted numeric keys share one metric-resolution seam
 - `--min` is display-only filtering
 - `--fail-above` is enforcement
 - rollups are opt-in
+
+Open task queued:
+- move `local` emitted top-level `:units` toward display-shaped output semantics while preserving canonical unit populations for enforcement internally
 
 ### `gate`
 - still the baseline/diff-oriented policy command
