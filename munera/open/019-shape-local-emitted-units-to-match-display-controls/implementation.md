@@ -54,3 +54,9 @@
 - Updated tests covering finalize semantics, command EDN behavior, formatter rollup matrices, and default rollup omission; removed old fixture/test assumptions about `:display`.
 - Updated `README.md` and `doc/schema.md` to document that local machine-readable `:units` is now the shaped emitted list while enforcement and summary fields retain canonical basis semantics.
 - Representative targeted tests now pass; remaining task is full-suite validation.
+
+2026-04-24 — review follow-up execution
+- Clarified human-readable summary semantics for `local`: summaries now report both displayed and analyzed namespace/unit counts explicitly instead of using an ambiguous single count.
+- This resolves the mismatch where shaped top-level `:units` could coexist with canonical summary counts when `:project-rollup` was present.
+- Updated formatter tests to lock both same-count and divergent-count scenarios.
+- Fixed `doc/schema.md` wording to label the shaped `:units` payload as an emitted unit shape rather than a canonical one.

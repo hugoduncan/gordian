@@ -24,3 +24,9 @@
 - [x] Phase 5: add/keep regression coverage for canonical enforcement and summary-basis behavior
 - [x] Phase 5: run representative sanity checks across output modes and enforcement scenarios
 - [x] Phase 5: run full suite
+
+Review follow-up:
+- [x] clarify human-readable `local` summary count basis when `:project-rollup` is present and top-level `:units` is shaped
+- [x] decide whether summary counts should reflect shaped emitted units, canonical analyzed units, or both with explicit labels
+- [x] add/update tests locking the chosen summary-count semantics for text and markdown output
+- [x] fix `doc/schema.md` local section heading so it no longer labels shaped `:units` as canonical

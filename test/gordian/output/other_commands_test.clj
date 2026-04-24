@@ -265,7 +265,8 @@
         bar-cols  (map #(.indexOf % "█") unit-rows)]
     (is (str/includes? text "gordian local"))
     (is (str/includes? text "SUMMARY"))
-    (is (str/includes? text "units: 3"))
+    (is (str/includes? text "displayed units: 3"))
+    (is (str/includes? text "analyzed units: 3"))
     (is (str/includes? text "namespace rollup: on"))
     (is (str/includes? text "project rollup: on"))
     (is (str/includes? text "total basis: normalized burdens"))
@@ -299,6 +300,8 @@
   (let [text (str/join "\n" (sut/format-local-md fx/local-data))]
     (is (str/includes? text "# gordian local"))
     (is (str/includes? text "## Summary"))
+    (is (str/includes? text "| Displayed units | 3 |"))
+    (is (str/includes? text "| Analyzed units | 3 |"))
     (is (str/includes? text "| Namespace rollup | `on` |"))
     (is (str/includes? text "| Project rollup | `on` |"))
     (is (str/includes? text "| Total basis | `normalized burdens` |"))
@@ -309,9 +312,15 @@
     (is (str/includes? text "## Project rollup"))))
 
 (deftest format-local-enforcement-test
-  (let [data (assoc fx/local-data :enforcement fx/local-enforcement)
+  (let [data (assoc fx/local-data
+                    :units (subvec (:units fx/local-data) 0 1)
+                    :enforcement fx/local-enforcement)
         text (str/join "\n" (sut/format-local data))
         md   (str/join "\n" (sut/format-local-md data))]
+    (is (str/includes? text "displayed units: 1"))
+    (is (str/includes? text "analyzed units: 3"))
+    (is (str/includes? md "| Displayed units | 1 |"))
+    (is (str/includes? md "| Analyzed units | 3 |"))
     (is (str/includes? text "ENFORCEMENT"))
     (is (str/includes? text "result: FAIL"))
     (is (str/includes? text "FAILURES"))

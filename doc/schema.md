@@ -434,7 +434,7 @@ Payload keys (alongside envelope):
               :working-set {:scale double :non-zero-count integer :sample-count integer}}}
 ```
 
-### Canonical unit shape
+### Emitted unit shape
 
 ```edn
 {:ns                  symbol

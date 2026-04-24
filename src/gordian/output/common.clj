@@ -21,13 +21,22 @@
   (apply str (repeat n "-")))
 
 (defn local-summary-counts
-  "Return summary counts for local/unit-oriented reports.
-   Prefer canonical project-rollup data when present; otherwise derive from units."
-  [project-rollup units]
-  {:namespace-count (or (:namespace-count project-rollup)
-                        (count (set (map :ns units))))
-   :unit-count      (or (:unit-count project-rollup)
-                        (count units))})
+  "Return both emitted and analyzed summary counts for local/unit-oriented reports.
+   Supports the legacy arity `(project-rollup units)` for complexity output callers."
+  ([project-rollup units]
+   {:namespace-count (or (:namespace-count project-rollup)
+                         (count (set (map :ns units))))
+    :unit-count      (or (:unit-count project-rollup)
+                         (count units))})
+  ([{:keys [project-rollup canonical-summary units]}]
+   {:displayed-namespace-count (count (set (map :ns units)))
+    :displayed-unit-count      (count units)
+    :analyzed-namespace-count  (or (:namespace-count project-rollup)
+                                   (count (:namespaces canonical-summary))
+                                   (count (set (map :ns units))))
+    :analyzed-unit-count       (or (:unit-count project-rollup)
+                                   (:unit-count canonical-summary)
+                                   (count units))}))
 
 (defn format-finding-subject [{:keys [category subject]}]
   (case category

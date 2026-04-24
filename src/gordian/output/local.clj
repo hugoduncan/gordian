@@ -99,18 +99,21 @@
        gap (common/bar (bar-value bar-metric rollup))))
 
 (defn format-local
-  [{:keys [src-dirs project-rollup max-unit options bar-metric units namespace-rollups enforcement]}]
+  [{:keys [src-dirs project-rollup max-unit options bar-metric units namespace-rollups enforcement] :as result}]
   (let [label-width (max 10 (apply max (concat [10] (map (comp count unit-label) units))))
         ns-width    (max 10 (apply max (concat [10] (map #(count (str (:ns %))) namespace-rollups))))
         gap         "  "
-        {:keys [namespace-count unit-count]} (common/local-summary-counts project-rollup units)]
+        {:keys [displayed-namespace-count displayed-unit-count analyzed-namespace-count analyzed-unit-count]}
+        (common/local-summary-counts result)]
     (into
      ["gordian local"
       (str "src: " (str/join " " src-dirs))
       ""
       "SUMMARY"
-      (str "  namespaces: " namespace-count)
-      (str "  units: " unit-count)
+      (str "  displayed namespaces: " displayed-namespace-count)
+      (str "  displayed units: " displayed-unit-count)
+      (str "  analyzed namespaces: " analyzed-namespace-count)
+      (str "  analyzed units: " analyzed-unit-count)
       (str "  mins: " (if (seq (:mins options)) (pr-str (:mins options)) "{}"))
       (str "  namespace rollup: " (if (:namespace-rollup options) "on" "off"))
       (str "  project rollup: " (if (:project-rollup options) "on" "off"))
@@ -154,8 +157,9 @@
         (enforcement/format-enforcement-text enforcement))))))
 
 (defn format-local-md
-  [{:keys [src-dirs project-rollup max-unit options bar-metric units namespace-rollups enforcement]}]
-  (let [{:keys [namespace-count unit-count]} (common/local-summary-counts project-rollup units)
+  [{:keys [src-dirs project-rollup max-unit options bar-metric units namespace-rollups enforcement] :as result}]
+  (let [{:keys [displayed-namespace-count displayed-unit-count analyzed-namespace-count analyzed-unit-count]}
+        (common/local-summary-counts result)
         unit-lines
         (if (seq units)
           (map (fn [unit]
@@ -194,8 +198,10 @@
       ""
       "| Metric | Value |"
       "|--------|-------|"
-      (str "| Namespaces | " namespace-count " |")
-      (str "| Units | " unit-count " |")
+      (str "| Displayed namespaces | " displayed-namespace-count " |")
+      (str "| Displayed units | " displayed-unit-count " |")
+      (str "| Analyzed namespaces | " analyzed-namespace-count " |")
+      (str "| Analyzed units | " analyzed-unit-count " |")
       (str "| Mins | `" (pr-str (:mins options)) "` |")
       (str "| Namespace rollup | `" (if (:namespace-rollup options) "on" "off") "` |")
       (str "| Project rollup | `" (if (:project-rollup options) "on" "off") "` |")
