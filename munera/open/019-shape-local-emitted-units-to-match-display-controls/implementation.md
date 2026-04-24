@@ -44,3 +44,13 @@
   - namespace rollups
   - `:project-rollup`
 - The task is now intended to be implementation-ready without further semantic interpretation work.
+
+2026-04-24 — implementation
+- Reworked `src/gordian/local/report.clj` so `finalize-report` now emits shaped top-level `:units` directly instead of carrying a second public unit population under `:display`.
+- Added `:canonical-summary` to preserve a minimal explicit summary of the full analyzed unit population for reproducibility and basis clarity without re-exposing full canonical units publicly.
+- Kept `:max-unit`, namespace rollups, and `:project-rollup` canonical over the full analyzed population.
+- Reworked `src/gordian/main.clj` so `local-cmd` evaluates `--fail-above` against canonical units from `local/rollup` rather than the finalized emitted report.
+- Updated `src/gordian/output/local.clj` to consume top-level `:units` and `:namespace-rollups` directly; removed formatter dependence on `:display`.
+- Updated tests covering finalize semantics, command EDN behavior, formatter rollup matrices, and default rollup omission; removed old fixture/test assumptions about `:display`.
+- Updated `README.md` and `doc/schema.md` to document that local machine-readable `:units` is now the shaped emitted list while enforcement and summary fields retain canonical basis semantics.
+- Representative targeted tests now pass; remaining task is full-suite validation.

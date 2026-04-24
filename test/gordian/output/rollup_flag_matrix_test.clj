@@ -21,7 +21,6 @@
                            :namespace-rollup namespace-rollup
                            :project-rollup project-rollup
                            :mins nil})
-    (not namespace-rollup) (update :display dissoc :namespace-rollups)
     (not namespace-rollup) (dissoc :namespace-rollups)
     (not project-rollup) (dissoc :project-rollup)))
 
@@ -77,7 +76,6 @@
       (is (false? (get-in data [:options :project-rollup])))
       (is (contains? data :namespace-rollups))
       (is (not (contains? data :project-rollup)))
-      (is (contains? (:display data) :namespace-rollups))
       (is (str/includes? text "NAMESPACE ROLLUP"))
       (is (not (str/includes? text "PROJECT ROLLUP")))
       (is (str/includes? md "## Namespace rollup"))
@@ -91,7 +89,6 @@
       (is (true? (get-in data [:options :project-rollup])))
       (is (not (contains? data :namespace-rollups)))
       (is (contains? data :project-rollup))
-      (is (not (contains? (:display data) :namespace-rollups)))
       (is (not (str/includes? text "NAMESPACE ROLLUP")))
       (is (str/includes? text "PROJECT ROLLUP"))
       (is (not (str/includes? md "## Namespace rollup")))
@@ -105,7 +102,6 @@
       (is (true? (get-in data [:options :project-rollup])))
       (is (contains? data :namespace-rollups))
       (is (contains? data :project-rollup))
-      (is (contains? (:display data) :namespace-rollups))
       (is (str/includes? text "NAMESPACE ROLLUP"))
       (is (str/includes? text "PROJECT ROLLUP"))
       (is (str/includes? md "## Namespace rollup"))

@@ -99,10 +99,8 @@
        gap (common/bar (bar-value bar-metric rollup))))
 
 (defn format-local
-  [{:keys [src-dirs project-rollup max-unit options bar-metric display enforcement]}]
-  (let [units (:units display)
-        namespace-rollups (:namespace-rollups display)
-        label-width (max 10 (apply max (concat [10] (map (comp count unit-label) units))))
+  [{:keys [src-dirs project-rollup max-unit options bar-metric units namespace-rollups enforcement]}]
+  (let [label-width (max 10 (apply max (concat [10] (map (comp count unit-label) units))))
         ns-width    (max 10 (apply max (concat [10] (map #(count (str (:ns %))) namespace-rollups))))
         gap         "  "
         {:keys [namespace-count unit-count]} (common/local-summary-counts project-rollup units)]
@@ -156,10 +154,8 @@
         (enforcement/format-enforcement-text enforcement))))))
 
 (defn format-local-md
-  [{:keys [src-dirs project-rollup max-unit options bar-metric display enforcement]}]
-  (let [units (:units display)
-        namespace-rollups (:namespace-rollups display)
-        {:keys [namespace-count unit-count]} (common/local-summary-counts project-rollup units)
+  [{:keys [src-dirs project-rollup max-unit options bar-metric units namespace-rollups enforcement]}]
+  (let [{:keys [namespace-count unit-count]} (common/local-summary-counts project-rollup units)
         unit-lines
         (if (seq units)
           (map (fn [unit]

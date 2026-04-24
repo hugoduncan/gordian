@@ -397,7 +397,7 @@
     (is (:max-unit result))
     (.delete tmp)))
 
-(deftest finalize-report-separates-canonical-and-display-bases
+(deftest finalize-report-shapes-top-level-units-and-keeps-canonical-summaries
   (let [units [{:ns 'b.core :var 'z :kind :defn-arity :arity 1
                 :flow-burden 1 :state-burden 0 :shape-burden 0 :abstraction-burden 1 :dependency-burden 0
                 :working-set {:peak 3 :avg 2.0 :burden 0.0}
@@ -413,29 +413,30 @@
                 :working-set {:peak 7 :avg 4.0 :burden 3.5}
                 :normalized-burdens {:flow 1.10 :state 0.0 :shape 1.38 :abstraction 1.61 :dependency 1.38 :working-set 1.50}
                 :lcc-total 6.97 :findings []}]
-        report {:gordian/command :local
-                :metric :local-comprehension-complexity
-                :calibration {:transform :log1p-over-scale
-                              :weights {:flow 1.0 :state 1.0 :shape 1.0 :abstraction 1.0 :dependency 1.0 :working-set 1.0}
-                              :families {:flow {:scale 1.0} :state {:scale 1.0} :shape {:scale 1.0}
-                                         :abstraction {:scale 1.0} :dependency {:scale 1.0} :working-set {:scale 1.0}}}
-                :units units
-                :namespace-rollups (report/namespace-rollups units)
-                :project-rollup (report/project-rollup units (report/namespace-rollups units))
-                :max-unit (report/max-unit units)}
-        finalized (report/finalize-report report
+        canonical-rollups (report/namespace-rollups units)
+        finalized (report/finalize-report {:gordian/command :local
+                                           :metric :local-comprehension-complexity
+                                           :calibration {:transform :log1p-over-scale
+                                                         :weights {:flow 1.0 :state 1.0 :shape 1.0 :abstraction 1.0 :dependency 1.0 :working-set 1.0}
+                                                         :families {:flow {:scale 1.0} :state {:scale 1.0} :shape {:scale 1.0}
+                                                                    :abstraction {:scale 1.0} :dependency {:scale 1.0} :working-set {:scale 1.0}}}
+                                           :units units
+                                           :namespace-rollups canonical-rollups
+                                           :project-rollup (report/project-rollup units canonical-rollups)
+                                           :max-unit (report/max-unit units)}
                                           :explicit
                                           [{:dir "src" :kind :src}]
                                           {:sort :working-set.peak :top 1 :min ["working-set.avg=4"] :namespace-rollup true})]
-    (is (= ['b.core 'a.core 'a.core] (mapv :ns (:units finalized)))
-        "canonical units remain intact")
-    (is (= ['a.core] (mapv :ns (get-in finalized [:display :units]))))
-    (is (= ['y] (mapv :var (get-in finalized [:display :units]))))
-    (is (= ['a.core] (mapv :ns (get-in finalized [:display :namespace-rollups]))))
+    (is (= ['a.core] (mapv :ns (:units finalized))))
+    (is (= ['y] (mapv :var (:units finalized))))
+    (is (= ['a.core] (mapv :ns (:namespace-rollups finalized))))
     (is (nil? (:project-rollup finalized)))
     (is (= 'y (get-in finalized [:max-unit :var])))
+    (is (= 3 (get-in finalized [:canonical-summary :unit-count])))
+    (is (= ['a.core 'b.core] (get-in finalized [:canonical-summary :namespaces])))
     (is (= {:working-set.avg 4} (get-in finalized [:options :mins])))
     (is (= :working-set.peak (get-in finalized [:options :sort])))
     (is (= :working-set.peak (:bar-metric finalized)))
     (is (true? (get-in finalized [:options :namespace-rollup])))
-    (is (false? (get-in finalized [:options :project-rollup])))))
+    (is (false? (get-in finalized [:options :project-rollup])))
+    (is (not (contains? finalized :display)))))

@@ -259,25 +259,30 @@
      :project-rollup project
      :max-unit (max-unit units)}))
 
-(defn display-data
-  [{:keys [units namespace-rollups]} {:keys [sort top mins namespace-rollup]}]
-  (cond-> {:units (-> units
-                      (filter-units-by-mins mins)
-                      (sort-units sort)
-                      (truncate-section top))}
-    namespace-rollup
-    (assoc :namespace-rollups (-> (sort-rollups units namespace-rollups sort)
-                                  (truncate-section top)))))
+(defn- canonical-summary
+  [units]
+  {:unit-count (count units)
+   :namespaces (->> units (map :ns) distinct sort vec)})
 
 (defn finalize-report
   [report mode paths opts]
-  (let [options (local-options opts)]
+  (let [options         (local-options opts)
+        canonical-units (:units report)
+        shaped-units    (-> canonical-units
+                            (filter-units-by-mins (:mins options))
+                            (sort-units (:sort options))
+                            (truncate-section (:top options)))
+        shaped-rollups  (when (:namespace-rollup options)
+                          (-> (sort-rollups canonical-units (:namespace-rollups report) (:sort options))
+                              (truncate-section (:top options))))]
     (cond-> (-> report
                 (assoc :src-dirs (mapv :dir paths)
                        :scope (local-scope mode paths)
                        :options options
                        :bar-metric (effective-bar-metric opts)
-                       :display (display-data report options)))
+                       :canonical-summary (canonical-summary canonical-units)
+                       :units shaped-units)
+                (assoc :namespace-rollups shaped-rollups))
       (not (:namespace-rollup options)) (dissoc :namespace-rollups)
       (not (:project-rollup options)) (dissoc :project-rollup))))
 

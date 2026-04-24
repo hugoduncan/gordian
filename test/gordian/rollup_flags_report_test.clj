@@ -32,6 +32,7 @@
         finalized (local-report/finalize-report report :explicit [{:dir "src" :kind :src}] {})]
     (is (not (contains? finalized :namespace-rollups)))
     (is (not (contains? finalized :project-rollup)))
-    (is (not (contains? (get finalized :display) :namespace-rollups)))
+    (is (= 1 (get-in finalized [:canonical-summary :unit-count])))
+    (is (not (contains? finalized :display)))
     (is (= false (get-in finalized [:options :namespace-rollup])))
     (is (= false (get-in finalized [:options :project-rollup])))))

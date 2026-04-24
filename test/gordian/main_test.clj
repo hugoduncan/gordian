@@ -117,8 +117,8 @@
       (is (= :local-comprehension-complexity (:metric parsed)))
       (is (= ["resources/fixture"] (:src-dirs parsed)))
       (is (every? symbol? (map :ns (:units parsed))))
-      (is (contains? parsed :display))
-      (is (every? symbol? (map :ns (get-in parsed [:display :units]))))))
+      (is (not (contains? parsed :display)))
+      (is (= 3 (get-in parsed [:canonical-summary :unit-count])))))
 
   (testing "local text output is human readable"
     (let [out (with-out-str (sut/local-cmd {:src-dirs ["resources/fixture"]}))]
@@ -157,7 +157,7 @@
                            :edn true
                            :fail-above ["total=0.6931471805599453" "working-set.peak=1"]}))))
 
-  (testing "local --min and --top do not affect enforcement population"
+  (testing "local --min and --top shape emitted units but do not affect enforcement population"
     (let [buf (with-out-str
                 (is (= 1
                        (sut/local-cmd {:src-dirs ["resources/fixture"]
@@ -168,6 +168,8 @@
                                        :fail-above ["total=0.6"]}))))
           parsed (read-string buf)]
       (is (= {:total 99} (get-in parsed [:options :mins])))
+      (is (= [] (:units parsed)))
+      (is (= 3 (get-in parsed [:canonical-summary :unit-count])))
       (is (= 3 (get-in parsed [:enforcement :unit-count])))
       (is (= 2 (count (get-in parsed [:enforcement :violations]))))))
 

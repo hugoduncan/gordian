@@ -22,7 +22,6 @@
 (deftest local-default-output-omits-rollups
   (let [data (-> fx/local-data
                  (assoc :options {:sort :total :bar nil :namespace-rollup false :project-rollup false :mins nil})
-                 (update :display dissoc :namespace-rollups)
                  (dissoc :namespace-rollups :project-rollup))
         text (str/join "\n" (sut/format-local data))
         md   (str/join "\n" (sut/format-local-md data))]

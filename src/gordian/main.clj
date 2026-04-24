@@ -449,12 +449,13 @@
                                              (keep #(some-> (scan/parse-file-all-forms %)
                                                             (assoc :origin kind))))))
                               vec)
-            base-data    (local/finalize-report (local/rollup files)
+            canonical    (local/rollup files)
+            base-data    (local/finalize-report canonical
                                                 mode
                                                 paths
                                                 opts)
             enforcement  (when-let [checks (seq (local/fail-above-checks opts))]
-                           (enforcement/evaluate {:units (:units base-data)
+                           (enforcement/evaluate {:units (:units canonical)
                                                   :checks checks
                                                   :metric-value local/metric-value
                                                   :unit->violation local/unit->enforcement-violation}))

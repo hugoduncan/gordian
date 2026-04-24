@@ -302,15 +302,16 @@ Scope and ranking controls mirror `complexity` where practical:
 - built-in aliases remain supported for the core burden families; dotted keys address numeric fields directly from the authoritative documented local numeric schema surface
 - `--namespace-rollup` includes the namespace rollup section
 - `--project-rollup` includes the project rollup section
-- repeatable `--min metric=value` filters displayed unit rows only
+- repeatable `--min metric=value` filters the emitted top-level `:units` list
 - repeatable `--fail-above metric=value` enables command-native pass/fail enforcement over analyzed units
 - multiple `--min` constraints combine conjunctively
 - multiple `--fail-above` checks combine conjunctively; the command passes iff every configured check passes
-- fail thresholds are evaluated against the full analyzed unit set before display shaping, so `--min` and `--top` do not change enforcement results
+- fail thresholds are evaluated against the full analyzed unit set before emitted-unit shaping, so `--min` and `--top` do not change enforcement results
 - threshold boundary semantics are strict upper bounds: `value > threshold` fails, `value == threshold` passes
 - when zero units are analyzed, enforcement passes vacuously and records unit count `0`
 - when requested, namespace and project rollups remain computed from the full analyzed unit set
-- `--top` truncates units and requested namespace-rollup sections independently
+- `--top` truncates emitted units and requested namespace-rollup sections independently
+- machine-readable `:units` now matches the shaped unit list users asked to see; `:max-unit`, namespace rollups, and `:project-rollup` remain canonical over the full analyzed unit population
 
 This mode complements `gordian complexity`: it focuses on local comprehension
 burden for safe change rather than branch count and LOC alone.

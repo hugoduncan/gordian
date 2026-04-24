@@ -279,6 +279,13 @@ Payload keys (alongside envelope):
 | `project-rollup` | map | Canonical project rollup, present only when `:options :project-rollup` is true |
 | `max-unit` | map or nil | Highest-complexity analyzed unit |
 
+### Canonical summary shape
+
+```edn
+{:unit-count integer
+ :namespaces [symbol ...]}
+```
+
 ### Scope shape
 
 ```edn
@@ -299,7 +306,7 @@ Payload keys (alongside envelope):
  :mins             {keyword pos-int ...}|nil}
 ```
 
-### Canonical unit shape
+### Emitted unit shape
 
 ```edn
 {:metric            :cyclomatic-complexity
@@ -372,7 +379,7 @@ Command: `gordian local [dirs...] --edn`
 
 Local comprehension complexity analysis is independent of the structural/conceptual/change
 pair lenses. The standard envelope is still present, but the payload is focused
-on canonical executable-unit local burden vectors plus calibrated totals and rollups.
+on executable-unit local burden vectors plus calibrated totals and rollups.
 
 Payload keys (alongside envelope):
 
@@ -382,10 +389,11 @@ Payload keys (alongside envelope):
 | `scope` | map | Resolved analysis scope metadata for reproducibility |
 | `options` | map | Applied local display/sort options for reproducibility |
 | `calibration` | map | Deterministic normalization scales and weights for this analyzed unit set |
-| `units` | vector of maps | Canonical analyzed units with raw burdens and normalized combination data |
+| `units` | vector of maps | Emitted/shaped units after `--min`, `--sort`, and `--top` |
+| `canonical-summary` | map | Canonical analyzed population summary retained for reproducibility and basis clarity |
 | `namespace-rollups` | vector of maps | Canonical namespace rollups, present only when `:options :namespace-rollup` is true |
 | `project-rollup` | map | Canonical project rollup, present only when `:options :project-rollup` is true |
-| `max-unit` | map or nil | Highest-total analyzed unit |
+| `max-unit` | map or nil | Highest-total analyzed unit over the full canonical population |
 
 ### Scope shape
 
@@ -459,8 +467,9 @@ Payload keys (alongside envelope):
 `*-burden` fields are raw burden-family values. `:normalized-burdens` are the
 per-family transformed values actually used for `:lcc-total`.
 
-The canonical machine-readable fields are `metric`, `calibration`, `units`, and `max-unit`,
-plus optional `namespace-rollups` and `project-rollup` when explicitly requested.
+`units` is the public shaped unit list. `canonical-summary` records the full analyzed population.
+`max-unit`, `namespace-rollups`, and `project-rollup` remain canonical over that full population,
+and `--fail-above` enforcement also evaluates against the canonical full population rather than the emitted `:units` subset.
 
 ---
 
