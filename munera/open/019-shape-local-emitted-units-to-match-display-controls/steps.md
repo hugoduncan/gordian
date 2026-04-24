@@ -30,3 +30,9 @@ Review follow-up:
 - [x] decide whether summary counts should reflect shaped emitted units, canonical analyzed units, or both with explicit labels
 - [x] add/update tests locking the chosen summary-count semantics for text and markdown output
 - [x] fix `doc/schema.md` local section heading so it no longer labels shaped `:units` as canonical
+
+Code-shaper follow-up:
+- [x] refactor `src/gordian/output/common.clj` summary-count helpers so `local` and `complexity` no longer share one overloaded helper with different result shapes by arity
+- [x] choose and implement clearer helper boundaries/names for canonical-only counts vs displayed/analyzed local summary counts
+- [x] update formatter call sites to use the refined helper split without changing current output semantics
+- [x] add/update tests locking the refactor so `complexity` and `local` summary behavior remains unchanged

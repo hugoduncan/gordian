@@ -60,3 +60,10 @@
 - This resolves the mismatch where shaped top-level `:units` could coexist with canonical summary counts when `:project-rollup` was present.
 - Updated formatter tests to lock both same-count and divergent-count scenarios.
 - Fixed `doc/schema.md` wording to label the shaped `:units` payload as an emitted unit shape rather than a canonical one.
+
+2026-04-24 — code-shaper follow-up execution
+- Split the overloaded summary helper in `src/gordian/output/common.clj` into two clearer helpers:
+  - `unit-summary-counts` for canonical single-population summary callers such as `complexity`
+  - `local-display-summary-counts` for `local`'s displayed-vs-analyzed summary presentation
+- Updated `src/gordian/output/complexity.clj` and `src/gordian/output/local.clj` call sites to use the split helpers without changing output semantics.
+- This removes the previous arity-based helper overloading with different result shapes and leaves the formatter contracts more locally comprehensible.
